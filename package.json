@@ -1,0 +1,19 @@
+{
+  "name": "kids-nutri-journal-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KidsNutriJournal - Hệ thống Quản lý Dinh dưỡng và Bữa ăn Bán trú tại Trường Mầm non",
+  "scripts": {
+    "dev:backend": "pnpm --filter @kidsnutri/backend dev",
+    "dev:frontend": "pnpm --filter @kidsnutri/frontend dev",
+    "build": "pnpm --filter \"@kidsnutri/*\" build",
+    "lint": "pnpm --filter \"@kidsnutri/*\" lint",
+    "test": "pnpm --filter \"@kidsnutri/*\" test",
+    "db:up": "docker compose up -d postgres redis",
+    "db:down": "docker compose down",
+    "db:verify": "node database/verify_schema.js"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5"
+  }
+}

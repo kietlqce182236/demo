@@ -1,0 +1,33 @@
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import configuration from './config/configuration';
+import { DatabaseModule } from './database/database.module';
+import { TenantResolverMiddleware } from './common/middleware/tenant-resolver.middleware';
+
+// Core Business Modules
+import { AuthModule } from './modules/auth/auth.module';
+import { NutritionEngineModule } from './modules/nutrition-engine/nutrition-engine.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { GrowthModule } from './modules/growth/growth.module';
+import { WebsocketModule } from './modules/websocket/websocket.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [configuration],
+    }),
+    DatabaseModule,
+    AuthModule,
+    NutritionEngineModule,
+    PaymentsModule,
+    GrowthModule,
+    WebsocketModule,
+  ],
+})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Áp dụng middleware tự động phân giải tenantId cho toàn bộ các route API
+    consumer.apply(TenantResolverMiddleware).forRoutes('*');
+  }
+}

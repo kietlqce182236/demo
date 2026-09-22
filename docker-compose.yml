@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # PostgreSQL 16 - Multi-Tenant Relational Database (3NF with RLS)
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: kidsnutri_postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kidsnutrijournal_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-kidsnutrijournal_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - kidsnutri_network
+
+  # ============================================================================
+  # Redis 7 - Cache, Session Store & Real-time PubSub
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: kidsnutri_redis
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-RedisSecureToken2026!}
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-RedisSecureToken2026!}
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD:-RedisSecureToken2026!}\" ping | grep PONG || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - kidsnutri_network
+
+volumes:
+  pgdata:
+    name: kidsnutri_pgdata
+  redisdata:
+    name: kidsnutri_redisdata
+
+networks:
+  kidsnutri_network:
+    name: kidsnutri_network
+    driver: bridge
