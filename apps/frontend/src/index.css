@@ -2,6 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Typography ────────────────────────────────────────────────────────── */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Login Page Background ─────────────────────────────────────────────── */
+.login-bg {
+  background: linear-gradient(135deg, #fef3e2 0%, #ecfdf5 35%, #f0fdf4 55%, #fefce8 100%);
+}
+
+/* ─── Floating Emoji Decorations ────────────────────────────────────────── */
+.login-emoji {
+  position: absolute;
+  font-size: 2rem;
+  opacity: 0.6;
+  pointer-events: none;
+  animation: login-float 6s ease-in-out infinite;
+}
+.login-emoji-1 { top: 10%; left: 8%; animation-delay: 0s; }
+.login-emoji-2 { top: 15%; right: 12%; animation-delay: 1.5s; font-size: 1.5rem; }
+.login-emoji-3 { bottom: 18%; left: 10%; animation-delay: 3s; font-size: 1.2rem; }
+.login-emoji-4 { bottom: 14%; right: 8%; animation-delay: 4.5s; }
+
+@keyframes login-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(3deg); }
+}
+
+/* ─── Error shake animation ─────────────────────────────────────────────── */
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(6px); }
+  75% { transform: translateX(-4px); }
+}
+
+/* ─── Fade in for 2FA field ─────────────────────────────────────────────── */
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Login page responsive ─────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .login-emoji { display: none; }
 }
