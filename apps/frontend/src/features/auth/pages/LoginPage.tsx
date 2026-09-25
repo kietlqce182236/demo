@@ -7,6 +7,7 @@ import {
   loginApi,
   LoginResponse,
 } from '../../../core/api/auth.api';
+import { ForgotPasswordModal } from '../components/ForgotPasswordModal';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export const LoginPage: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [show2Fa, setShow2Fa] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -219,7 +221,11 @@ export const LoginPage: React.FC = () => {
                   />
                   <span className="text-sm text-slate-600">Ghi nhớ đăng nhập</span>
                 </label>
-                <button type="button" className="text-sm text-emerald-600 font-semibold hover:text-emerald-700 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-emerald-600 font-semibold hover:text-emerald-700 transition-colors"
+                >
                   Quên mật khẩu?
                 </button>
               </div>
@@ -255,6 +261,17 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Modal Quên & Đặt lại mật khẩu (OTP Email) */}
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+        initialEmail={email}
+        onSuccessLogin={(resetEmail) => {
+          setEmail(resetEmail);
+          setShowForgotPassword(false);
+        }}
+      />
 
       {/* ─── Footer ──────────────────────────────────────────────────────── */}
       <footer className="px-6 py-4 bg-white/80 backdrop-blur-sm border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400 relative z-10">

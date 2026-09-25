@@ -4,6 +4,7 @@ import { AdminDashboardLayout } from './layouts/AdminDashboardLayout';
 import { TeacherTabletLayout } from './layouts/TeacherTabletLayout';
 import { KitchenDisplayLayout } from './layouts/KitchenDisplayLayout';
 import { LoginPage } from './features/auth/pages/LoginPage';
+import { ForgotPasswordPage } from './features/auth/pages/ForgotPasswordPage';
 import { MenuPlanningPage } from './features/menus/pages/MenuPlanningPage';
 import { TeacherTabletPage } from './features/attendance/pages/TeacherTabletPage';
 import { ProtectedRoute } from './core/components/ProtectedRoute';
@@ -54,8 +55,9 @@ export const App: React.FC = () => {
       )}
 
       <Routes>
-        {/* Public: Login Page */}
+        {/* Public: Login Page & Forgot Password */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         {/* Protected: Cổng Ban Giám Hiệu & Web Admin */}
         <Route path="/" element={<ProtectedRoute><AdminDashboardLayout /></ProtectedRoute>}>
