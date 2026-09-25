@@ -24,7 +24,7 @@ export const MealEvaluationPage: React.FC = () => {
   // State
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('f1000000-0000-0000-0000-000000000001');
-  const [selectedDate, setSelectedDate] = useState<string>('2024-10-25');
+  const [selectedDate, setSelectedDate] = useState<string>('2026-09-25');
   const [selectedMealType, setSelectedMealType] = useState<string>('LUNCH');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -97,6 +97,8 @@ export const MealEvaluationPage: React.FC = () => {
       navigate('/attendance');
     } else if (tabId === 'evaluation') {
       navigate('/evaluation');
+    } else if (tabId === 'history') {
+      navigate('/history');
     }
   };
 

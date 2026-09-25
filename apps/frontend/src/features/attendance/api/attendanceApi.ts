@@ -133,4 +133,23 @@ export const attendanceApi = {
     const res = await api.post('/attendance/evaluation/lock', data);
     return res.data;
   },
+
+  // =========================================================================
+  // UC63: XEM LỊCH SỬ ĐIỂM DANH VÀ SỨC ĂN
+  // =========================================================================
+
+  getHistoryList: async (params: {
+    classId?: string;
+    startDate?: string;
+    endDate?: string;
+    period?: 'week' | 'month' | 'semester' | 'custom';
+    status?: string;
+    search?: string;
+    viewMode?: 'table' | 'by_child';
+    page?: number;
+    limit?: number;
+  }) => {
+    const res = await api.get('/attendance/history', { params });
+    return res.data;
+  },
 };

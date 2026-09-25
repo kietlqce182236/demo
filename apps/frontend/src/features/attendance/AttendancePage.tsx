@@ -19,7 +19,7 @@ export const AttendancePage: React.FC = () => {
   // State
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('f1000000-0000-0000-0000-000000000001');
-  const [selectedDate, setSelectedDate] = useState<string>('2024-10-25');
+  const [selectedDate, setSelectedDate] = useState<string>('2026-09-25');
   const [mealFilter, setMealFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -267,6 +267,7 @@ export const AttendancePage: React.FC = () => {
           setActiveTab(t);
           if (t === 'evaluation') navigate('/evaluation');
           else if (t === 'attendance') navigate('/attendance');
+          else if (t === 'history') navigate('/history');
         }}
       />
 
