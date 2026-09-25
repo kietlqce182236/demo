@@ -44,7 +44,7 @@ export class AuthController {
   @ApiHeader({ name: 'x-tenant-id', required: true, description: 'UUID của trường mầm non' })
   async login(
     @Body() loginDto: LoginDto,
-    @Headers('x-tenant-id') tenantId: string,
+    @Headers('x-tenant-id') tenantId?: string,
   ) {
     return this.authService.login(loginDto, tenantId);
   }

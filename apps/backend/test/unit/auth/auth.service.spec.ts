@@ -4,10 +4,10 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { AuthService } from './auth.service';
-import { TwoFactorService } from './two-factor.service';
-import { User } from '../entities/user.entity';
-import { Tenant } from '../entities/tenant.entity';
+import { AuthService } from '../../../src/modules/auth/services/auth.service';
+import { TwoFactorService } from '../../../src/modules/auth/services/two-factor.service';
+import { User } from '../../../src/modules/auth/entities/user.entity';
+import { Tenant } from '../../../src/modules/auth/entities/tenant.entity';
 
 describe('AuthService', () => {
   let service: AuthService;

@@ -1,77 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ChevronDown, Building2, Mail, Lock, Shield, Phone } from 'lucide-react';
-import { useAuthStore, TenantInfo } from '../../../core/stores/auth.store';
+import { Eye, EyeOff, Mail, Lock, Shield, Phone } from 'lucide-react';
+import { useAuthStore } from '../../../core/stores/auth.store';
 import {
   fetchTenants,
   loginApi,
-  quickLoginApi,
   LoginResponse,
-  TwoFaRequiredResponse,
 } from '../../../core/api/auth.api';
-
-// ─── Sub-Components ────────────────────────────────────────────────────────────
-
-/** Dropdown chọn cơ sở trường mầm non */
-const TenantSelector: React.FC<{
-  tenants: TenantInfo[];
-  selectedId: string | null;
-  onSelect: (tenant: TenantInfo) => void;
-}> = ({ tenants, selectedId, onSelect }) => {
-  const [open, setOpen] = useState(false);
-  const selected = tenants.find((t) => t.id === selectedId);
-
-  return (
-    <div className="relative">
-      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-        Cơ sở Trường Mầm non
-      </label>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-left hover:border-emerald-300 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all duration-200"
-      >
-        <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
-          <Building2 className="w-5 h-5 text-emerald-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-slate-800 text-sm truncate">
-            {selected?.name || 'Chọn trường mầm non...'}
-          </p>
-          {selected && (
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-              Mã trường: {selected.code}
-            </span>
-          )}
-        </div>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-      </button>
-
-      {open && (
-        <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl py-1 max-h-48 overflow-auto">
-          {tenants.map((tenant) => (
-            <button
-              key={tenant.id}
-              type="button"
-              onClick={() => { onSelect(tenant); setOpen(false); }}
-              className={`w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-emerald-50 transition-colors ${
-                tenant.id === selectedId ? 'bg-emerald-50' : ''
-              }`}
-            >
-              <Building2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-slate-800">{tenant.name}</p>
-                <p className="text-[10px] text-slate-400">{tenant.code}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Main Login Page ───────────────────────────────────────────────────────────
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -85,10 +20,6 @@ export const LoginPage: React.FC = () => {
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [show2Fa, setShow2Fa] = useState(false);
 
-  // Tenants
-  const [tenants, setTenants] = useState<TenantInfo[]>([]);
-  const [tenantsLoading, setTenantsLoading] = useState(true);
-
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -100,29 +31,22 @@ export const LoginPage: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  // Load tenants 1 lần khi mount
+  // Tự động gán tenant ngầm khi mount (Mặc định: Trường MN Sao Mai)
   useEffect(() => {
     let cancelled = false;
     fetchTenants()
       .then((data) => {
-        if (!cancelled) {
-          setTenants(data);
-          // Auto-select tenant đầu tiên nếu chưa chọn
-          if (!selectedTenantId && data.length > 0) {
-            setTenantId(data[0].id);
-          }
+        if (!cancelled && data.length > 0) {
+          const saoMai = data.find((t) => t.code === 'MN_SAOMAI') || data[0];
+          setTenantId(saoMai.id);
         }
       })
       .catch(() => {
-        if (!cancelled) {
-          setError('Không thể tải danh sách trường. Vui lòng thử lại.');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setTenantsLoading(false);
+        // Fallback default tenant ID
+        setTenantId('a0000000-0000-0000-0000-000000000002');
       });
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setTenantId]);
 
   // Xử lý đăng nhập
   const handleLogin = useCallback(async (e: React.FormEvent) => {
@@ -148,34 +72,12 @@ export const LoginPage: React.FC = () => {
       setAuth(loginResult.user, loginResult.accessToken, loginResult.refreshToken);
       navigate('/', { replace: true });
     } catch (err: any) {
-      const message = err?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại.';
+      const message = err?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại email hoặc mật khẩu.';
       setError(typeof message === 'string' ? message : message[0]);
     } finally {
       setLoading(false);
     }
   }, [email, password, twoFactorCode, show2Fa, setAuth, navigate]);
-
-  // Quick login (dev-only)
-  const handleQuickLogin = useCallback(async (roleCode: string) => {
-    if (!selectedTenantId) {
-      setError('Vui lòng chọn trường trước');
-      return;
-    }
-    setError('');
-    setLoading(true);
-
-    try {
-      const result = await quickLoginApi({ roleCode, tenantId: selectedTenantId });
-      setAuth(result.user, result.accessToken, result.refreshToken);
-      navigate('/', { replace: true });
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Quick login thất bại');
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedTenantId, setAuth, navigate]);
-
-  // ─── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <div className="login-page min-h-screen flex flex-col">
@@ -194,7 +96,7 @@ export const LoginPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-1.5">
             <Phone className="w-3.5 h-3.5" />
-            <span className="font-semibold text-slate-700">Hotline: 1900 6886</span>
+            <span className="font-semibold text-slate-700">Hotline: 1900 6826</span>
           </div>
         </div>
       </header>
@@ -210,10 +112,10 @@ export const LoginPage: React.FC = () => {
         {/* Login Card */}
         <div className="w-full max-w-lg relative z-10">
           <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl shadow-emerald-900/5 border border-white/60 px-8 py-10 sm:px-10">
-            {/* Badge Multi-Tenant */}
+            {/* Badge Bán trú */}
             <div className="flex justify-center mb-4">
               <span className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200">
-                🏫 Hệ thống Bán trú Mầm non Multi-Tenant
+                🏫 Hệ thống Quản trị Bán trú Mầm non KidMeal
               </span>
             </div>
 
@@ -233,22 +135,10 @@ export const LoginPage: React.FC = () => {
             )}
 
             <form onSubmit={handleLogin} className="space-y-5">
-              {/* Tenant Selector */}
-              {!tenantsLoading && (
-                <TenantSelector
-                  tenants={tenants}
-                  selectedId={selectedTenantId}
-                  onSelect={(t) => setTenantId(t.id)}
-                />
-              )}
-              {tenantsLoading && (
-                <div className="h-16 bg-slate-50 rounded-xl animate-pulse" />
-              )}
-
               {/* Email Input */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Tên đăng nhập hoặc Email / SDT
+                  Tên đăng nhập hoặc Email / SĐT
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
@@ -257,7 +147,7 @@ export const LoginPage: React.FC = () => {
                     type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="covananh@kidmeal.edu.vn"
+                    placeholder="hieutruong@saomai.edu.vn"
                     autoComplete="email"
                     required
                     className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all duration-200 outline-none"
@@ -338,7 +228,7 @@ export const LoginPage: React.FC = () => {
               <button
                 id="login-submit"
                 type="submit"
-                disabled={loading || !selectedTenantId}
+                disabled={loading}
                 className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-base rounded-2xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
@@ -355,37 +245,11 @@ export const LoginPage: React.FC = () => {
               </button>
             </form>
 
-            {/* ─── Quick Login ────────────────────────────────────────── */}
-            <div className="mt-8 pt-6 border-t border-slate-100">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Đăng nhập nhanh theo vai trò:
-                </span>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {[
-                  { role: 'NUTRITIONIST', label: '👩‍🍳HP Nuôi dưỡng', color: 'emerald' },
-                  { role: 'KITCHEN_MANAGER', label: '🍳Bếp trưởng', color: 'amber' },
-                  { role: 'TEACHER', label: '👩‍🏫Giáo viên CN', color: 'sky' },
-                ].map((item) => (
-                  <button
-                    key={item.role}
-                    type="button"
-                    disabled={loading}
-                    onClick={() => handleQuickLogin(item.role)}
-                    className="flex-1 min-w-[120px] px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.97] transition-all duration-200 disabled:opacity-50"
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Security badge */}
-            <div className="mt-6 text-center">
+            <div className="mt-8 text-center">
               <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1">
                 <Shield className="w-3 h-3 text-emerald-500" />
-                Bảo mật mã hóa SSL 256-bit • Dành riêng cho cán bộ & GV mầm non
+                Bảo mật mã hóa SSL 256-bit • Dành riêng cho cán bộ, giáo viên & phụ huynh mầm non
               </p>
             </div>
           </div>

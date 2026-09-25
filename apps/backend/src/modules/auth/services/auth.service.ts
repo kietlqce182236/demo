@@ -44,21 +44,25 @@ export class AuthService {
    * 5. Sinh JWT access + refresh token.
    * 6. Cập nhật last_login_at async (fire-and-forget).
    */
-  async login(loginDto: LoginDto, tenantId: string) {
-    if (!tenantId) {
-      throw new UnauthorizedException('Vui lòng chọn cơ sở trường mầm non');
-    }
-
+  async login(loginDto: LoginDto, tenantId?: string) {
     // 1 câu SQL duy nhất: user + roles + password_hash + 2fa_secret
-    const user = await this.userRepo
+    let userQuery = this.userRepo
       .createQueryBuilder('u')
       .addSelect('u.passwordHash')       // select:false → chỉ load khi cần
       .addSelect('u.twoFactorSecret')    // select:false → chỉ load khi cần
       .leftJoinAndSelect('u.roles', 'r') // JOIN user_roles → roles
       .where('u.email = :email', { email: loginDto.email })
-      .andWhere('u.tenantId = :tenantId', { tenantId })
-      .andWhere('u.deletedAt IS NULL')
-      .getOne();
+      .andWhere('u.deletedAt IS NULL');
+
+    let user: User | null = null;
+    if (tenantId) {
+      user = await userQuery.clone().andWhere('u.tenantId = :tenantId', { tenantId }).getOne();
+    }
+
+    // Nếu không tìm thấy trong tenant chỉ định hoặc không truyền tenantId, tìm trực tiếp theo email
+    if (!user) {
+      user = await userQuery.getOne();
+    }
 
     if (!user) {
       // Thông báo chung — không tiết lộ email có tồn tại hay không (bảo mật)

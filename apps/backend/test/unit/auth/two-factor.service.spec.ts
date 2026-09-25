@@ -1,4 +1,4 @@
-import { TwoFactorService } from './two-factor.service';
+import { TwoFactorService } from '../../../src/modules/auth/services/two-factor.service';
 import { authenticator } from 'otplib';
 
 describe('TwoFactorService', () => {

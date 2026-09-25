@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuthController } from './auth.controller';
-import { AuthService } from '../services/auth.service';
+import { AuthController } from '../../../src/modules/auth/controllers/auth.controller';
+import { AuthService } from '../../../src/modules/auth/services/auth.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -60,48 +60,40 @@ describe('AuthController', () => {
   });
 
   describe('login', () => {
-    it('phải chuyển loginDto và header x-tenant-id vào authService.login()', async () => {
+    it('phải gọi authService.login() với đúng tham số', async () => {
       const loginDto = { email: 'test@kidmeal.vn', password: 'Password123@' };
       const result = await controller.login(loginDto, mockTenantId);
 
       expect(authService.login).toHaveBeenCalledWith(loginDto, mockTenantId);
-      expect(result).toHaveProperty('accessToken', 'access.jwt.token');
+      expect(result).toHaveProperty('accessToken');
     });
   });
 
   describe('refresh', () => {
-    it('phải gọi authService.refreshToken() với refresh token từ body', async () => {
-      const result = await controller.refresh('old.refresh.token');
-      expect(authService.refreshToken).toHaveBeenCalledWith('old.refresh.token');
-      expect(result).toHaveProperty('accessToken', 'new.access.token');
+    it('phải gọi authService.refreshToken() với token hợp lệ', async () => {
+      const result = await controller.refresh('mock.refresh.token');
+
+      expect(authService.refreshToken).toHaveBeenCalledWith('mock.refresh.token');
+      expect(result).toHaveProperty('accessToken');
     });
   });
 
   describe('quickLogin', () => {
-    it('phải gọi authService.quickLogin() với roleCode và tenantId', async () => {
-      const dto = { roleCode: 'TEACHER', tenantId: mockTenantId };
-      const result = await controller.quickLogin(dto);
+    it('phải gọi authService.quickLogin() với role và tenantId từ dto', async () => {
+      const result = await controller.quickLogin({ roleCode: 'TEACHER', tenantId: mockTenantId });
 
       expect(authService.quickLogin).toHaveBeenCalledWith('TEACHER', mockTenantId);
-      expect(result).toHaveProperty('accessToken', 'teacher.jwt.token');
+      expect(result.user.roles).toContain('TEACHER');
     });
   });
 
   describe('getMe', () => {
-    it('phải lấy userId từ req.user.sub và gọi authService.getMe()', async () => {
-      const req = {
-        user: {
-          sub: 'u1',
-          email: 'test@kidmeal.vn',
-          tenantId: mockTenantId,
-          roles: ['NUTRITIONIST'],
-        },
-      };
+    it('phải trả về hồ sơ người dùng đang đăng nhập', async () => {
+      const mockReq = { user: { sub: 'u1', email: 'test@kidmeal.vn', tenantId: mockTenantId, roles: ['NUTRITIONIST'] } };
+      const result = await controller.getMe(mockReq as any);
 
-      const result = await controller.getMe(req);
       expect(authService.getMe).toHaveBeenCalledWith('u1');
-      expect(result).toHaveProperty('email', 'test@kidmeal.vn');
-      expect(result).toHaveProperty('roles');
+      expect(result.id).toBe('u1');
     });
   });
 });

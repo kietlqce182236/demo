@@ -10,6 +10,8 @@ import { ProtectedRoute } from './core/components/ProtectedRoute';
 import { useAuthStore } from './core/stores/auth.store';
 import { ChefHat, Tablet, LayoutDashboard, Sparkles, LogOut } from 'lucide-react';
 
+import { SchoolSettingsPage } from './features/tenant/pages/SchoolSettingsPage';
+
 export const App: React.FC = () => {
   const { hydrate, isAuthenticated, logout, user } = useAuthStore();
 
@@ -26,8 +28,12 @@ export const App: React.FC = () => {
           <span className="text-slate-400 flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" /> {user?.fullName}
           </span>
-          <Link to="/" className="flex items-center gap-1.5 hover:text-brand-400 transition">
-            <LayoutDashboard className="w-4 h-4" /> Web Admin BGH
+          <Link to="/settings" className="flex items-center gap-1.5 hover:text-teal-400 transition">
+            <LayoutDashboard className="w-4 h-4" /> BGH: Cài đặt trường
+          </Link>
+          <span className="text-slate-600">|</span>
+          <Link to="/menus" className="flex items-center gap-1.5 hover:text-teal-400 transition">
+            <LayoutDashboard className="w-4 h-4" /> Thực đơn DD
           </Link>
           <span className="text-slate-600">|</span>
           <Link to="/tablet" className="flex items-center gap-1.5 hover:text-emerald-400 transition">
@@ -51,10 +57,18 @@ export const App: React.FC = () => {
         {/* Public: Login Page */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Protected: Web Admin / Chuyên viên Dinh dưỡng */}
+        {/* Protected: Cổng Ban Giám Hiệu & Web Admin */}
         <Route path="/" element={<ProtectedRoute><AdminDashboardLayout /></ProtectedRoute>}>
-          <Route index element={<MenuPlanningPage />} />
+          <Route index element={<SchoolSettingsPage />} />
+          <Route path="settings" element={<SchoolSettingsPage />} />
+          <Route path="dashboard" element={<SchoolSettingsPage />} />
           <Route path="menus" element={<MenuPlanningPage />} />
+          <Route path="classes" element={<SchoolSettingsPage />} />
+          <Route path="staff" element={<SchoolSettingsPage />} />
+          <Route path="services" element={<MenuPlanningPage />} />
+          <Route path="inventory" element={<MenuPlanningPage />} />
+          <Route path="food-safety" element={<MenuPlanningPage />} />
+          <Route path="finances" element={<MenuPlanningPage />} />
           <Route path="children" element={<MenuPlanningPage />} />
           <Route path="growth" element={<MenuPlanningPage />} />
           <Route path="payments" element={<MenuPlanningPage />} />
