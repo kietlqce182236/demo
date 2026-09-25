@@ -8,12 +8,22 @@
     "dev:frontend": "pnpm --filter @kidsnutri/frontend dev",
     "build": "pnpm --filter \"@kidsnutri/*\" build",
     "lint": "pnpm --filter \"@kidsnutri/*\" lint",
-    "test": "pnpm --filter \"@kidsnutri/*\" test",
+    "test": "npm --prefix apps/backend run test",
+    "test:unit": "npm --prefix apps/backend run test",
+    "test:api": "npm --prefix apps/backend run test:e2e",
+    "test:all": "npm --prefix apps/backend run test && npm --prefix apps/backend run test:e2e",
     "db:up": "docker compose up -d postgres redis",
     "db:down": "docker compose down",
     "db:verify": "node database/verify_schema.js"
   },
   "devDependencies": {
     "prettier": "^3.2.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "bcrypt",
+      "esbuild"
+    ]
   }
 }
