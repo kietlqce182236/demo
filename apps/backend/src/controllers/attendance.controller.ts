@@ -26,9 +26,15 @@ import {
 } from '../modules/attendance/dto/update-meal-evaluation.dto';
 import { AttendanceHistoryQueryDto } from '../modules/attendance/dto/attendance-history-query.dto';
 
+import { SnackRosterService } from '../modules/attendance/services/snack-roster.service';
+import { SnackRosterQueryDto } from '../modules/attendance/dto/snack-roster-query.dto';
+
 @Controller('attendance')
 export class AttendanceController {
-  constructor(private readonly attendanceService: AttendanceService) {}
+  constructor(
+    private readonly attendanceService: AttendanceService,
+    private readonly snackRosterService: SnackRosterService,
+  ) {}
 
   private resolveTenantId(req: Request): string {
     return (
@@ -151,5 +157,18 @@ export class AttendanceController {
   ) {
     const tenantId = this.resolveTenantId(req);
     return this.attendanceService.getHistoryList(tenantId, query);
+  }
+
+  // =========================================================================
+  // VIEW & FILTER SNACK SERVICE ROSTER
+  // =========================================================================
+
+  @Get('snack-roster')
+  async getSnackRoster(
+    @Req() req: Request,
+    @Query() query: SnackRosterQueryDto,
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.snackRosterService.getRosterData(tenantId, query);
   }
 }

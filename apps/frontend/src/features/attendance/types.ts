@@ -248,3 +248,83 @@ export interface AttendanceHistoryQueryParams {
   limit?: number;
 }
 
+// ============================================================================
+// SNACK SERVICE ROSTER TYPES
+// ============================================================================
+
+export interface SnackRosterItem {
+  id: string;
+  registrationId: string;
+  childId: string;
+  studentCode: string;
+  fullName: string;
+  avatarInitials: string;
+  dateOfBirth: string;
+  formattedDob: string;
+  ageLabel: string;
+  gender: string;
+  classId: string;
+  className: string;
+  gradeLevel: string;
+  blockName: string;
+  classBadgeColor: string;
+  paymentStatus: string;
+  paymentStatusLabel: string;
+  snackDietType: string;
+  snackDietBadgeText: string;
+  snackDietBadgeType: string;
+  kitchenNotes: string;
+  isKitchenHighlight: boolean;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+}
+
+export interface SnackRosterStats {
+  totalRegistered: number;
+  registeredMonthLabel: string;
+  paidCount: number;
+  totalEligible: number;
+  paidPercent: number;
+  totalClasses: number;
+  classListSummary: string;
+  todayTotalPortions: number;
+  standardPortions: number;
+  specialDietPortions: number;
+}
+
+export interface SnackRosterResponse {
+  stats: SnackRosterStats;
+  bannerNotice: {
+    timeWindow: string;
+    title: string;
+    content: string;
+    inspectionBadge: string;
+  };
+  classes: Array<{
+    id: string;
+    name: string;
+    gradeLevel: string;
+    blockName: string;
+  }>;
+  items: SnackRosterItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalItems: number;
+    totalPages: number;
+    startIndex: number;
+    endIndex: number;
+  };
+}
+
+export interface SnackRosterQueryParams {
+  search?: string;
+  gradeLevel?: string;
+  classId?: string;
+  date?: string;
+  paymentStatus?: string;
+  page?: number;
+  limit?: number;
+}
+
+

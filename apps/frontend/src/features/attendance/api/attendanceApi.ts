@@ -152,4 +152,21 @@ export const attendanceApi = {
     const res = await api.get('/attendance/history', { params });
     return res.data;
   },
+
+  // =========================================================================
+  // VIEW & FILTER SNACK SERVICE ROSTER
+  // =========================================================================
+
+  getSnackRoster: async (params: {
+    search?: string;
+    gradeLevel?: string;
+    classId?: string;
+    date?: string;
+    paymentStatus?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const res = await api.get('/snack-roster', { params });
+    return res.data;
+  },
 };
