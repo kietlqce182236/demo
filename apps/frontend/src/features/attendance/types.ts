@@ -1,4 +1,5 @@
 export type MealOption = 'ALL_DAY' | 'LUNCH_ONLY' | 'SNACK_ONLY' | 'ABSENT';
+export type PortionType = 'ALL' | 'HALF' | 'NONE';
 
 export interface ChildAttendanceItem {
   id: string;
@@ -77,4 +78,70 @@ export interface ClassItem {
   roomNumber?: string;
   totalStudents: number;
   academicYear: string;
+}
+
+// UC62 Types: Đánh giá mức độ ăn của trẻ sau bữa
+export interface MealEvaluationItem {
+  id: string;
+  studentCode: string;
+  fullName: string;
+  firstName: string;
+  gender: string;
+  genderAgeText: string;
+  avatarLetter: string;
+  menuBadge: {
+    label: string;
+    type: 'standard' | 'allergy' | 'special' | 'intolerance' | 'absent';
+  };
+  menuDetail: string;
+  portionConsumed: PortionType;
+  consumptionPercentage: number;
+  waterIntake: string;
+  teacherNote: string;
+  sendState: {
+    status: 'SENT' | 'PENDING' | 'URGENT_PARENT';
+    label: string;
+  };
+  isAbsent: boolean;
+  attendanceId?: string;
+}
+
+export interface MealEvaluationResponse {
+  classInfo: {
+    id: string;
+    name: string;
+    gradeLevel: string;
+    roomNumber?: string;
+    totalStudents: number;
+    academicYear: string;
+  };
+  summary: {
+    totalClassStudents: number;
+    totalEating: number;
+    absentCount: number;
+    ateAllCount: number;
+    ateAllPercent: number;
+    ateHalfCount: number;
+    ateHalfPercent: number;
+    ateLittleCount: number;
+    ateLittlePercent: number;
+  };
+  sensoryEvaluation: {
+    softnessScore: number;
+    temperatureScore: number;
+    excitementScore: number;
+    foodSafetyChecked: boolean;
+    chefFeedback: string;
+    headChefName: string;
+    isLocked: boolean;
+    lockedAt?: string;
+    status: string;
+  };
+  children: MealEvaluationItem[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    limit: number;
+  };
 }

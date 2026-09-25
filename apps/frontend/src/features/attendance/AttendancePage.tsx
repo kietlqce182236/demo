@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AttendanceTopNav } from './components/AttendanceTopNav';
 import { AttendanceSubTabs } from './components/AttendanceSubTabs';
 import { AttendanceHeader } from './components/AttendanceHeader';
@@ -13,6 +14,8 @@ import { AttendanceResponse, ClassItem, ChildAttendanceItem, MealOption } from '
 import { Loader2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 
 export const AttendancePage: React.FC = () => {
+  const navigate = useNavigate();
+
   // State
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('f1000000-0000-0000-0000-000000000001');
@@ -258,7 +261,14 @@ export const AttendancePage: React.FC = () => {
       <AttendanceTopNav onSearch={(q) => setSearchQuery(q)} />
 
       {/* 2. Sub Navigation Tabs */}
-      <AttendanceSubTabs activeTab={activeTab} onTabChange={(t) => setActiveTab(t)} />
+      <AttendanceSubTabs
+        activeTab={activeTab}
+        onTabChange={(t) => {
+          setActiveTab(t);
+          if (t === 'evaluation') navigate('/evaluation');
+          else if (t === 'attendance') navigate('/attendance');
+        }}
+      />
 
       {/* 3. Main Content Container */}
       <main className="flex-1 max-w-[1440px] w-full mx-auto px-6 py-6 space-y-6">
