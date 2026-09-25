@@ -9,10 +9,12 @@ import { MenuPlanningPage } from './features/menus/pages/MenuPlanningPage';
 import { TeacherTabletPage } from './features/attendance/pages/TeacherTabletPage';
 import { ProtectedRoute } from './core/components/ProtectedRoute';
 import { useAuthStore } from './core/stores/auth.store';
-import { ChefHat, Tablet, LayoutDashboard, Sparkles, LogOut, Users } from 'lucide-react';
+import { ChefHat, Tablet, LayoutDashboard, Sparkles, LogOut, Users, Scale } from 'lucide-react';
 
 import { SchoolSettingsPage } from './features/tenant/pages/SchoolSettingsPage';
 import { StaffManagementPage } from './features/staff/pages/StaffManagementPage';
+import { NutritionRulesPage } from './features/menus/pages/NutritionRulesPage';
+
 
 
 export const App: React.FC = () => {
@@ -31,6 +33,10 @@ export const App: React.FC = () => {
           <span className="text-slate-400 flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" /> {user?.fullName}
           </span>
+          <Link to="/nutrition-rules" className="flex items-center gap-1.5 hover:text-teal-400 transition">
+            <Scale className="w-4 h-4" /> Quy chuẩn & Dị ứng
+          </Link>
+          <span className="text-slate-600">|</span>
           <Link to="/staff" className="flex items-center gap-1.5 hover:text-teal-400 transition">
             <Users className="w-4 h-4" /> Nhân sự & Bếp
           </Link>
@@ -73,8 +79,9 @@ export const App: React.FC = () => {
           <Route path="menus" element={<MenuPlanningPage />} />
           <Route path="classes" element={<SchoolSettingsPage />} />
           <Route path="staff" element={<StaffManagementPage />} />
+          <Route path="nutrition-rules" element={<NutritionRulesPage />} />
+          <Route path="inventory" element={<NutritionRulesPage />} />
           <Route path="services" element={<MenuPlanningPage />} />
-          <Route path="inventory" element={<MenuPlanningPage />} />
           <Route path="food-safety" element={<MenuPlanningPage />} />
           <Route path="finances" element={<MenuPlanningPage />} />
           <Route path="children" element={<MenuPlanningPage />} />
