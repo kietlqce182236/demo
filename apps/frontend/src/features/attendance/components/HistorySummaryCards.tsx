@@ -7,19 +7,21 @@ interface HistorySummaryCardsProps {
 }
 
 export const HistorySummaryCards: React.FC<HistorySummaryCardsProps> = ({ summary }) => {
-  const attendanceRate = summary?.attendanceRate ?? 94.2;
-  const attendanceDiff = summary?.attendanceRateDiff ?? 1.5;
-  const avgAttendanceText = summary?.avgAttendanceText ?? 'TB 30/32 bé/ngày';
+  const attendanceRate = summary?.attendanceRate ?? 0;
+  const attendanceDiff = summary?.attendanceRateDiff ?? 0;
+  const avgAttendanceText = summary?.avgAttendanceText ?? '—';
 
-  const allEatenRate = summary?.allEatenRate ?? 83.5;
-  const eatenEvaluationText = summary?.eatenEvaluationText ?? 'Thích nghi tốt';
+  const allEatenRate = summary?.allEatenRate ?? 0;
+  const eatenEvaluationText = summary?.eatenEvaluationText ?? (allEatenRate >= 80 ? 'Thích nghi tốt' : 'Cần theo dõi');
   const eatenTargetText = summary?.eatenTargetText ?? 'Mục tiêu ≥ 80%';
 
-  const specialCareCount = summary?.specialCareCount ?? 3;
-  const specialCareTag = summary?.specialCareTag ?? 'Ăn chậm • Cần cổ vũ';
-  const specialCareChildren = summary?.specialCareChildren?.join(', ') ?? 'Mai Chi, Nam, Đức';
+  const specialCareCount = summary?.specialCareCount ?? 0;
+  const specialCareTag = summary?.specialCareTag ?? 'Cần theo dõi';
+  const specialCareChildren = summary?.specialCareChildren && summary.specialCareChildren.length > 0
+    ? summary.specialCareChildren.join(', ')
+    : 'Không có trẻ cần chú ý';
 
-  const specialDietCount = summary?.specialDietCount ?? 15;
+  const specialDietCount = summary?.specialDietCount ?? 0;
   const dietSafetyRate = summary?.dietSafetyRate ?? 100;
   const dietIncidentsCount = summary?.dietIncidentsCount ?? 0;
 

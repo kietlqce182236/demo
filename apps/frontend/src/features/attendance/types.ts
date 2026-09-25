@@ -145,3 +145,106 @@ export interface MealEvaluationResponse {
     limit: number;
   };
 }
+
+// UC63 Types: Xem lịch sử điểm danh và sức ăn
+export interface AttendanceHistoryItem {
+  id: string;
+  attendanceId: string;
+  date: string;
+  dateFormatted: string;
+  mealSession: string;
+  child: {
+    id: string;
+    fullName: string;
+    studentCode: string;
+    classCodePrefix: string;
+    gender: string;
+    avatarUrl?: string;
+  };
+  attendanceStatus: string;
+  attendanceStatusLabel: string;
+  dishesServed: string[];
+  dietaryBadge?: {
+    text: string;
+    type: 'allergy' | 'medical' | 'absent' | 'default';
+  };
+  portionConsumed: 'ALL' | 'HALF' | 'NONE' | 'ABSENT';
+  consumptionPercentage: number | null;
+  waterIntake: string;
+  teacherNote: string;
+  needSpecialAttention: boolean;
+  teacherName: string;
+  parentStatus: {
+    type: 'VIEWED' | 'RESPONDED' | 'RECONCILED';
+    label: string;
+  };
+}
+
+export interface AttendanceHistoryResponse {
+  classInfo: {
+    id: string;
+    name: string;
+    gradeLevel: string;
+    academicYear: string;
+    roomNumber?: string;
+    totalStudents: number;
+    teachers: string[];
+  };
+  period: {
+    startDate: string;
+    endDate: string;
+    weekNumber: number;
+    weekLabel: string;
+    displayRange: string;
+  };
+  summary: {
+    attendanceRate: number;
+    attendanceRateDiff: number;
+    avgAttendanceText: string;
+    allEatenRate: number;
+    eatenEvaluationText: string;
+    eatenTargetText: string;
+    specialCareCount: number;
+    specialCareTag: string;
+    specialCareChildren: string[];
+    specialDietCount: number;
+    dietSafetyRate: number;
+    dietIncidentsCount: number;
+  };
+  items: AttendanceHistoryItem[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    limit: number;
+    totalWeekMeals: number;
+  };
+  trends?: {
+    weeklyTrend: Array<{
+      week: string;
+      attendanceRate: number;
+      allEatenRate: number;
+      targetRate: number;
+    }>;
+    dailyBreakdown: Array<{
+      day: string;
+      ateAll: number;
+      ateHalf: number;
+      ateLittle: number;
+      absent: number;
+    }>;
+  };
+}
+
+export interface AttendanceHistoryQueryParams {
+  classId?: string;
+  startDate?: string;
+  endDate?: string;
+  period?: 'week' | 'month' | 'semester' | 'custom';
+  status?: string;
+  search?: string;
+  viewMode?: 'table' | 'by_child';
+  page?: number;
+  limit?: number;
+}
+

@@ -8,6 +8,8 @@ import {
   Search,
   X,
   CalendarRange,
+  RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import { ClassItem } from '../types';
 
@@ -21,11 +23,15 @@ interface HistoryControlsProps {
   onNextWeek?: () => void;
   selectedPeriod: 'week' | 'month' | 'semester' | 'custom';
   onPeriodChange: (period: 'week' | 'month' | 'semester' | 'custom') => void;
+  onOpenCustomDate?: () => void;
   selectedStatus: string;
   onStatusChange: (status: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   totalStudents?: number;
+  totalFilteredItems?: number;
+  totalWeekMeals?: number;
+  onResetFilters?: () => void;
 }
 
 export const HistoryControls: React.FC<HistoryControlsProps> = ({
@@ -38,13 +44,43 @@ export const HistoryControls: React.FC<HistoryControlsProps> = ({
   onNextWeek,
   selectedPeriod = 'week',
   onPeriodChange,
+  onOpenCustomDate,
   selectedStatus = 'ALL',
   onStatusChange,
   searchQuery,
   onSearchChange,
   totalStudents = 32,
+  totalFilteredItems,
+  totalWeekMeals,
+  onResetFilters,
 }) => {
   const currentClass = classes.find((c) => c.id === selectedClassId);
+
+  const isFilterActive =
+    selectedStatus !== 'ALL' ||
+    searchQuery.trim() !== '' ||
+    selectedPeriod !== 'week';
+
+  const getStatusLabel = (s: string) => {
+    switch (s) {
+      case 'PRESENT':
+        return 'Có ăn (Cả ngày)';
+      case 'LUNCH_ONLY':
+        return 'Chỉ ăn trưa';
+      case 'ABSENT':
+        return 'Nghỉ học / Vắng';
+      case 'SPECIAL_NOTE':
+        return 'Có ghi chú / Suất riêng';
+      case 'PORTION_ALL':
+        return 'Ăn hết suất (100%)';
+      case 'PORTION_HALF':
+        return 'Ăn một nửa (50%)';
+      case 'PORTION_NONE':
+        return 'Ăn ít / Bỏ bữa';
+      default:
+        return s;
+    }
+  };
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-sm space-y-3.5">
@@ -117,7 +153,10 @@ export const HistoryControls: React.FC<HistoryControlsProps> = ({
           </button>
 
           <button
-            onClick={() => onPeriodChange('custom')}
+            onClick={() => {
+              onPeriodChange('custom');
+              onOpenCustomDate?.();
+            }}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
               selectedPeriod === 'custom'
                 ? 'bg-teal-600 text-white shadow-sm ring-2 ring-teal-600/20'
@@ -144,7 +183,7 @@ export const HistoryControls: React.FC<HistoryControlsProps> = ({
           >
             {classes.map((cls) => (
               <option key={cls.id} value={cls.id}>
-                Lớp học hiện tại: {cls.name} • {cls.totalStudents || totalStudents} bé
+                Lớp học: {cls.name} • {cls.totalStudents || totalStudents} bé
               </option>
             ))}
             {classes.length === 0 && (
@@ -166,11 +205,14 @@ export const HistoryControls: React.FC<HistoryControlsProps> = ({
             onChange={(e) => onStatusChange(e.target.value)}
             className="w-full pl-10 pr-8 py-2.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-xs font-bold rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition cursor-pointer appearance-none"
           >
-            <option value="ALL">Lọc nhanh tình trạng: Tất cả ngày (Bao gồm ghi chú đặc biệt)</option>
-            <option value="PRESENT">Chỉ xem: Có ăn (Cả ngày)</option>
-            <option value="LUNCH_ONLY">Chỉ xem: Chỉ ăn trưa</option>
-            <option value="ABSENT">Chỉ xem: Nghỉ có phép / Vắng ăn</option>
-            <option value="SPECIAL_NOTE">Chỉ xem: Có ghi chú đặc biệt / Cần theo dõi</option>
+            <option value="ALL">Lọc tình trạng: Tất cả (Cả ngày, nghỉ, suất riêng)</option>
+            <option value="PRESENT">1. Chỉ xem: Có ăn (Cả ngày)</option>
+            <option value="LUNCH_ONLY">2. Chỉ xem: Chỉ ăn trưa</option>
+            <option value="ABSENT">3. Chỉ xem: Nghỉ có phép / Vắng ăn</option>
+            <option value="SPECIAL_NOTE">4. Chỉ xem: Suất dị ứng / Có lưu ý y tế</option>
+            <option value="PORTION_ALL">5. Mức độ ăn: Ăn hết suất (100%)</option>
+            <option value="PORTION_HALF">6. Mức độ ăn: Ăn một nửa (50%)</option>
+            <option value="PORTION_NONE">7. Mức độ ăn: Ăn ít / Bỏ bữa (≤ 20%)</option>
           </select>
           <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">
             ▼
@@ -184,7 +226,7 @@ export const HistoryControls: React.FC<HistoryControlsProps> = ({
           </div>
           <input
             type="text"
-            placeholder="Tìm tên bé hoặc mã số (vd: An, M1-04)..."
+            placeholder="Tìm tên bé, mã số, món ăn hoặc ghi chú..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full pl-10 pr-9 py-2.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-xs font-medium rounded-xl border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition"
@@ -200,6 +242,71 @@ export const HistoryControls: React.FC<HistoryControlsProps> = ({
           )}
         </div>
       </div>
+
+      {/* Row 3: Active Filters & Quick Reset Bar (Rendered when filtering is active) */}
+      {isFilterActive && (
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-100 text-xs animate-in fade-in duration-150">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-teal-600" />
+              <span>Đang lọc:</span>
+            </span>
+
+            {selectedPeriod !== 'week' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-teal-50 text-teal-800 border border-teal-200 text-[11px] font-bold">
+                <span>Kỳ: {selectedPeriod === 'month' ? 'Tháng 09/2026' : selectedPeriod === 'semester' ? 'Học kỳ I' : 'Tùy chọn'}</span>
+                <button
+                  onClick={() => onPeriodChange('week')}
+                  className="hover:text-teal-950 p-0.5"
+                  title="Quay lại tuần này"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {selectedStatus !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold">
+                <span>Trạng thái: {getStatusLabel(selectedStatus)}</span>
+                <button
+                  onClick={() => onStatusChange('ALL')}
+                  className="hover:text-amber-950 p-0.5"
+                  title="Xóa lọc trạng thái"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {searchQuery.trim() !== '' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200 text-[11px] font-bold">
+                <span>Từ khóa: "{searchQuery}"</span>
+                <button
+                  onClick={() => onSearchChange('')}
+                  className="hover:text-sky-950 p-0.5"
+                  title="Xóa từ khóa"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {typeof totalFilteredItems === 'number' && (
+              <span className="text-[11px] text-slate-500 font-medium pl-1">
+                (Tìm thấy <strong>{totalFilteredItems}</strong> bản ghi)
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={onResetFilters}
+            className="flex items-center gap-1 text-[11px] font-extrabold text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-lg transition"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span>Xóa tất cả bộ lọc</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -9,6 +9,7 @@ import { HistoryTable } from './components/HistoryTable';
 import { HistoryBottomBanner } from './components/HistoryBottomBanner';
 import { TrendComparisonModal } from './components/TrendComparisonModal';
 import { ExportHistoryReportModal } from './components/ExportHistoryReportModal';
+import { CustomDateRangeModal } from './components/CustomDateRangeModal';
 import { attendanceApi } from './api/attendanceApi';
 import {
   AttendanceHistoryResponse,
@@ -41,6 +42,7 @@ export const AttendanceHistoryPage: React.FC = () => {
   // Modals
   const [isTrendOpen, setIsTrendOpen] = useState<boolean>(false);
   const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
+  const [isCustomDateOpen, setIsCustomDateOpen] = useState<boolean>(false);
 
   // Toast Notification
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -57,7 +59,6 @@ export const AttendanceHistoryPage: React.FC = () => {
         const classList = await attendanceApi.getClasses();
         setClasses(classList);
         if (classList.length > 0) {
-          // Default to Lớp Mầm 1
           const mam1 = classList.find((c) => c.name.includes('Mầm 1'));
           setSelectedClassId(mam1 ? mam1.id : classList[0].id);
         }
@@ -117,7 +118,6 @@ export const AttendanceHistoryPage: React.FC = () => {
   const handlePrevWeek = () => {
     if (weekNumber > 1) {
       setWeekNumber((w) => w - 1);
-      // Shift 7 days back
       const start = new Date(dateRange.start);
       start.setDate(start.getDate() - 7);
       const end = new Date(dateRange.end);
@@ -126,6 +126,7 @@ export const AttendanceHistoryPage: React.FC = () => {
         start: start.toISOString().split('T')[0],
         end: end.toISOString().split('T')[0],
       });
+      setSelectedPeriod('week');
       setCurrentPage(1);
     }
   };
@@ -140,7 +141,56 @@ export const AttendanceHistoryPage: React.FC = () => {
       start: start.toISOString().split('T')[0],
       end: end.toISOString().split('T')[0],
     });
+    setSelectedPeriod('week');
     setCurrentPage(1);
+  };
+
+  // Period Preset changes
+  const handlePeriodChange = (period: 'week' | 'month' | 'semester' | 'custom') => {
+    setSelectedPeriod(period);
+    setCurrentPage(1);
+
+    if (period === 'week') {
+      setDateRange({
+        start: '2026-09-21',
+        end: '2026-09-25',
+      });
+      setWeekNumber(4);
+    } else if (period === 'month') {
+      setDateRange({
+        start: '2026-09-01',
+        end: '2026-09-30',
+      });
+    } else if (period === 'semester') {
+      setDateRange({
+        start: '2026-09-01',
+        end: '2027-01-15',
+      });
+    } else if (period === 'custom') {
+      setIsCustomDateOpen(true);
+    }
+  };
+
+  // Apply custom date from modal
+  const handleApplyCustomDate = (start: string, end: string, label: string) => {
+    setDateRange({ start, end });
+    setSelectedPeriod('custom');
+    setCurrentPage(1);
+    showToast(`Đã áp dụng khoảng thời gian: ${label}`, 'success');
+  };
+
+  // Reset all filters
+  const handleResetFilters = () => {
+    setSelectedPeriod('week');
+    setSelectedStatus('ALL');
+    setSearchQuery('');
+    setDateRange({
+      start: '2026-09-21',
+      end: '2026-09-25',
+    });
+    setWeekNumber(4);
+    setCurrentPage(1);
+    showToast('Đã xóa tất cả bộ lọc, trở về trạng thái tuần này', 'info');
   };
 
   const selectedClass = classes.find((c) => c.id === selectedClassId);
@@ -200,10 +250,8 @@ export const AttendanceHistoryPage: React.FC = () => {
           onPrevWeek={handlePrevWeek}
           onNextWeek={handleNextWeek}
           selectedPeriod={selectedPeriod}
-          onPeriodChange={(p) => {
-            setSelectedPeriod(p);
-            setCurrentPage(1);
-          }}
+          onPeriodChange={handlePeriodChange}
+          onOpenCustomDate={() => setIsCustomDateOpen(true)}
           selectedStatus={selectedStatus}
           onStatusChange={(s) => {
             setSelectedStatus(s);
@@ -215,6 +263,9 @@ export const AttendanceHistoryPage: React.FC = () => {
             setCurrentPage(1);
           }}
           totalStudents={selectedClass?.totalStudents || historyData?.classInfo.totalStudents || 32}
+          totalFilteredItems={historyData?.pagination.totalItems}
+          totalWeekMeals={historyData?.pagination.totalWeekMeals}
+          onResetFilters={handleResetFilters}
         />
 
         {/* 4 Summary Cards */}
@@ -247,6 +298,11 @@ export const AttendanceHistoryPage: React.FC = () => {
             onPageSizeChange={(s) => {
               setPageSize(s);
               setCurrentPage(1);
+            }}
+            onFilterChild={(childName) => {
+              setSearchQuery(childName);
+              setCurrentPage(1);
+              showToast(`Đang lọc nhật ký của bé: ${childName}`, 'info');
             }}
           />
         )}
@@ -300,6 +356,8 @@ export const AttendanceHistoryPage: React.FC = () => {
         isOpen={isTrendOpen}
         onClose={() => setIsTrendOpen(false)}
         classNameTitle={selectedClass?.name || 'Lớp Mầm 1 (3-4 tuổi)'}
+        trends={historyData?.trends}
+        summary={historyData?.summary}
       />
 
       {/* Export Report Modal */}
@@ -307,6 +365,15 @@ export const AttendanceHistoryPage: React.FC = () => {
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}
         data={historyData}
+      />
+
+      {/* Custom Date Range Picker Modal */}
+      <CustomDateRangeModal
+        isOpen={isCustomDateOpen}
+        onClose={() => setIsCustomDateOpen(false)}
+        currentStartDate={dateRange.start}
+        currentEndDate={dateRange.end}
+        onApply={handleApplyCustomDate}
       />
     </div>
   );

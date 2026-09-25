@@ -13,33 +13,44 @@ import {
   Bar,
 } from 'recharts';
 
+import { AttendanceHistoryResponse } from '../types';
+
 interface TrendComparisonModalProps {
   isOpen: boolean;
   onClose: () => void;
   classNameTitle?: string;
+  trends?: AttendanceHistoryResponse['trends'];
+  summary?: AttendanceHistoryResponse['summary'];
 }
 
 export const TrendComparisonModal: React.FC<TrendComparisonModalProps> = ({
   isOpen,
   onClose,
   classNameTitle = 'Lớp Mầm 1 (3-4 tuổi)',
+  trends,
+  summary,
 }) => {
   if (!isOpen) return null;
 
-  const weeklyTrendData = [
-    { week: 'Tuần 1', attendanceRate: 91.0, allEatenRate: 78.5, targetRate: 80.0 },
-    { week: 'Tuần 2', attendanceRate: 92.5, allEatenRate: 80.2, targetRate: 80.0 },
-    { week: 'Tuần 3', attendanceRate: 93.0, allEatenRate: 82.0, targetRate: 80.0 },
-    { week: 'Tuần 4', attendanceRate: 94.2, allEatenRate: 83.5, targetRate: 80.0 },
-  ];
+  const weeklyTrendData = trends?.weeklyTrend && trends.weeklyTrend.length > 0
+    ? trends.weeklyTrend
+    : [];
 
-  const consumptionBreakdownData = [
-    { day: 'T2 (21/09)', ateAll: 24, ateHalf: 4, ateLittle: 1, absent: 3 },
-    { day: 'T3 (22/09)', ateAll: 25, ateHalf: 3, ateLittle: 1, absent: 3 },
-    { day: 'T4 (23/09)', ateAll: 26, ateHalf: 3, ateLittle: 1, absent: 2 },
-    { day: 'T5 (24/09)', ateAll: 25, ateHalf: 4, ateLittle: 1, absent: 2 },
-    { day: 'T6 (25/09)', ateAll: 26, ateHalf: 3, ateLittle: 1, absent: 2 },
-  ];
+  const consumptionBreakdownData = trends?.dailyBreakdown && trends.dailyBreakdown.length > 0
+    ? trends.dailyBreakdown
+    : [];
+
+  // Dynamic calculations from real data
+  const latestWeek = weeklyTrendData[weeklyTrendData.length - 1];
+  const prevWeek = weeklyTrendData.length >= 2 ? weeklyTrendData[weeklyTrendData.length - 2] : null;
+
+  const currentEatenRate = summary?.allEatenRate ?? (latestWeek?.allEatenRate ?? 0);
+  const currentAttendanceRate = summary?.attendanceRate ?? (latestWeek?.attendanceRate ?? 0);
+
+  const eatenDiff = prevWeek ? Number((currentEatenRate - prevWeek.allEatenRate).toFixed(1)) : null;
+  const attDiff = prevWeek ? Number((currentAttendanceRate - prevWeek.attendanceRate).toFixed(1)) : null;
+
+  const nutritionTargetRate = Number(((currentEatenRate / 80) * 100).toFixed(1));
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
@@ -56,7 +67,7 @@ export const TrendComparisonModal: React.FC<TrendComparisonModalProps> = ({
               </h3>
             </div>
             <p className="text-xs text-slate-500 font-medium mt-1">
-              Phân tích xu hướng 4 tuần gần nhất • {classNameTitle}
+              Phân tích xu hướng dựa trên dữ liệu thực tế • {classNameTitle}
             </p>
           </div>
 
@@ -72,40 +83,54 @@ export const TrendComparisonModal: React.FC<TrendComparisonModalProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="p-4 rounded-2xl bg-teal-50/70 border border-teal-200/80">
             <span className="text-[11px] font-bold text-teal-700 uppercase">Tỷ lệ ăn hết suất</span>
-            <p className="text-2xl font-black text-teal-900 mt-1">83.5%</p>
+            <p className="text-2xl font-black text-teal-900 mt-1">{currentEatenRate}%</p>
             <p className="text-[11px] text-teal-600 font-medium mt-0.5">
-              ↗ Tăng 5.0% so với Tuần 5
+              {eatenDiff !== null ? (
+                eatenDiff >= 0
+                  ? `↗ Tăng ${eatenDiff}% so với ${prevWeek?.week}`
+                  : `↘ Giảm ${Math.abs(eatenDiff)}% so với ${prevWeek?.week}`
+              ) : (
+                'Theo dữ liệu thống kê kỳ hiện tại'
+              )}
             </p>
           </div>
 
           <div className="p-4 rounded-2xl bg-sky-50/70 border border-sky-200/80">
             <span className="text-[11px] font-bold text-sky-700 uppercase">Tỷ lệ chuyên cần bán trú</span>
-            <p className="text-2xl font-black text-sky-900 mt-1">94.2%</p>
+            <p className="text-2xl font-black text-sky-900 mt-1">{currentAttendanceRate}%</p>
             <p className="text-[11px] text-sky-600 font-medium mt-0.5">
-              ↗ Tăng 3.2% so với Tuần 5
+              {attDiff !== null ? (
+                attDiff >= 0
+                  ? `↗ Tăng ${attDiff}% so với ${prevWeek?.week}`
+                  : `↘ Giảm ${Math.abs(attDiff)}% so với ${prevWeek?.week}`
+              ) : (
+                'Theo dữ liệu thống kê kỳ hiện tại'
+              )}
             </p>
           </div>
 
           <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80">
             <span className="text-[11px] font-bold text-amber-700 uppercase">Mục tiêu dinh dưỡng</span>
-            <p className="text-2xl font-black text-amber-900 mt-1">Đạt 104.3%</p>
+            <p className="text-2xl font-black text-amber-900 mt-1">Đạt {nutritionTargetRate}%</p>
             <p className="text-[11px] text-amber-600 font-medium mt-0.5">
-              Vượt chuẩn mục tiêu Bộ GD&ĐT
+              {currentEatenRate >= 80 ? '✓ Đạt chuẩn mục tiêu dinh dưỡng' : 'Cần theo dõi thêm khẩu phần'}
             </p>
           </div>
         </div>
 
-        {/* Chart 1: Xu hướng ăn hết suất qua 4 tuần */}
+        {/* Chart 1: Xu hướng ăn hết suất qua các tuần */}
         <div className="border border-slate-200 p-5 rounded-2xl bg-slate-50/50 space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wide">
-                1. Xu hướng Tỷ lệ ăn hết suất & Điểm danh 4 tuần
+                1. Xu hướng Tỷ lệ ăn hết suất & Điểm danh các tuần
               </h4>
-              <p className="text-[11px] text-slate-500">So sánh chỉ số thực tế với mục tiêu tối thiểu 80%</p>
+              <p className="text-[11px] text-slate-500">So sánh chỉ số thực tế với mục tiêu chuẩn 80%</p>
             </div>
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-teal-100 text-teal-800">
-              Xu hướng tăng tích cực
+            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
+              currentEatenRate >= 80 ? 'bg-teal-100 text-teal-800' : 'bg-amber-100 text-amber-800'
+            }`}>
+              {currentEatenRate >= 80 ? 'Xu hướng tích cực' : 'Cần cải thiện'}
             </span>
           </div>
 
@@ -114,12 +139,12 @@ export const TrendComparisonModal: React.FC<TrendComparisonModalProps> = ({
               <LineChart data={weeklyTrendData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="week" tick={{ fontSize: 11, fill: '#64748b' }} />
-                <YAxis domain={[70, 100]} tick={{ fontSize: 11, fill: '#64748b' }} unit="%" />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#64748b' }} unit="%" />
                 <Tooltip
                   formatter={(val: number) => [`${val}%`]}
                   contentStyle={{ borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}
                 />
-                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: '10px' }} />
                 <Line
                   type="monotone"
                   dataKey="attendanceRate"
@@ -153,9 +178,9 @@ export const TrendComparisonModal: React.FC<TrendComparisonModalProps> = ({
         <div className="border border-slate-200 p-5 rounded-2xl bg-slate-50/50 space-y-3">
           <div>
             <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wide">
-              2. Số lượng trẻ theo mức độ ăn trong tuần 4 (21/09 - 25/09/2026)
+              2. Số lượng trẻ theo mức độ ăn thực tế
             </h4>
-            <p className="text-[11px] text-slate-500">Thống kê chi tiết từng ngày theo sĩ số 32 học sinh</p>
+            <p className="text-[11px] text-slate-500">Thống kê chi tiết các bữa ăn theo từng ngày</p>
           </div>
 
           <div className="h-56 w-full">
@@ -168,7 +193,7 @@ export const TrendComparisonModal: React.FC<TrendComparisonModalProps> = ({
                   formatter={(val: number) => [`${val} bé`]}
                   contentStyle={{ borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}
                 />
-                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: '10px' }} />
                 <Bar dataKey="ateAll" name="Ăn hết suất" fill="#0d9488" stackId="a" radius={[0, 0, 0, 0]} />
                 <Bar dataKey="ateHalf" name="Ăn nửa suất" fill="#f59e0b" stackId="a" />
                 <Bar dataKey="ateLittle" name="Ăn ít / Bỏ bữa" fill="#ef4444" stackId="a" />

@@ -132,7 +132,9 @@ export const ExportHistoryReportModal: React.FC<ExportHistoryReportModalProps> =
         <div className="border border-slate-200 p-5 rounded-2xl bg-white space-y-3 text-xs">
           <div className="flex justify-between items-center border-b border-slate-100 pb-2">
             <span className="font-bold text-slate-800 uppercase">Tóm tắt dữ liệu xuất:</span>
-            <span className="text-[11px] text-teal-700 font-bold">120 lượt ăn / 32 học sinh</span>
+            <span className="text-[11px] text-teal-700 font-bold">
+              {data.pagination?.totalWeekMeals || data.pagination?.totalItems || data.items.length} lượt ăn / {data.classInfo?.totalStudents || 32} học sinh
+            </span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[11px]">
