@@ -11,7 +11,16 @@ import { ForgotPasswordModal } from '../components/ForgotPasswordModal';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { setAuth, setTenantId, isAuthenticated, selectedTenantId } = useAuthStore();
+  const { setAuth, setTenantId, isAuthenticated, selectedTenantId, user } = useAuthStore();
+
+  const getPortalPath = (roles?: string[]): string => {
+    if (!roles || roles.length === 0) return '/';
+    if (roles.includes('NUTRITIONIST')) return '/nutritionist/menus';
+    if (roles.includes('TEACHER')) return '/tablet';
+    if (roles.includes('KITCHEN_STAFF')) return '/kds';
+    if (roles.includes('PRINCIPAL') || roles.includes('SUPER_ADMIN')) return '/dashboard';
+    return '/';
+  };
 
   // Form state
   const [email, setEmail] = useState('');
@@ -29,9 +38,9 @@ export const LoginPage: React.FC = () => {
   // Redirect nếu đã login
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/', { replace: true });
+      navigate(getPortalPath(user?.roles), { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   // Tự động gán tenant ngầm khi mount (Mặc định: Trường MN Sao Mai)
   useEffect(() => {
@@ -72,7 +81,8 @@ export const LoginPage: React.FC = () => {
 
       const loginResult = result as LoginResponse;
       setAuth(loginResult.user, loginResult.accessToken, loginResult.refreshToken);
-      navigate('/', { replace: true });
+      // Điều hướng chuyên biệt theo Role
+      navigate(getPortalPath(loginResult.user.roles), { replace: true });
     } catch (err: any) {
       const message = err?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại email hoặc mật khẩu.';
       setError(typeof message === 'string' ? message : message[0]);

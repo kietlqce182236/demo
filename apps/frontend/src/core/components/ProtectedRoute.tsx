@@ -4,18 +4,40 @@ import { useAuthStore } from '../stores/auth.store';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  allowedRoles?: string[];
 }
 
 /**
- * ProtectedRoute — Wrapper component kiểm tra auth trước khi render.
- * Nếu chưa login → redirect /login.
- * Performance: Đọc từ Zustand store (sync, không API call).
+ * ProtectedRoute — Wrapper component kiểm tra auth và RBAC roles trước khi render.
+ * - Chưa login → redirect /login.
+ * - Sai role → redirect về đúng portal theo role của user.
  */
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
+  const { isAuthenticated, user } = useAuthStore();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Nếu có quy định allowedRoles và user không có role nào phù hợp
+  if (allowedRoles && allowedRoles.length > 0 && user?.roles) {
+    const hasRole = allowedRoles.some((role) => user.roles.includes(role));
+    if (!hasRole) {
+      // Điều hướng về đúng cổng của role hiện tại
+      if (user.roles.includes('NUTRITIONIST')) {
+        return <Navigate to="/nutritionist/menus" replace />;
+      }
+      if (user.roles.includes('TEACHER')) {
+        return <Navigate to="/tablet" replace />;
+      }
+      if (user.roles.includes('KITCHEN_STAFF')) {
+        return <Navigate to="/kds" replace />;
+      }
+      if (user.roles.includes('PRINCIPAL') || user.roles.includes('SUPER_ADMIN')) {
+        return <Navigate to="/dashboard" replace />;
+      }
+      return <Navigate to="/login" replace />;
+    }
   }
 
   return <>{children}</>;
