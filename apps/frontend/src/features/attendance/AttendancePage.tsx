@@ -12,6 +12,7 @@ import { ExportReportModal } from './components/ExportReportModal';
 import { attendanceApi } from './api/attendanceApi';
 import { AttendanceResponse, ClassItem, ChildAttendanceItem, MealOption } from './types';
 import { Loader2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import { getKitchenSocket } from '../../core/socket';
 
 export const AttendancePage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,6 +45,25 @@ export const AttendancePage: React.FC = () => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   };
+
+  // Listen to Real-time WebSocket events from Kitchen
+  useEffect(() => {
+    const socket = getKitchenSocket();
+
+    const handleKitchenStatus = (payload: any) => {
+      if (payload && payload.classId === selectedClassId) {
+        showToast(payload.message || '👨‍🍳 Bếp trung tâm đã cập nhật tiến độ chuẩn bị suất ăn!', 'info');
+        fetchAttendance();
+      }
+    };
+
+    socket.on('KITCHEN_PORTIONS_ACKNOWLEDGED', handleKitchenStatus);
+
+    return () => {
+      socket.off('KITCHEN_PORTIONS_ACKNOWLEDGED', handleKitchenStatus);
+    };
+  }, [selectedClassId]);
+
 
   // Load Classes
   useEffect(() => {

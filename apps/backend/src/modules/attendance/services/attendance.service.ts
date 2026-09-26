@@ -1,12 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Like, ILike } from 'typeorm';
+import { Repository, In, Like, ILike, DataSource } from 'typeorm';
 import { ClassEntity } from '../entities/class.entity';
 import { ChildEntity } from '../entities/child.entity';
 import { ChildAllergyEntity } from '../entities/child-allergy.entity';
 import { DailyMealAttendanceEntity } from '../entities/daily-meal-attendance.entity';
 import { ClassMealEvaluationEntity } from '../entities/class-meal-evaluation.entity';
 import { MealConsumptionStatusEntity } from '../entities/meal-consumption-status.entity';
+import { MealCoordinationNoteEntity } from '../entities/meal-coordination-note.entity';
+import { KitchenGateway } from '../../websocket/kitchen.gateway';
 import { AttendanceQueryDto } from '../dto/attendance-query.dto';
 import {
   UpdateMealAttendanceDto,
@@ -256,6 +258,10 @@ export class AttendanceService {
     private readonly classEvalRepo: Repository<ClassMealEvaluationEntity>,
     @InjectRepository(MealConsumptionStatusEntity)
     private readonly consumptionRepo: Repository<MealConsumptionStatusEntity>,
+    @InjectRepository(MealCoordinationNoteEntity)
+    private readonly noteRepo: Repository<MealCoordinationNoteEntity>,
+    private readonly kitchenGateway: KitchenGateway,
+    private readonly dataSource: DataSource,
   ) {}
 
   private calculateAgeString(dobStr: string, gender: string, refDateStr: string = '2024-10-25'): string {
@@ -608,6 +614,35 @@ export class AttendanceService {
     }
     await this.mealAttRepo.save(snackAtt);
 
+    // Realtime WebSocket broadcast to Kitchen Display System (KDS)
+    try {
+      const cls = await this.classRepo.findOne({ where: { id: child.classId! } });
+      const lunchCount = await this.mealAttRepo.count({
+        where: { tenantId, classId: child.classId!, attendanceDate: date, mealType: 'LUNCH', attendanceStatus: 'PRESENT' },
+      });
+      const snackCount = await this.mealAttRepo.count({
+        where: { tenantId, classId: child.classId!, attendanceDate: date, mealType: 'AFTERNOON_SNACK', attendanceStatus: 'PRESENT' },
+      });
+      const absentCount = await this.mealAttRepo.count({
+        where: { tenantId, classId: child.classId!, attendanceDate: date, mealType: 'LUNCH', attendanceStatus: 'ABSENT_PERMITTED' },
+      });
+      this.kitchenGateway.notifyPortionsSynced(tenantId, {
+        classId: child.classId!,
+        className: cls?.name || 'Lớp học',
+        date,
+        totalEating: lunchCount,
+        ateLunch: lunchCount,
+        ateSnack: snackCount,
+        absentCount,
+        specialDietsCount: 1,
+        isLocked: false,
+        teacherName: 'Giáo viên phụ trách lớp',
+        timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      });
+    } catch (e) {
+      console.warn('[WebSocket] non-blocking emit error:', e);
+    }
+
     return {
       success: true,
       message: `Đã cập nhật trạng thái suất ăn cho bé ${child.fullName} thành công`,
@@ -681,11 +716,52 @@ export class AttendanceService {
     dto: LockAndSendToKitchenDto,
     userId: string = '51000000-0000-0000-0000-000000000004',
   ) {
+    const lockedAt = new Date();
+
+    // 1. Update is_locked in daily_meal_attendance
+    await this.mealAttRepo.update(
+      { tenantId, classId: dto.classId, attendanceDate: dto.date },
+      { isLocked: true, lockedAt, checkinSource: 'TEACHER_LOCKED' },
+    );
+
+    // 2. Count updated portions from DB
+    const lunchAtts = await this.mealAttRepo.find({
+      where: { tenantId, classId: dto.classId, attendanceDate: dto.date, mealType: 'LUNCH' },
+    });
+    const cls = await this.classRepo.findOne({ where: { id: dto.classId } });
+    const eatingCount = lunchAtts.filter((a) => a.attendanceStatus === 'PRESENT').length;
+    const snackCount = await this.mealAttRepo.count({
+      where: { tenantId, classId: dto.classId, attendanceDate: dto.date, mealType: 'AFTERNOON_SNACK', attendanceStatus: 'PRESENT' },
+    });
+    const absentCount = lunchAtts.filter((a) => a.attendanceStatus.includes('ABSENT')).length;
+    const specialCount = lunchAtts.filter((a) => a.needSpecialAttention || a.dietaryBadgeText).length;
+
+    // 3. Emit realtime WebSocket event to KDS (Kitchen Display System)
+    try {
+      this.kitchenGateway.notifyPortionsSynced(tenantId, {
+        classId: dto.classId,
+        className: cls?.name || 'Lớp học',
+        date: dto.date,
+        totalEating: eatingCount,
+        ateLunch: eatingCount,
+        ateSnack: snackCount,
+        absentCount,
+        specialDietsCount: specialCount,
+        isLocked: true,
+        lockedAt: lockedAt.toISOString(),
+        teacherName: 'Cô Nguyễn Lan Anh (GVCN)',
+        timestamp: lockedAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      });
+    } catch (e) {
+      console.warn('[WebSocket] Lock emit error:', e);
+    }
+
     return {
       success: true,
-      message: 'Đã khóa sĩ số và truyền thông tin suất ăn trực tiếp đến Bếp Trung Tâm thành công',
-      lockedAt: new Date().toISOString(),
-      station: 'Trạm chế biến số 02',
+      message: `Đã khóa sổ sĩ số (${eatingCount} suất ăn trưa) và đồng bộ Realtime tới Màn hình Bếp (KDS) thành công`,
+      lockedAt: lockedAt.toISOString(),
+      station: 'Trạm chế biến số 02 (Bếp Trung Tâm)',
+      eatingCount,
     };
   }
 
@@ -1549,6 +1625,220 @@ export class AttendanceService {
         limit,
         totalWeekMeals,
       },
+    };
+  }
+
+  // =========================================================================
+  // SYNC REAL-TIME MEAL PORTIONS (WEBSOCKET) - KITCHEN DISPLAY SYSTEM (KDS)
+  // =========================================================================
+
+  async getKitchenKdsData(tenantId: string, dateQuery?: string) {
+    const today = new Date().toISOString().split('T')[0];
+    const date = dateQuery || today;
+
+    // Check if attendances exist for requested date; if not and today has none, fallback to '2024-10-25'
+    let effectiveDate = date;
+    const dateCount = await this.mealAttRepo.count({
+      where: { tenantId, attendanceDate: date },
+    });
+    if (dateCount === 0 && date === today) {
+      const fallbackCount = await this.mealAttRepo.count({
+        where: { tenantId, attendanceDate: '2024-10-25' },
+      });
+      if (fallbackCount > 0) {
+        effectiveDate = '2024-10-25';
+      }
+    }
+
+    // 1. Fetch all active classes
+    const classes = await this.classRepo.find({
+      where: { tenantId, status: 'ACTIVE' },
+      order: { name: 'ASC' },
+      relations: ['children'],
+    });
+
+    // 2. Fetch all attendances for effectiveDate
+    const attendances = await this.mealAttRepo.find({
+      where: { tenantId, attendanceDate: effectiveDate },
+      relations: ['child'],
+    });
+
+    // 3. Compute KPI metrics
+    let totalLunch = 0;
+    let totalSnack = 0;
+    let totalAbsent = 0;
+    let toddlerLunch = 0;
+    let kindergartenLunch = 0;
+    let specialTraysCount = 0;
+
+    // Map of classId -> attendances
+    const classAttMap = new Map<string, DailyMealAttendanceEntity[]>();
+    attendances.forEach((att) => {
+      const list = classAttMap.get(att.classId) || [];
+      list.push(att);
+      classAttMap.set(att.classId, list);
+
+      if (att.mealType === 'LUNCH' && att.attendanceStatus === 'PRESENT') {
+        totalLunch++;
+        if (att.needSpecialAttention || att.dietaryBadgeText) specialTraysCount++;
+      } else if (att.mealType === 'AFTERNOON_SNACK' && att.attendanceStatus === 'PRESENT') {
+        totalSnack++;
+      } else if (att.attendanceStatus === 'ABSENT_PERMITTED' || att.attendanceStatus === 'ABSENT_UNPERMITTED') {
+        if (att.mealType === 'LUNCH') totalAbsent++;
+      }
+    });
+
+    let lockedClassesCount = 0;
+
+    // 4. Detailed class breakdown
+    const classBreakdown = classes.map((cls) => {
+      const classAtts = classAttMap.get(cls.id) || [];
+      const lunchAtts = classAtts.filter((a) => a.mealType === 'LUNCH');
+      const snackAtts = classAtts.filter((a) => a.mealType === 'AFTERNOON_SNACK');
+
+      const lunchCount = lunchAtts.filter((a) => a.attendanceStatus === 'PRESENT').length;
+      const snackCount = snackAtts.filter((a) => a.attendanceStatus === 'PRESENT').length;
+      const absentCount = lunchAtts.filter((a) => a.attendanceStatus.includes('ABSENT')).length;
+      const specialCount = lunchAtts.filter((a) => a.needSpecialAttention || a.dietaryBadgeText).length;
+
+      const isLocked = lunchAtts.length > 0 && lunchAtts.every((a) => a.isLocked || a.attendanceStatus !== 'PENDING');
+      if (isLocked) lockedClassesCount++;
+
+      const isToddler = cls.gradeLevel?.includes('TODDLER') || cls.name.includes('Nhà Trẻ');
+      if (isToddler) {
+        toddlerLunch += lunchCount;
+      } else {
+        kindergartenLunch += lunchCount;
+      }
+
+      const kitchenStatus = lunchAtts[0]?.kitchenStatus || (lunchCount > 0 ? 'READY_DELIVERY' : 'WAITING');
+
+      let gradeLevelLabel = 'Khối Mẫu Giáo (3 - 6 tuổi)';
+      if (isToddler) gradeLevelLabel = 'Khối Nhà Trẻ (18 - 36 tháng)';
+      else if (cls.gradeLevel?.includes('3_4Y') || cls.name.includes('Mầm')) gradeLevelLabel = 'Khối Mầm (3 - 4 tuổi)';
+      else if (cls.gradeLevel?.includes('4_5Y') || cls.name.includes('Chồi')) gradeLevelLabel = 'Khối Chồi (4 - 5 tuổi)';
+      else if (cls.gradeLevel?.includes('5_6Y') || cls.name.includes('Lá')) gradeLevelLabel = 'Khối Lá (5 - 6 tuổi)';
+
+      return {
+        classId: cls.id,
+        className: cls.name,
+        gradeLevel: cls.gradeLevel,
+        gradeLevelLabel,
+        roomNumber: cls.roomNumber || `P.${cls.name.slice(0, 3)}`,
+        totalStudents: cls.children?.length || lunchAtts.length,
+        lunchCount,
+        snackCount,
+        absentCount,
+        specialCount,
+        isLocked,
+        kitchenStatus,
+        teacherName: lunchAtts[0]?.teacherName || 'GVCN Phụ trách',
+      };
+    });
+
+    // 5. Active Allergy & Special Diet Alerts (from meal_coordination_notes)
+    const allergyNotes = await this.noteRepo.find({
+      where: [
+        { tenantId, noteType: 'ALLERGY_WARNING' },
+        { tenantId, noteType: 'SPECIAL_DIET' },
+        { tenantId, priority: 'URGENT' },
+      ],
+      relations: ['child', 'class'],
+      order: { createdAt: 'DESC' },
+      take: 6,
+    });
+
+    const formattedAllergyAlerts = allergyNotes.map((n) => ({
+      id: n.id,
+      childName: n.child?.fullName || 'Học sinh lớp ' + (n.class?.name || 'Chồi 1'),
+      className: n.class?.name || 'Lớp Chồi 1',
+      severity: n.priority === 'URGENT' ? 'SỐC PHẢN VỆ / TEM ĐỎ' : 'DỊ ỨNG NẶNG / TEM CAM',
+      badgeColor: n.priority === 'URGENT' ? 'RED' : 'ORANGE',
+      allergen: n.title,
+      replacementMeal: n.kitchenResponse || '→ Suất ăn riêng dán tem cách ly',
+      dosingNotes: n.content,
+      isResolved: n.status === 'RESOLVED',
+    }));
+
+    // 6. Today's Menu from Dishes
+    const dishes = await this.dataSource.query(`
+      SELECT id, name, dish_type, standard_serving_size_g, total_calories
+      FROM dishes
+      WHERE tenant_id = $1 AND is_active = true
+      ORDER BY 
+        CASE 
+          WHEN dish_type = 'MAIN_COURSE' THEN 1
+          WHEN dish_type = 'SOUP' THEN 2
+          WHEN dish_type = 'RICE_STAPLE' THEN 3
+          WHEN dish_type = 'SIDE_DISH' THEN 4
+          ELSE 5
+        END
+      LIMIT 6
+    `, [tenantId]);
+
+    return {
+      date: effectiveDate,
+      serverTime: new Date().toLocaleTimeString('vi-VN'),
+      summary: {
+        totalLunchPortions: totalLunch,
+        totalSnackPortions: totalSnack,
+        toddlerPortions: toddlerLunch,
+        kindergartenPortions: kindergartenLunch,
+        absentCount: totalAbsent,
+        specialTraysCount,
+        lockedClasses: lockedClassesCount,
+        totalClasses: classes.length,
+        completionPercentage: classes.length > 0 ? Math.round((lockedClassesCount / classes.length) * 100) : 100,
+      },
+      classes: classBreakdown,
+      allergyAlerts: formattedAllergyAlerts,
+      todayMenu: dishes.map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        type: d.dish_type,
+        portionSize: `${parseFloat(d.standard_serving_size_g || 100)}g`,
+        calories: `${parseFloat(d.total_calories || 150)} kcal`,
+      })),
+    };
+  }
+
+  async updateKitchenPreparationStatus(
+    tenantId: string,
+    classId: string,
+    status: 'WAITING' | 'PREPARING' | 'PORTIONING' | 'READY_DELIVERY' | 'DELIVERED',
+    actorName: string = 'Bếp trưởng Trần Văn Bếp',
+    dateQuery?: string,
+  ) {
+    const today = new Date().toISOString().split('T')[0];
+    const date = dateQuery || today;
+
+    await this.mealAttRepo.update(
+      { tenantId, classId, attendanceDate: date },
+      { kitchenStatus: status },
+    );
+
+    const cls = await this.classRepo.findOne({ where: { id: classId } });
+    let statusLabel = 'Đang chia suất';
+    if (status === 'READY_DELIVERY') statusLabel = 'Đã chuẩn bị xong khay ăn';
+    else if (status === 'DELIVERED') statusLabel = 'Đã xuất khay ăn lên lớp';
+    else if (status === 'PREPARING') statusLabel = 'Bếp đang sơ chế';
+
+    this.kitchenGateway.notifyKitchenStatus(tenantId, {
+      classId,
+      className: cls?.name || 'Lớp học',
+      status,
+      statusLabel,
+      updatedBy: actorName,
+      timestamp: new Date().toLocaleTimeString('vi-VN'),
+      message: `Nhà Bếp: ${statusLabel} cho ${cls?.name || 'lớp'}`,
+    });
+
+    return {
+      success: true,
+      classId,
+      status,
+      statusLabel,
+      updatedBy: actorName,
     };
   }
 }

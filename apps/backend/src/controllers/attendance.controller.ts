@@ -242,4 +242,32 @@ export class AttendanceController {
     const tenantId = this.resolveTenantId(req);
     return this.mealCoordinationService.deleteNote(tenantId, id);
   }
+
+  // =========================================================================
+  // SYNC REAL-TIME MEAL PORTIONS (WEBSOCKET) - KITCHEN DISPLAY SYSTEM (KDS)
+  // =========================================================================
+
+  @Get('kitchen-kds')
+  async getKitchenKdsData(
+    @Req() req: Request,
+    @Query('date') date?: string,
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.attendanceService.getKitchenKdsData(tenantId, date);
+  }
+
+  @Post('kitchen/status')
+  async updateKitchenStatus(
+    @Req() req: Request,
+    @Body() body: { classId: string; status: 'WAITING' | 'PREPARING' | 'PORTIONING' | 'READY_DELIVERY' | 'DELIVERED'; actorName?: string; date?: string },
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.attendanceService.updateKitchenPreparationStatus(
+      tenantId,
+      body.classId,
+      body.status,
+      body.actorName,
+      body.date,
+    );
+  }
 }

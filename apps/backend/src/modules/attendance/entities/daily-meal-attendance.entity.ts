@@ -56,6 +56,15 @@ export class DailyMealAttendanceEntity extends BaseTenantEntity {
   @Column({ name: 'need_special_attention', type: 'boolean', default: false })
   needSpecialAttention: boolean;
 
+  @Column({ name: 'is_locked', type: 'boolean', default: false })
+  isLocked: boolean;
+
+  @Column({ name: 'locked_at', type: 'timestamptz', nullable: true })
+  lockedAt?: Date;
+
+  @Column({ name: 'kitchen_status', type: 'varchar', length: 50, default: 'SYNCED' })
+  kitchenStatus: string;
+
   @ManyToOne(() => ChildEntity, (child) => child.mealAttendances)
   @JoinColumn({ name: 'child_id' })
   child: ChildEntity;

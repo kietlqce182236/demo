@@ -169,4 +169,24 @@ export const attendanceApi = {
     const res = await api.get('/snack-roster', { params });
     return res.data;
   },
+
+  // =========================================================================
+  // SYNC REAL-TIME MEAL PORTIONS (WEBSOCKET) - KDS APIS
+  // =========================================================================
+
+  getKitchenKdsData: async (date?: string) => {
+    const res = await api.get('/attendance/kitchen-kds', { params: { date } });
+    return res.data;
+  },
+
+  updateKitchenStatus: async (data: {
+    classId: string;
+    status: 'SYNCED' | 'PREPARING' | 'COMPLETED';
+    actorName?: string;
+  }) => {
+    const res = await api.post('/attendance/kitchen/status', data);
+    return res.data;
+  },
 };
+
+
