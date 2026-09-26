@@ -327,4 +327,109 @@ export interface SnackRosterQueryParams {
   limit?: number;
 }
 
+// =========================================================================
+// MEAL COORDINATION NOTES (TEACHER & KITCHEN CONSOLE)
+// =========================================================================
+
+export interface CoordinationNoteItem {
+  id: string;
+  classId: string;
+  className: string;
+  child: {
+    id: string;
+    fullName: string;
+    studentCode: string;
+    avatarLetter: string;
+    allergyWarning?: string;
+  } | null;
+  mealDate: string;
+  mealSession: string;
+  mealSessionLabel: string;
+  noteType: string;
+  noteTypeLabel: string;
+  priority: 'URGENT' | 'HIGH' | 'NORMAL';
+  priorityLabel: string;
+  status: 'PENDING' | 'ACKNOWLEDGED' | 'PROCESSING' | 'RESOLVED' | 'CANCELLED';
+  statusLabel: string;
+  title: string;
+  content: string;
+  teacherName: string;
+  targetRole: string;
+  targetRoleLabel: string;
+  kitchenAcknowledged: boolean;
+  kitchenAcknowledgedBy?: string;
+  kitchenAcknowledgedAt?: string;
+  kitchenResponse?: string;
+  photos: string[];
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+export interface MealCoordinationData {
+  selectedClass: {
+    id: string;
+    name: string;
+    gradeLevel: string;
+    totalStudents: number;
+  };
+  availableClasses: Array<{
+    id: string;
+    name: string;
+    gradeLevel: string;
+    totalStudents: number;
+  }>;
+  availableChildren: Array<{
+    id: string;
+    fullName: string;
+    studentCode: string;
+    allergy?: string;
+  }>;
+  summary: {
+    totalNotes: number;
+    urgentCount: number;
+    highCount: number;
+    pendingCount: number;
+    acknowledgedCount: number;
+    resolvedCount: number;
+  };
+  filterDate: string;
+  notes: CoordinationNoteItem[];
+}
+
+export interface CoordinationQueryParams {
+  date?: string;
+  classId?: string;
+  mealSession?: string;
+  status?: string;
+  priority?: string;
+  noteType?: string;
+  search?: string;
+}
+
+export interface CreateCoordinationNotePayload {
+  classId: string;
+  childId?: string;
+  mealDate: string;
+  mealSession: string;
+  noteType: string;
+  priority: string;
+  title: string;
+  content: string;
+  targetRole?: string;
+  teacherName?: string;
+  photos?: string[];
+}
+
+export interface UpdateCoordinationNotePayload {
+  title?: string;
+  content?: string;
+  priority?: string;
+  noteType?: string;
+  mealSession?: string;
+  status?: string;
+  kitchenResponse?: string;
+  photos?: string[];
+}
+
+
 

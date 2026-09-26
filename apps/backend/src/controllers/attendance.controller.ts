@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   Query,
@@ -28,12 +29,21 @@ import { AttendanceHistoryQueryDto } from '../modules/attendance/dto/attendance-
 
 import { SnackRosterService } from '../modules/attendance/services/snack-roster.service';
 import { SnackRosterQueryDto } from '../modules/attendance/dto/snack-roster-query.dto';
+import { MealCoordinationService } from '../modules/attendance/services/meal-coordination.service';
+import {
+  MealCoordinationQueryDto,
+  CreateMealCoordinationNoteDto,
+  UpdateMealCoordinationNoteDto,
+  AcknowledgeCoordinationDto,
+  ResolveCoordinationDto,
+} from '../modules/attendance/dto/meal-coordination.dto';
 
 @Controller('attendance')
 export class AttendanceController {
   constructor(
     private readonly attendanceService: AttendanceService,
     private readonly snackRosterService: SnackRosterService,
+    private readonly mealCoordinationService: MealCoordinationService,
   ) {}
 
   private resolveTenantId(req: Request): string {
@@ -170,5 +180,66 @@ export class AttendanceController {
   ) {
     const tenantId = this.resolveTenantId(req);
     return this.snackRosterService.getRosterData(tenantId, query);
+  }
+
+  // =========================================================================
+  // MANAGE MEAL COORDINATION NOTES (TEACHER & KITCHEN CONSOLE)
+  // =========================================================================
+
+  @Get('coordination-notes')
+  async getCoordinationNotes(
+    @Req() req: Request,
+    @Query() query: MealCoordinationQueryDto,
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.mealCoordinationService.getCoordinationData(tenantId, query);
+  }
+
+  @Post('coordination-notes')
+  async createCoordinationNote(
+    @Req() req: Request,
+    @Body() dto: CreateMealCoordinationNoteDto,
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.mealCoordinationService.createNote(tenantId, dto);
+  }
+
+  @Put('coordination-notes/:id')
+  async updateCoordinationNote(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() dto: UpdateMealCoordinationNoteDto,
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.mealCoordinationService.updateNote(tenantId, id, dto);
+  }
+
+  @Post('coordination-notes/:id/acknowledge')
+  async acknowledgeCoordinationNote(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() dto: AcknowledgeCoordinationDto,
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.mealCoordinationService.acknowledgeNote(tenantId, id, dto);
+  }
+
+  @Post('coordination-notes/:id/resolve')
+  async resolveCoordinationNote(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() dto: ResolveCoordinationDto,
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.mealCoordinationService.resolveNote(tenantId, id, dto);
+  }
+
+  @Delete('coordination-notes/:id')
+  async deleteCoordinationNote(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.mealCoordinationService.deleteNote(tenantId, id);
   }
 }

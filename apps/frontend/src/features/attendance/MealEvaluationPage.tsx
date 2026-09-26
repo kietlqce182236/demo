@@ -93,7 +93,9 @@ export const MealEvaluationPage: React.FC = () => {
   // Handle Tab Change
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
-    if (tabId === 'attendance') {
+    if (tabId === 'notes') {
+      navigate('/coordination-notes');
+    } else if (tabId === 'attendance') {
       navigate('/attendance');
     } else if (tabId === 'evaluation') {
       navigate('/evaluation');

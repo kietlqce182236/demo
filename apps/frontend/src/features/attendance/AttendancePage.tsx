@@ -265,7 +265,8 @@ export const AttendancePage: React.FC = () => {
         activeTab={activeTab}
         onTabChange={(t) => {
           setActiveTab(t);
-          if (t === 'evaluation') navigate('/evaluation');
+          if (t === 'notes') navigate('/coordination-notes');
+          else if (t === 'evaluation') navigate('/evaluation');
           else if (t === 'attendance') navigate('/attendance');
           else if (t === 'history') navigate('/history');
         }}

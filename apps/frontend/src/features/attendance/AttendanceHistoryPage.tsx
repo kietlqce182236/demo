@@ -109,7 +109,8 @@ export const AttendanceHistoryPage: React.FC = () => {
 
   // Tab change handler
   const handleTabChange = (tab: string) => {
-    if (tab === 'attendance') navigate('/attendance');
+    if (tab === 'notes') navigate('/coordination-notes');
+    else if (tab === 'attendance') navigate('/attendance');
     else if (tab === 'evaluation') navigate('/evaluation');
     else if (tab === 'history') navigate('/history');
   };
