@@ -25,6 +25,24 @@ export class ParentEvaluationController {
     return this.parentEvaluationService.getEvaluations(tenantId, query);
   }
 
+  @Get('portal-data')
+  async getPortalData(
+    @Req() req: Request,
+    @Query('childId') childId?: string,
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.parentEvaluationService.getPortalData(tenantId, childId);
+  }
+
+  @Post('submit')
+  async submitEvaluation(
+    @Req() req: Request,
+    @Body() dto: any,
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.parentEvaluationService.submitEvaluation(tenantId, dto);
+  }
+
   @Post(':id/respond')
   async respondToEvaluation(
     @Req() req: Request,

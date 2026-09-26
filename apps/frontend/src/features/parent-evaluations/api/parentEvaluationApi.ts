@@ -42,4 +42,16 @@ export const parentEvaluationApi = {
     const res = await api.put(`/parent-evaluations/${id}/draft`, { isDrafting });
     return res.data;
   },
+
+  getPortalData: async (childId?: string) => {
+    const res = await api.get('/parent-evaluations/portal-data', {
+      params: childId ? { childId } : undefined,
+    });
+    return res.data;
+  },
+
+  submitEvaluation: async (payload: any) => {
+    const res = await api.post('/parent-evaluations/submit', payload);
+    return res.data;
+  },
 };

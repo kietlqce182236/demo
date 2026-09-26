@@ -79,3 +79,101 @@ export interface RespondEvaluationPayload {
   status?: string;
   isDrafting?: boolean;
 }
+
+export interface ChildProfile {
+  id: string;
+  name: string;
+  age: number;
+  className: string;
+  gradeLevel: string;
+  weight: number;
+  height: number;
+  allergyWarning: string;
+  parentName: string;
+  parentRole: string;
+}
+
+export interface MealDishItem {
+  id?: string;
+  name: string;
+  dishType: string;
+  calories?: string;
+  proteinG?: string;
+  fatG?: string;
+  carbG?: string;
+}
+
+export interface TodayMealData {
+  dateLabel: string;
+  timeLabel: string;
+  session: string;
+  dishes: MealDishItem[];
+  allergyControl: string;
+  nutritionStandard: {
+    title: string;
+    subtitle: string;
+    calories: number;
+    protein: string;
+    calcium: string;
+    fiber: string;
+  };
+}
+
+export interface PortalStatsData {
+  satisfactionRating: number;
+  maxRating: number;
+  totalReviewsCount: number;
+  responseRatePercent: number;
+  responseTimeNote: string;
+  responseTimeSubtitle: string;
+}
+
+export interface ParentHistoryItem {
+  id: string;
+  code: string;
+  title: string;
+  content: string;
+  category: string;
+  date: string;
+  status: string;
+  statusLabel: string;
+  responseContent?: string;
+  responseHeader?: string;
+  respondedByName?: string;
+  respondedAt?: string;
+  priorityNote?: string;
+  photos?: string[];
+  createdAt: string;
+}
+
+export interface ParentPortalData {
+  child: ChildProfile;
+  todayMeal: TodayMealData;
+  stats: PortalStatsData;
+  history: ParentHistoryItem[];
+}
+
+export interface SubmitEvaluationPayload {
+  childId?: string;
+  parentId?: string;
+  feedbackDate?: string;
+  mealType?: string;
+  evaluationType: 'QUICK_EVALUATION' | 'SCHOOL_PROPOSAL';
+  rating?: number;
+  title?: string;
+  content: string;
+  parentRelation?: string;
+  parentNameCustom?: string;
+  childNameCustom?: string;
+  classNameCustom?: string;
+  gradeLevelCustom?: string;
+  category?: string;
+  isAnonymous?: boolean;
+  isDrafting?: boolean;
+  attributes?: {
+    taste?: string;
+    allergy?: string;
+    portion?: string;
+  };
+  photos?: string[];
+}
