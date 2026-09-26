@@ -1,26 +1,28 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Bell, ChevronDown, Utensils, ShieldAlert, Coffee, CreditCard, MessageSquare, Baby } from 'lucide-react';
 import { ChildProfile } from '../types';
 
 interface ParentPortalTopNavProps {
   child: ChildProfile;
+  activeTab?: 'menu-consumption' | 'allergies' | 'snacks' | 'tuition' | 'evaluation';
 }
 
-export const ParentPortalTopNav: React.FC<ParentPortalTopNavProps> = ({ child }) => {
+export const ParentPortalTopNav: React.FC<ParentPortalTopNavProps> = ({ child, activeTab = 'evaluation' }) => {
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Portal Badge */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+            <Link to="/child-menu-consumption" className="flex items-center gap-2 hover:opacity-90 transition">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-sm">
                 <Utensils className="w-5 h-5" />
               </div>
               <span className="text-xl font-black tracking-tight text-teal-800">
                 Kid<span className="text-emerald-500">Meal</span>
               </span>
-            </div>
+            </Link>
             <span className="text-[11px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
               Cổng Phụ Huynh
             </span>
@@ -35,38 +37,50 @@ export const ParentPortalTopNav: React.FC<ParentPortalTopNavProps> = ({ child })
 
           {/* Navigation Links */}
           <nav className="hidden md:flex items-center gap-1 text-xs font-semibold">
-            <button
-              type="button"
-              className="px-3 py-2 text-slate-600 hover:text-teal-700 rounded-lg transition hover:bg-slate-50 flex items-center gap-1.5"
+            {/* Tab 1: Thực đơn & Sức ăn (Monitor Child's Menu and Consumption) */}
+            <Link
+              to="/child-menu-consumption"
+              className={`px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 ${
+                activeTab === 'menu-consumption'
+                  ? 'bg-teal-600 hover:bg-teal-700 text-white font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-teal-700 hover:bg-slate-50 font-semibold'
+              }`}
             >
+              <Utensils className="w-3.5 h-3.5" />
               <span>Thực đơn & Sức ăn</span>
-            </button>
+            </Link>
+
             <button
               type="button"
-              className="px-3 py-2 text-slate-600 hover:text-teal-700 rounded-lg transition hover:bg-slate-50 flex items-center gap-1.5"
+              className="px-3 py-2 text-slate-600 hover:text-teal-700 rounded-lg transition hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
             >
               <span>Khai báo Dị ứng</span>
             </button>
             <button
               type="button"
-              className="px-3 py-2 text-slate-600 hover:text-teal-700 rounded-lg transition hover:bg-slate-50 flex items-center gap-1.5"
+              className="px-3 py-2 text-slate-600 hover:text-teal-700 rounded-lg transition hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
             >
               <span>Gói ăn xế chiều</span>
             </button>
             <button
               type="button"
-              className="px-3 py-2 text-slate-600 hover:text-teal-700 rounded-lg transition hover:bg-slate-50 flex items-center gap-1.5"
+              className="px-3 py-2 text-slate-600 hover:text-teal-700 rounded-lg transition hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
             >
               <span>Học phí Bán trú</span>
             </button>
-            {/* Active Tab */}
-            <button
-              type="button"
-              className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg shadow-xs font-bold transition flex items-center gap-1.5"
+
+            {/* Tab 5: Đánh giá & Góp ý (Submit Meal Evaluation) */}
+            <Link
+              to="/submit-evaluation"
+              className={`px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 ${
+                activeTab === 'evaluation'
+                  ? 'bg-teal-600 hover:bg-teal-700 text-white font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-teal-700 hover:bg-slate-50 font-semibold'
+              }`}
             >
               <MessageSquare className="w-3.5 h-3.5" />
               <span>Đánh giá & Góp ý</span>
-            </button>
+            </Link>
           </nav>
 
           {/* Right: Notifications & Parent Profile */}

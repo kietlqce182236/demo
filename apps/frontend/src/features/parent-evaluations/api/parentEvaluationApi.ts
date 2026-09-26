@@ -54,4 +54,18 @@ export const parentEvaluationApi = {
     const res = await api.post('/parent-evaluations/submit', payload);
     return res.data;
   },
+
+  getChildMenuConsumption: async (childId?: string, date?: string) => {
+    const res = await api.get('/parent-evaluations/child-menu-consumption', {
+      params: { childId, date },
+    });
+    return res.data;
+  },
+
+  toggleHeartReaction: async (attendanceId: string) => {
+    const res = await api.post('/parent-evaluations/child-consumption/heart', {
+      attendanceId,
+    });
+    return res.data;
+  },
 };

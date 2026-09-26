@@ -177,3 +177,69 @@ export interface SubmitEvaluationPayload {
   };
   photos?: string[];
 }
+
+export interface DayTabItem {
+  date: string;
+  dayName: string;
+  dateFormatted: string;
+  isCompleted?: boolean;
+  isSelected?: boolean;
+}
+
+export interface MealSessionRecord {
+  attendanceId: string;
+  mealType: string;
+  mealSession: string;
+  dishesServed: string;
+  dietaryBadgeText?: string;
+  dietaryBadgeType?: string;
+  teacherName: string;
+  parentStatusLabel: string;
+  portionConsumed: string;
+  consumptionPercentage: number;
+  waterIntake: string;
+  syncStatus: string;
+  sentAt: string;
+  adverseReactionObserved: boolean;
+  reactionDescription?: string;
+  teacherFeedback?: string;
+  photoEvidenceUrl?: string;
+}
+
+export interface WeeklyConsumptionItem {
+  date: string;
+  dayName: string;
+  dateFormatted: string;
+  dishes: string;
+  badgeText: string;
+  percentage: number;
+  portionLabel: string;
+  waterIntake: string;
+  teacherFeedback: string;
+  photoUrl?: string;
+  status: string;
+}
+
+export interface ChildMenuConsumptionData {
+  child: ChildProfile;
+  selectedDate: string;
+  daysInWeek: DayTabItem[];
+  metrics: {
+    consumptionRate: number;
+    consumptionStatusLabel: string;
+    waterIntakeToday: string;
+    waterPercentage: number;
+    allergyStatusText: string;
+    syncStatusText: string;
+  };
+  nutritionSummaryToday: {
+    calories: number;
+    proteinG: number;
+    fatG: number;
+    carbG: number;
+    fiberG: number;
+    calciumMg: number;
+  };
+  sessions: MealSessionRecord[];
+  weeklySummary: WeeklyConsumptionItem[];
+}

@@ -34,6 +34,25 @@ export class ParentEvaluationController {
     return this.parentEvaluationService.getPortalData(tenantId, childId);
   }
 
+  @Get('child-menu-consumption')
+  async getChildMenuConsumption(
+    @Req() req: Request,
+    @Query('childId') childId?: string,
+    @Query('date') date?: string,
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.parentEvaluationService.getChildMenuConsumption(tenantId, childId, date);
+  }
+
+  @Post('child-consumption/heart')
+  async toggleHeartReaction(
+    @Req() req: Request,
+    @Body('attendanceId') attendanceId: string,
+  ) {
+    const tenantId = this.resolveTenantId(req);
+    return this.parentEvaluationService.toggleHeartReaction(tenantId, attendanceId);
+  }
+
   @Post('submit')
   async submitEvaluation(
     @Req() req: Request,
