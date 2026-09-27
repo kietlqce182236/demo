@@ -10,11 +10,13 @@ import { NutritionEngineModule } from './modules/nutrition-engine/nutrition-engi
 import { PaymentsModule } from './modules/payments/payments.module';
 import { GrowthModule } from './modules/growth/growth.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
+import { SnackServicesModule } from './modules/snack-services/snack-services.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: ['../../.env', '.env'],
       load: [configuration],
     }),
     DatabaseModule,
@@ -23,6 +25,7 @@ import { WebsocketModule } from './modules/websocket/websocket.module';
     PaymentsModule,
     GrowthModule,
     WebsocketModule,
+    SnackServicesModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -125,6 +125,8 @@ const TeacherTabletDemo = () => {
   );
 };
 
+import { SnackServicesPage } from './features/snack-services/pages/SnackServicesPage';
+
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
@@ -133,7 +135,7 @@ export const App: React.FC = () => {
         <span className="text-slate-400 flex items-center gap-1">
           <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Chế độ xem:
         </span>
-        <Link to="/" className="flex items-center gap-1.5 hover:text-brand-400 transition">
+        <Link to="/snack-services" className="flex items-center gap-1.5 hover:text-brand-400 transition">
           <LayoutDashboard className="w-4 h-4" /> Web Admin BGH
         </Link>
         <span className="text-slate-600">|</span>
@@ -149,7 +151,8 @@ export const App: React.FC = () => {
       <Routes>
         {/* Layout 1: Web Admin / Chuyên viên Dinh dưỡng */}
         <Route path="/" element={<AdminDashboardLayout />}>
-          <Route index element={<MenuPlanningDemo />} />
+          <Route index element={<SnackServicesPage />} />
+          <Route path="snack-services" element={<SnackServicesPage />} />
           <Route path="menus" element={<MenuPlanningDemo />} />
           <Route path="children" element={<MenuPlanningDemo />} />
           <Route path="growth" element={<MenuPlanningDemo />} />

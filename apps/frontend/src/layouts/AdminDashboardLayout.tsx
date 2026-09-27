@@ -16,6 +16,7 @@ export const AdminDashboardLayout: React.FC = () => {
   const location = useLocation();
 
   const navItems = [
+    { label: 'Gói ăn xế chiều', path: '/snack-services', icon: Utensils },
     { label: 'Thực đơn & Dinh dưỡng', path: '/menus', icon: Calendar },
     { label: 'Hồ sơ trẻ & Dị ứng', path: '/children', icon: Users },
     { label: 'Điểm danh bữa ăn', path: '/attendance', icon: ClipboardCheck },
