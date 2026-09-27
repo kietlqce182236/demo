@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { SnackServicesResponse } from '../types/snackServices';
+import { SnackServicesResponse, SnackServiceListResponse, CreateSnackServicePeriodDto, CreatePeriodResponse } from '../types/snackServices';
 
 const API_BASE_URL = 'http://localhost:3000/api/v1';
 
@@ -15,5 +15,19 @@ export const fetchSnackServices = async (
       grade: grade !== 'ALL' ? grade : undefined,
     },
   });
+  return response.data;
+};
+
+/** UC56: Lấy danh sách gói ăn xế đang hoạt động (cho dropdown) */
+export const fetchSnackServicesList = async (): Promise<SnackServiceListResponse> => {
+  const response = await axios.get<SnackServiceListResponse>(`${API_BASE_URL}/snack-services/list`);
+  return response.data;
+};
+
+/** UC56: Tạo đợt đăng ký ăn xế chiều */
+export const createSnackServicePeriod = async (
+  dto: CreateSnackServicePeriodDto,
+): Promise<CreatePeriodResponse> => {
+  const response = await axios.post<CreatePeriodResponse>(`${API_BASE_URL}/snack-services/periods`, dto);
   return response.data;
 };

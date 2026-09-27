@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { fetchSnackServices } from '../api/snackServicesApi';
 import { SnackServiceItem, SnackServicesSummary } from '../types/snackServices';
+import { CreateSnackServicePeriodModal } from './CreateSnackServicePeriodModal';
 
 export const SnackServicesPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -30,6 +31,9 @@ export const SnackServicesPage: React.FC = () => {
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [gradeFilter, setGradeFilter] = useState<string>('ALL');
+
+  // UC56: Modal state
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const loadData = async () => {
     try {
@@ -87,7 +91,10 @@ export const SnackServicesPage: React.FC = () => {
             <Download className="w-4 h-4 text-slate-500" />
             Xuất danh sách đăng ký Excel
           </button>
-          <button className="px-5 py-2.5 bg-teal-500 hover:bg-teal-600 active:scale-95 text-white rounded-xl text-xs font-bold shadow-md shadow-teal-500/20 flex items-center gap-2 transition">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="px-5 py-2.5 bg-teal-500 hover:bg-teal-600 active:scale-95 text-white rounded-xl text-xs font-bold shadow-md shadow-teal-500/20 flex items-center gap-2 transition"
+          >
             <Plus className="w-4 h-4 stroke-[3]" />
             Tạo đợt đăng ký
           </button>
@@ -479,6 +486,13 @@ export const SnackServicesPage: React.FC = () => {
           Xem hồ sơ chứng nhận
         </button>
       </div>
+
+      {/* UC56: Modal Tạo Đợt Đăng Ký */}
+      <CreateSnackServicePeriodModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => loadData()}
+      />
     </div>
   );
 };

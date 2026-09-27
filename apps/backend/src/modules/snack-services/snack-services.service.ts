@@ -1,7 +1,9 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SnackServiceEntity } from './entities/snack-service.entity';
+import { SnackServicePeriodEntity } from './entities/snack-service-period.entity';
+import { CreateSnackServicePeriodDto } from './dto/create-snack-service-period.dto';
 
 export interface SnackServiceDto {
   id: string;
@@ -54,6 +56,8 @@ export class SnackServicesService implements OnModuleInit {
   constructor(
     @InjectRepository(SnackServiceEntity)
     private readonly snackRepo: Repository<SnackServiceEntity>,
+    @InjectRepository(SnackServicePeriodEntity)
+    private readonly periodRepo: Repository<SnackServicePeriodEntity>,
   ) {}
 
   async onModuleInit() {
@@ -223,4 +227,76 @@ export class SnackServicesService implements OnModuleInit {
       data: packages,
     };
   }
+
+  /**
+   * UC56: Lấy danh sách gói ăn xế đang hoạt động cho dropdown
+   */
+  async getServicesList() {
+    const services = await this.snackRepo.find({
+      where: { isActive: true },
+      order: { name: 'ASC' },
+    });
+
+    return {
+      success: true,
+      data: services.map((s) => ({
+        id: s.id,
+        name: s.name,
+        serviceType: s.serviceType,
+        pricePerUnit: Number(s.pricePerUnit),
+      })),
+    };
+  }
+
+  /**
+   * UC56: Tạo đợt đăng ký ăn xế chiều mới
+   */
+  async createPeriod(dto: CreateSnackServicePeriodDto, tenantId: string) {
+    // Validate snack service exists
+    const service = await this.snackRepo.findOne({ where: { id: dto.snackServiceId } });
+    if (!service) {
+      throw new BadRequestException('Gói ăn xế không tồn tại hoặc đã bị xóa.');
+    }
+
+    // Check period_code uniqueness
+    const existingCode = await this.periodRepo.findOne({
+      where: { tenantId, periodCode: dto.periodCode },
+    });
+    if (existingCode) {
+      throw new BadRequestException(`Mã đợt "${dto.periodCode}" đã tồn tại. Vui lòng chọn mã khác.`);
+    }
+
+    // Create new period
+    const period = this.periodRepo.create({
+      tenantId,
+      snackServiceId: dto.snackServiceId,
+      periodCode: dto.periodCode,
+      appliedGrades: dto.appliedGrades,
+      isWholeSchool: dto.isWholeSchool ?? false,
+      registrationStart: dto.registrationStart,
+      registrationEnd: dto.registrationEnd,
+      serviceMonths: dto.serviceMonths,
+      pricePerUnitPerDay: dto.pricePerUnitPerDay,
+      autoRefundEnabled: dto.autoRefundEnabled ?? false,
+      capacityMode: dto.capacityMode ?? 'UNLIMITED',
+      kitchenCapacity: dto.kitchenCapacity ?? null,
+      totalQuota: dto.totalQuota ?? null,
+      quotaPerGrade: dto.quotaPerGrade ?? null,
+      autoCloseEnabled: dto.autoCloseEnabled ?? false,
+      autoCloseThresholdPercent: dto.autoCloseThresholdPercent ?? null,
+      nutritionNotes: dto.nutritionNotes ?? null,
+      status: dto.status ?? 'DRAFT',
+    });
+
+    const saved = await this.periodRepo.save(period);
+
+    return {
+      success: true,
+      message: saved.status === 'ACTIVE'
+        ? 'Đã kích hoạt và mở đợt đăng ký thành công!'
+        : 'Đã lưu bản nháp đợt đăng ký thành công!',
+      data: saved,
+    };
+  }
 }
+

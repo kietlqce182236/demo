@@ -1,6 +1,7 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { SnackServicesService } from '../modules/snack-services/snack-services.service';
+import { CreateSnackServicePeriodDto } from '../modules/snack-services/dto/create-snack-service-period.dto';
 
 @ApiTags('Snack Services')
 @Controller('snack-services')
@@ -18,5 +19,22 @@ export class SnackServicesController {
     @Query('grade') grade?: string,
   ) {
     return this.snackServicesService.findAll(search, status, grade);
+  }
+
+  @Get('list')
+  @ApiOperation({ summary: 'UC56: Lấy danh sách gói ăn xế đang hoạt động (cho dropdown tạo đợt)' })
+  async getServicesList() {
+    return this.snackServicesService.getServicesList();
+  }
+
+  @Post('periods')
+  @ApiOperation({ summary: 'UC56: Tạo đợt đăng ký ăn xế chiều mới' })
+  async createPeriod(
+    @Body() dto: CreateSnackServicePeriodDto,
+    @Headers('x-tenant-id') tenantId?: string,
+  ) {
+    // Fallback to default tenant if no header provided
+    const resolvedTenantId = tenantId || 'a0000000-0000-0000-0000-000000000001';
+    return this.snackServicesService.createPeriod(dto, resolvedTenantId);
   }
 }
