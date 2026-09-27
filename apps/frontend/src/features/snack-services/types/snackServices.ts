@@ -89,3 +89,42 @@ export interface CreatePeriodResponse {
   message: string;
   data: any;
 }
+
+// UC57 Types
+export interface UpdateSnackServiceDto {
+  name?: string;
+  description?: string;
+  serviceType?: string;
+  billingCycle?: string;
+  pricePerUnit?: number;
+  isActive?: boolean;
+  availableFrom?: string;
+  availableTo?: string;
+}
+
+export interface SnackServiceDetailEntity {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string;
+  serviceType: string;
+  billingCycle: string;
+  pricePerUnit: number;
+  isActive: boolean;
+  availableFrom: string;
+  availableTo: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SnackServiceDetailResponse {
+  success: boolean;
+  data: SnackServiceDetailEntity;
+}
+
+export interface UpdateSnackServiceResponse {
+  success: boolean;
+  message: string;
+  data: SnackServiceDetailEntity;
+}
+

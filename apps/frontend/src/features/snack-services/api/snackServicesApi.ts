@@ -1,5 +1,13 @@
 import axios from 'axios';
-import { SnackServicesResponse, SnackServiceListResponse, CreateSnackServicePeriodDto, CreatePeriodResponse } from '../types/snackServices';
+import {
+  SnackServicesResponse,
+  SnackServiceListResponse,
+  CreateSnackServicePeriodDto,
+  CreatePeriodResponse,
+  SnackServiceDetailResponse,
+  UpdateSnackServiceDto,
+  UpdateSnackServiceResponse,
+} from '../types/snackServices';
 
 const API_BASE_URL = 'http://localhost:3000/api/v1';
 
@@ -31,3 +39,19 @@ export const createSnackServicePeriod = async (
   const response = await axios.post<CreatePeriodResponse>(`${API_BASE_URL}/snack-services/periods`, dto);
   return response.data;
 };
+
+/** UC57: Lấy chi tiết 1 gói dịch vụ ăn xế */
+export const fetchSnackServiceById = async (id: string): Promise<SnackServiceDetailResponse> => {
+  const response = await axios.get<SnackServiceDetailResponse>(`${API_BASE_URL}/snack-services/${id}`);
+  return response.data;
+};
+
+/** UC57: Cập nhật cấu hình gói dịch vụ ăn xế */
+export const updateSnackService = async (
+  id: string,
+  dto: UpdateSnackServiceDto,
+): Promise<UpdateSnackServiceResponse> => {
+  const response = await axios.put<UpdateSnackServiceResponse>(`${API_BASE_URL}/snack-services/${id}`, dto);
+  return response.data;
+};
+

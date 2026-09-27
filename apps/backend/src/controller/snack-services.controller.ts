@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Query, Headers } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Body, Query, Headers, Param } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { SnackServicesService } from '../modules/snack-services/snack-services.service';
 import { CreateSnackServicePeriodDto } from '../modules/snack-services/dto/create-snack-service-period.dto';
+import { UpdateSnackServiceDto } from '../modules/snack-services/dto/update-snack-service.dto';
 
 @ApiTags('Snack Services')
 @Controller('snack-services')
@@ -37,4 +38,22 @@ export class SnackServicesController {
     const resolvedTenantId = tenantId || 'a0000000-0000-0000-0000-000000000001';
     return this.snackServicesService.createPeriod(dto, resolvedTenantId);
   }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'UC57: Lấy chi tiết gói ăn xế theo ID' })
+  @ApiParam({ name: 'id', description: 'ID gói dịch vụ ăn xế' })
+  async getServiceById(@Param('id') id: string) {
+    return this.snackServicesService.findOne(id);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'UC57: Cập nhật cấu hình gói dịch vụ ăn xế' })
+  @ApiParam({ name: 'id', description: 'ID gói dịch vụ ăn xế' })
+  async updateService(
+    @Param('id') id: string,
+    @Body() dto: UpdateSnackServiceDto,
+  ) {
+    return this.snackServicesService.updateService(id, dto);
+  }
 }
+

@@ -20,6 +20,7 @@ import {
 import { fetchSnackServices } from '../api/snackServicesApi';
 import { SnackServiceItem, SnackServicesSummary } from '../types/snackServices';
 import { CreateSnackServicePeriodModal } from './CreateSnackServicePeriodModal';
+import { EditSnackServiceModal } from './EditSnackServiceModal';
 
 export const SnackServicesPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -34,6 +35,9 @@ export const SnackServicesPage: React.FC = () => {
 
   // UC56: Modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // UC57: Modal state
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -433,7 +437,11 @@ export const SnackServicesPage: React.FC = () => {
                         <button className="p-1.5 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Xem chi tiết">
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button className="p-1.5 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Chỉnh sửa">
+                        <button
+                          className="p-1.5 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition"
+                          title="Chỉnh sửa"
+                          onClick={() => setEditingServiceId(item.id)}
+                        >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button className="p-1.5 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition" title="Lưu trữ">
@@ -491,6 +499,14 @@ export const SnackServicesPage: React.FC = () => {
       <CreateSnackServicePeriodModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => loadData()}
+      />
+
+      {/* UC57: Modal Chỉnh Sửa Cấu Hình Gói Dịch Vụ */}
+      <EditSnackServiceModal
+        isOpen={!!editingServiceId}
+        serviceId={editingServiceId}
+        onClose={() => setEditingServiceId(null)}
         onSuccess={() => loadData()}
       />
     </div>

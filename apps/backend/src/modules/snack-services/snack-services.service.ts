@@ -1,9 +1,10 @@
-import { Injectable, OnModuleInit, BadRequestException } from '@nestjs/common';
+import { Injectable, OnModuleInit, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SnackServiceEntity } from './entities/snack-service.entity';
 import { SnackServicePeriodEntity } from './entities/snack-service-period.entity';
 import { CreateSnackServicePeriodDto } from './dto/create-snack-service-period.dto';
+import { UpdateSnackServiceDto } from './dto/update-snack-service.dto';
 
 export interface SnackServiceDto {
   id: string;
@@ -298,5 +299,47 @@ export class SnackServicesService implements OnModuleInit {
       data: saved,
     };
   }
+
+  /**
+   * UC57: Lấy chi tiết 1 gói dịch vụ ăn xế theo ID
+   */
+  async findOne(id: string) {
+    const service = await this.snackRepo.findOne({ where: { id } });
+    if (!service) {
+      throw new NotFoundException(`Không tìm thấy gói ăn xế với ID ${id}`);
+    }
+    return {
+      success: true,
+      data: service,
+    };
+  }
+
+  /**
+   * UC57: Cập nhật cấu hình gói dịch vụ ăn xế
+   */
+  async updateService(id: string, dto: UpdateSnackServiceDto) {
+    const service = await this.snackRepo.findOne({ where: { id } });
+    if (!service) {
+      throw new NotFoundException(`Không tìm thấy gói ăn xế với ID ${id}`);
+    }
+
+    if (dto.name !== undefined) service.name = dto.name;
+    if (dto.description !== undefined) service.description = dto.description;
+    if (dto.serviceType !== undefined) service.serviceType = dto.serviceType;
+    if (dto.billingCycle !== undefined) service.billingCycle = dto.billingCycle;
+    if (dto.pricePerUnit !== undefined) service.pricePerUnit = dto.pricePerUnit;
+    if (dto.isActive !== undefined) service.isActive = dto.isActive;
+    if (dto.availableFrom !== undefined) service.availableFrom = dto.availableFrom;
+    if (dto.availableTo !== undefined) service.availableTo = dto.availableTo;
+
+    const saved = await this.snackRepo.save(service);
+
+    return {
+      success: true,
+      message: 'Cập nhật cấu hình dịch vụ ăn xế thành công!',
+      data: saved,
+    };
+  }
 }
+
 
