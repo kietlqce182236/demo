@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from '../../../src/modules/auth/controllers/auth.controller';
 import { AuthService } from '../../../src/modules/auth/services/auth.service';
+import { PasswordResetService } from '../../../src/modules/auth/services/password-reset.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
   let authService: any;
+  let passwordResetService: any;
 
   const mockTenantId = 'a0000000-0000-0000-0000-000000000001';
 
@@ -37,9 +39,30 @@ describe('AuthController', () => {
       }),
     };
 
+    passwordResetService = {
+      forgotPassword: jest.fn().mockResolvedValue({
+        message: 'Mã xác thực OTP đã được gửi',
+        email: 'test@kidmeal.vn',
+        expiresInSeconds: 300,
+      }),
+      verifyResetOtp: jest.fn().mockResolvedValue({
+        message: 'Xác thực mã OTP thành công',
+        email: 'test@kidmeal.vn',
+        resetToken: 'mock.reset.token',
+        expiresInSeconds: 900,
+      }),
+      resetPassword: jest.fn().mockResolvedValue({
+        message: 'Đặt lại mật khẩu thành công',
+        email: 'test@kidmeal.vn',
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: authService }],
+      providers: [
+        { provide: AuthService, useValue: authService },
+        { provide: PasswordResetService, useValue: passwordResetService },
+      ],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
@@ -84,6 +107,40 @@ describe('AuthController', () => {
 
       expect(authService.quickLogin).toHaveBeenCalledWith('TEACHER', mockTenantId);
       expect(result.user.roles).toContain('TEACHER');
+    });
+  });
+
+  describe('forgotPassword', () => {
+    it('phải gọi passwordResetService.forgotPassword() và trả về thông báo', async () => {
+      const dto = { email: 'test@kidmeal.vn' };
+      const result = await controller.forgotPassword(dto);
+
+      expect(passwordResetService.forgotPassword).toHaveBeenCalledWith(dto);
+      expect(result).toHaveProperty('message');
+    });
+  });
+
+  describe('verifyResetOtp', () => {
+    it('phải gọi passwordResetService.verifyResetOtp() và trả về resetToken', async () => {
+      const dto = { email: 'test@kidmeal.vn', otp: '123456' };
+      const result = await controller.verifyResetOtp(dto);
+
+      expect(passwordResetService.verifyResetOtp).toHaveBeenCalledWith(dto);
+      expect(result).toHaveProperty('resetToken');
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('phải gọi passwordResetService.resetPassword() và trả về kết quả thành công', async () => {
+      const dto = {
+        resetToken: 'mock.reset.token',
+        newPassword: 'Password@123',
+        confirmPassword: 'Password@123',
+      };
+      const result = await controller.resetPassword(dto);
+
+      expect(passwordResetService.resetPassword).toHaveBeenCalledWith(dto);
+      expect(result).toHaveProperty('message');
     });
   });
 

@@ -3,7 +3,7 @@ import { UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { AuthService } from '../../../src/modules/auth/services/auth.service';
 import { TwoFactorService } from '../../../src/modules/auth/services/two-factor.service';
 import { User } from '../../../src/modules/auth/entities/user.entity';
@@ -48,6 +48,7 @@ describe('AuthService', () => {
       getOne: jest.fn().mockResolvedValue(result),
       getMany: jest.fn().mockResolvedValue(result || []),
     };
+    qb.clone = jest.fn().mockReturnValue(qb);
     return qb;
   };
 
@@ -106,7 +107,8 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('phải ném lỗi UnauthorizedException nếu không có tenantId', async () => {
+    it('phải ném lỗi UnauthorizedException nếu không tìm thấy user theo email khi tenantId rỗng', async () => {
+      userRepo.createQueryBuilder.mockReturnValue(createMockQueryBuilder(null));
       await expect(
         service.login({ email: 'test@kidmeal.vn', password: '123' }, ''),
       ).rejects.toThrow(UnauthorizedException);

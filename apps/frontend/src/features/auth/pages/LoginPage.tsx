@@ -7,10 +7,20 @@ import {
   loginApi,
   LoginResponse,
 } from '../../../core/api/auth.api';
+import { ForgotPasswordModal } from '../components/ForgotPasswordModal';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { setAuth, setTenantId, isAuthenticated, selectedTenantId } = useAuthStore();
+  const { setAuth, setTenantId, isAuthenticated, selectedTenantId, user } = useAuthStore();
+
+  const getPortalPath = (roles?: string[]): string => {
+    if (!roles || roles.length === 0) return '/';
+    if (roles.includes('NUTRITIONIST')) return '/nutritionist/menus';
+    if (roles.includes('TEACHER')) return '/tablet';
+    if (roles.includes('KITCHEN_STAFF')) return '/kds';
+    if (roles.includes('PRINCIPAL') || roles.includes('SUPER_ADMIN')) return '/dashboard';
+    return '/';
+  };
 
   // Form state
   const [email, setEmail] = useState('');
@@ -19,6 +29,7 @@ export const LoginPage: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [show2Fa, setShow2Fa] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -27,9 +38,9 @@ export const LoginPage: React.FC = () => {
   // Redirect nếu đã login
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/', { replace: true });
+      navigate(getPortalPath(user?.roles), { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   // Tự động gán tenant ngầm khi mount (Mặc định: Trường MN Sao Mai)
   useEffect(() => {
@@ -70,7 +81,8 @@ export const LoginPage: React.FC = () => {
 
       const loginResult = result as LoginResponse;
       setAuth(loginResult.user, loginResult.accessToken, loginResult.refreshToken);
-      navigate('/', { replace: true });
+      // Điều hướng chuyên biệt theo Role
+      navigate(getPortalPath(loginResult.user.roles), { replace: true });
     } catch (err: any) {
       const message = err?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại email hoặc mật khẩu.';
       setError(typeof message === 'string' ? message : message[0]);
@@ -219,7 +231,11 @@ export const LoginPage: React.FC = () => {
                   />
                   <span className="text-sm text-slate-600">Ghi nhớ đăng nhập</span>
                 </label>
-                <button type="button" className="text-sm text-emerald-600 font-semibold hover:text-emerald-700 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-emerald-600 font-semibold hover:text-emerald-700 transition-colors"
+                >
                   Quên mật khẩu?
                 </button>
               </div>
@@ -255,6 +271,17 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Modal Quên & Đặt lại mật khẩu (OTP Email) */}
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+        initialEmail={email}
+        onSuccessLogin={(resetEmail) => {
+          setEmail(resetEmail);
+          setShowForgotPassword(false);
+        }}
+      />
 
       {/* ─── Footer ──────────────────────────────────────────────────────── */}
       <footer className="px-6 py-4 bg-white/80 backdrop-blur-sm border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400 relative z-10">

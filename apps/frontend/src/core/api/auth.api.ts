@@ -84,3 +84,78 @@ export async function fetchCurrentUser(): Promise<MeResponse> {
   const { data } = await apiClient.get<MeResponse>('/auth/me');
   return data;
 }
+
+// ─── Quên & Đặt lại mật khẩu (OTP Email) ────────────────────────────────────────
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  success: boolean;
+  message: string;
+  expiresInSeconds?: number;
+}
+
+export interface VerifyResetOtpRequest {
+  email: string;
+  otp: string;
+}
+
+export interface VerifyResetOtpResponse {
+  success: boolean;
+  message: string;
+  resetToken: string;
+  expiresInSeconds?: number;
+}
+
+export interface ResetPasswordRequest {
+  resetToken: string;
+  newPassword: string;
+  confirmPassword?: string;
+}
+
+export interface ResetPasswordResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * Gửi yêu cầu OTP đặt lại mật khẩu về email.
+ */
+export async function forgotPasswordApi(
+  request: ForgotPasswordRequest,
+): Promise<ForgotPasswordResponse> {
+  const { data } = await apiClient.post<ForgotPasswordResponse>(
+    '/auth/forgot-password',
+    request,
+  );
+  return data;
+}
+
+/**
+ * Xác thực mã OTP 6 số để nhận resetToken.
+ */
+export async function verifyResetOtpApi(
+  request: VerifyResetOtpRequest,
+): Promise<VerifyResetOtpResponse> {
+  const { data } = await apiClient.post<VerifyResetOtpResponse>(
+    '/auth/verify-reset-otp',
+    request,
+  );
+  return data;
+}
+
+/**
+ * Thiết lập mật khẩu mới bằng resetToken.
+ */
+export async function resetPasswordApi(
+  request: ResetPasswordRequest,
+): Promise<ResetPasswordResponse> {
+  const { data } = await apiClient.post<ResetPasswordResponse>(
+    '/auth/reset-password',
+    request,
+  );
+  return data;
+}
+

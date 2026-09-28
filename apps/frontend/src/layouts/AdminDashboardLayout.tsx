@@ -16,6 +16,7 @@ import {
   Bell,
   UtensilsCrossed,
   Sparkles,
+  Scale,
 } from 'lucide-react';
 import { UserProfileModal } from '../features/auth/components/UserProfileModal';
 import { useAuthStore } from '../core/stores/auth.store';
@@ -31,13 +32,27 @@ export const AdminDashboardLayout: React.FC = () => {
     { label: 'Quản trị Lớp học', path: '/classes', icon: GraduationCap },
     { label: 'Nhân sự & Bếp', path: '/staff', icon: Users2 },
     { label: 'Dịch vụ bán trú', path: '/services', icon: Coffee },
-    { label: 'Gói ăn xế chiều', path: '/snack-services', icon: Sparkles },
-    { label: 'Phê duyệt thực đơn', path: '/menus', icon: FileCheck2 },
+
+    { label: 'Phê duyệt thực đơn', path: '/menu-approval', icon: FileCheck2 },
+
     { label: 'Kho & Dinh dưỡng', path: '/inventory', icon: PackageOpen },
     { label: 'Sổ kiểm thực 3 bước', path: '/food-safety', icon: ShieldCheck },
     { label: 'Báo cáo tài chính', path: '/finances', icon: CircleDollarSign },
     { label: 'Cài đặt trường học', path: '/settings', icon: Settings },
   ];
+
+  const getBreadcrumbTitle = () => {
+    if (location.pathname.startsWith('/menu-approval')) return 'Phê duyệt & Công bố thực đơn tuần';
+    if (location.pathname.startsWith('/classes')) return 'Quản trị Lớp học & Học sinh';
+    if (location.pathname.startsWith('/staff')) return 'Quản trị Nhân sự & Tài khoản Bếp';
+    if (location.pathname.startsWith('/services')) return 'Dịch vụ Bán trú & Ăn xế';
+    if (location.pathname.startsWith('/inventory')) return 'Kho nguyên liệu & Tiêu chuẩn dinh dưỡng';
+    if (location.pathname.startsWith('/food-safety')) return 'Sổ kiểm thực 3 bước & Lưu mẫu';
+    if (location.pathname.startsWith('/finances')) return 'Báo cáo Tài chính & Thu chi';
+    if (location.pathname.startsWith('/settings')) return 'Cài đặt thông tin Trường mầm non';
+    if (location.pathname.startsWith('/dashboard')) return 'Dashboard Tổng quan';
+    return 'Cài đặt hệ thống & Quản trị tài khoản';
+  };
 
   return (
     <div className="flex h-screen bg-[#f8fafc] font-sans antialiased text-slate-800">
@@ -79,11 +94,10 @@ export const AdminDashboardLayout: React.FC = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all ${
-                    isActive
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all ${isActive
                       ? 'bg-teal-600 text-white shadow-md shadow-teal-600/25 font-bold'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
-                  }`}
+                    }`}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   <span>{item.label}</span>
@@ -143,7 +157,7 @@ export const AdminDashboardLayout: React.FC = () => {
             <UtensilsCrossed className="w-4 h-4 text-teal-600" />
             <span className="hover:text-slate-800 cursor-pointer">Bán trú KidMeal</span>
             <span>›</span>
-            <span className="text-slate-900 font-semibold">Cài đặt hệ thống & Quản trị tài khoản</span>
+            <span className="text-slate-900 font-semibold">{getBreadcrumbTitle()}</span>
           </div>
 
           {/* Right Header items */}

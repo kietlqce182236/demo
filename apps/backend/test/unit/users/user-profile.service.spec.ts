@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { UserProfileService } from '../../../src/modules/users/services/user-profile.service';
 import { User } from '../../../src/modules/auth/entities/user.entity';
 import { Tenant } from '../../../src/modules/auth/entities/tenant.entity';
@@ -31,6 +33,7 @@ describe('UserProfileService', () => {
     userRepo = {
       findOne: jest.fn().mockResolvedValue({ ...mockUser }),
       save: jest.fn().mockImplementation((u) => Promise.resolve(u)),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
       createQueryBuilder: jest.fn().mockReturnValue({
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         addSelect: jest.fn().mockReturnThis(),
@@ -115,7 +118,103 @@ describe('UserProfileService', () => {
       const res = await service.enable2FA('u2000000-0000-0000-0000-000000000001', '123456');
       expect(res.twoFactorEnabled).toBe(true);
       expect(res.recoveryCodes).toHaveLength(8);
-      expect(userRepo.save).toHaveBeenCalled();
+      expect(userRepo.update).toHaveBeenCalled();
+    });
+
+    it('tắt 2FA thành công khi tài khoản đã bật và nhập đúng OTP', async () => {
+      userRepo.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({
+          ...mockUser,
+          twoFactorEnabled: true,
+          twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+        }),
+      });
+
+      const res = await service.disable2FA('u2000000-0000-0000-0000-000000000001', '123456');
+      expect(res.twoFactorEnabled).toBe(false);
+      expect(userRepo.update).toHaveBeenCalled();
+    });
+
+    it('báo lỗi khi tắt 2FA nếu tài khoản chưa bật 2FA', async () => {
+      userRepo.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({
+          ...mockUser,
+          twoFactorEnabled: false,
+        }),
+      });
+
+      await expect(
+        service.disable2FA('u2000000-0000-0000-0000-000000000001', '123456'),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('changePassword', () => {
+    it('đổi mật khẩu thành công khi đúng mật khẩu hiện tại', async () => {
+      const hashed = await bcrypt.hash('OldPassword123@', 12);
+      userRepo.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({
+          ...mockUser,
+          passwordHash: hashed,
+        }),
+      });
+
+      const res = await service.changePassword('u2000000-0000-0000-0000-000000000001', {
+        currentPassword: 'OldPassword123@',
+        newPassword: 'NewPassword456@',
+        confirmPassword: 'NewPassword456@',
+      });
+
+      expect(res.message).toContain('thành công');
+      expect(userRepo.update).toHaveBeenCalled();
+    });
+
+    it('báo lỗi nếu mật khẩu xác nhận không khớp', async () => {
+      await expect(
+        service.changePassword('u2000000-0000-0000-0000-000000000001', {
+          currentPassword: 'OldPassword123@',
+          newPassword: 'NewPassword456@',
+          confirmPassword: 'MismatchPassword',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('báo lỗi nếu mật khẩu mới trùng mật khẩu cũ', async () => {
+      await expect(
+        service.changePassword('u2000000-0000-0000-0000-000000000001', {
+          currentPassword: 'OldPassword123@',
+          newPassword: 'OldPassword123@',
+          confirmPassword: 'OldPassword123@',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('báo lỗi UnauthorizedException nếu sai mật khẩu hiện tại', async () => {
+      const hashed = await bcrypt.hash('RealPassword123@', 12);
+      userRepo.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({
+          ...mockUser,
+          passwordHash: hashed,
+        }),
+      });
+
+      await expect(
+        service.changePassword('u2000000-0000-0000-0000-000000000001', {
+          currentPassword: 'WrongPassword',
+          newPassword: 'NewPassword456@',
+          confirmPassword: 'NewPassword456@',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 });

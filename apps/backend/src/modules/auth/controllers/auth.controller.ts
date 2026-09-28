@@ -16,10 +16,18 @@ import { QuickLoginDto } from '../dto/quick-login.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { JwtPayload } from '../strategies/jwt.strategy';
 
+import { PasswordResetService } from '../services/password-reset.service';
+import { ForgotPasswordDto } from '../dto/forgot-password.dto';
+import { VerifyResetOtpDto } from '../dto/verify-reset-otp.dto';
+import { ResetPasswordDto } from '../dto/reset-password.dto';
+
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly passwordResetService: PasswordResetService,
+  ) {}
 
   /**
    * GET /api/v1/auth/tenants
@@ -41,7 +49,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Đăng nhập hệ thống' })
-  @ApiHeader({ name: 'x-tenant-id', required: true, description: 'UUID của trường mầm non' })
+  @ApiHeader({ name: 'x-tenant-id', required: false, description: 'UUID của trường mầm non' })
   async login(
     @Body() loginDto: LoginDto,
     @Headers('x-tenant-id') tenantId?: string,
@@ -70,6 +78,39 @@ export class AuthController {
   @ApiOperation({ summary: 'Đăng nhập nhanh theo role (dev only)' })
   async quickLogin(@Body() dto: QuickLoginDto) {
     return this.authService.quickLogin(dto.roleCode, dto.tenantId);
+  }
+
+  /**
+   * POST /api/v1/auth/forgot-password
+   * Public — Yêu cầu gửi mã xác thực OTP qua Email
+   */
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Yêu cầu gửi mã OTP đặt lại mật khẩu qua Email' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.passwordResetService.forgotPassword(dto);
+  }
+
+  /**
+   * POST /api/v1/auth/verify-reset-otp
+   * Public — Xác thực mã OTP 6 số để nhận resetToken
+   */
+  @Post('verify-reset-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Xác thực mã OTP 6 số để nhận reset token' })
+  async verifyResetOtp(@Body() dto: VerifyResetOtpDto) {
+    return this.passwordResetService.verifyResetOtp(dto);
+  }
+
+  /**
+   * POST /api/v1/auth/reset-password
+   * Public — Đặt mật khẩu mới với resetToken
+   */
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Thiết lập mật khẩu mới sau khi xác thực OTP' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.passwordResetService.resetPassword(dto);
   }
 
   /**

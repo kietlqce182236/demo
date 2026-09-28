@@ -46,9 +46,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
    * Return value sẽ được gắn vào `req.user`.
    * Không cần query DB ở đây — giữ stateless cho performance tối đa.
    */
-  async validate(payload: JwtPayload): Promise<JwtPayload> {
+  async validate(payload: JwtPayload): Promise<JwtPayload & { userId: string }> {
     return {
       sub: payload.sub,
+      userId: payload.sub,
       email: payload.email,
       tenantId: payload.tenantId,
       roles: payload.roles,

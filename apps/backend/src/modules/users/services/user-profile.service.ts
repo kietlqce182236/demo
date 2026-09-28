@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { User } from '../../auth/entities/user.entity';
 import { Tenant } from '../../auth/entities/tenant.entity';
@@ -124,8 +124,8 @@ export class UserProfileService {
     }
 
     const saltRounds = 12;
-    user.passwordHash = await bcrypt.hash(dto.newPassword, saltRounds);
-    await this.userRepository.save(user);
+    const passwordHash = await bcrypt.hash(dto.newPassword, saltRounds);
+    await this.userRepository.update({ id: userId }, { passwordHash });
 
     this.logger.log(`Người dùng ${user.email} đã đổi mật khẩu thành công`);
 
@@ -150,9 +150,8 @@ export class UserProfileService {
     const otpAuthUrl = this.twoFactorService.generateOtpAuthUrl(user.email, secret);
     const qrCodeDataUrl = await this.twoFactorService.generateQrCodeDataUrl(otpAuthUrl);
 
-    // Tạm thời lưu secret để bước sau người dùng xác thực mã
-    user.twoFactorSecret = secret;
-    await this.userRepository.save(user);
+    // Lưu secret vào database để bước sau người dùng xác thực mã
+    await this.userRepository.update({ id: userId }, { twoFactorSecret: secret });
 
     return {
       secret,
@@ -187,9 +186,13 @@ export class UserProfileService {
       recoveryCodes.push(crypto.randomBytes(4).toString('hex').toUpperCase());
     }
 
-    user.twoFactorEnabled = true;
-    user.twoFactorRecoveryCodes = recoveryCodes;
-    await this.userRepository.save(user);
+    await this.userRepository.update(
+      { id: userId },
+      {
+        twoFactorEnabled: true,
+        twoFactorRecoveryCodes: recoveryCodes,
+      },
+    );
 
     this.logger.log(`Người dùng ${user.email} đã kích hoạt bảo mật 2 lớp 2FA`);
 
@@ -223,10 +226,14 @@ export class UserProfileService {
       throw new BadRequestException('Mã xác thực OTP không chính xác để hủy 2FA');
     }
 
-    user.twoFactorEnabled = false;
-    user.twoFactorSecret = null;
-    user.twoFactorRecoveryCodes = null;
-    await this.userRepository.save(user);
+    await this.userRepository.update(
+      { id: userId },
+      {
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+        twoFactorRecoveryCodes: null,
+      },
+    );
 
     this.logger.log(`Người dùng ${user.email} đã tắt bảo mật 2 lớp 2FA`);
 

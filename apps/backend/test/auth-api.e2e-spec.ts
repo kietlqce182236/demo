@@ -5,7 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as request from 'supertest';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { authenticator } from 'otplib';
 
 import { AuthController } from '../src/modules/auth/controllers/auth.controller';

@@ -14,6 +14,7 @@ import { SnackServicesModule } from './modules/snack-services/snack-services.mod
 
 import { TenantModule } from './modules/tenant/tenant.module';
 import { UsersModule } from './modules/users/users.module';
+import { MenusModule } from './modules/menus/menus.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { UsersModule } from './modules/users/users.module';
     UsersModule,
     TenantModule,
     NutritionEngineModule,
+    MenusModule,
     PaymentsModule,
     GrowthModule,
     WebsocketModule,

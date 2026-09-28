@@ -11,6 +11,8 @@ import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import { Tenant } from './entities/tenant.entity';
 
+import { PasswordResetService } from './services/password-reset.service';
+
 @Module({
   imports: [
     ConfigModule,
@@ -19,7 +21,7 @@ import { Tenant } from './entities/tenant.entity';
     TypeOrmModule.forFeature([User, Role, Tenant]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, TwoFactorService, JwtStrategy],
-  exports: [AuthService, TwoFactorService, JwtModule, PassportModule],
+  providers: [AuthService, PasswordResetService, TwoFactorService, JwtStrategy],
+  exports: [AuthService, PasswordResetService, TwoFactorService, JwtModule, PassportModule],
 })
 export class AuthModule {}
