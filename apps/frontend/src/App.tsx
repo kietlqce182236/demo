@@ -11,6 +11,7 @@ import { useAuthStore } from './core/stores/auth.store';
 import { ChefHat, Tablet, LayoutDashboard, Sparkles, LogOut } from 'lucide-react';
 
 import { SchoolSettingsPage } from './features/tenant/pages/SchoolSettingsPage';
+import { SnackServicesPage } from './features/snack-services/pages/SnackServicesPage';
 
 export const App: React.FC = () => {
   const { hydrate, isAuthenticated, logout, user } = useAuthStore();
@@ -66,6 +67,7 @@ export const App: React.FC = () => {
           <Route path="classes" element={<SchoolSettingsPage />} />
           <Route path="staff" element={<SchoolSettingsPage />} />
           <Route path="services" element={<MenuPlanningPage />} />
+          <Route path="snack-services" element={<SnackServicesPage />} />
           <Route path="inventory" element={<MenuPlanningPage />} />
           <Route path="food-safety" element={<MenuPlanningPage />} />
           <Route path="finances" element={<MenuPlanningPage />} />
