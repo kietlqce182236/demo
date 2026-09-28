@@ -32,6 +32,39 @@ export class DailyMealAttendanceEntity extends BaseTenantEntity {
   @Column({ type: 'text', nullable: true })
   notes?: string;
 
+  @Column({ name: 'meal_session', type: 'varchar', length: 50, default: 'Bữa trưa chính' })
+  mealSession: string;
+
+  @Column({ name: 'dishes_served', type: 'text', nullable: true })
+  dishesServed?: string;
+
+  @Column({ name: 'dietary_badge_text', type: 'varchar', length: 255, nullable: true })
+  dietaryBadgeText?: string;
+
+  @Column({ name: 'dietary_badge_type', type: 'varchar', length: 50, nullable: true })
+  dietaryBadgeType?: string;
+
+  @Column({ name: 'teacher_name', type: 'varchar', length: 100, default: 'Cô Mai Anh' })
+  teacherName: string;
+
+  @Column({ name: 'parent_status_type', type: 'varchar', length: 50, default: 'VIEWED' })
+  parentStatusType: string;
+
+  @Column({ name: 'parent_status_label', type: 'varchar', length: 100, default: 'PH đã xem' })
+  parentStatusLabel: string;
+
+  @Column({ name: 'need_special_attention', type: 'boolean', default: false })
+  needSpecialAttention: boolean;
+
+  @Column({ name: 'is_locked', type: 'boolean', default: false })
+  isLocked: boolean;
+
+  @Column({ name: 'locked_at', type: 'timestamptz', nullable: true })
+  lockedAt?: Date;
+
+  @Column({ name: 'kitchen_status', type: 'varchar', length: 50, default: 'SYNCED' })
+  kitchenStatus: string;
+
   @ManyToOne(() => ChildEntity, (child) => child.mealAttendances)
   @JoinColumn({ name: 'child_id' })
   child: ChildEntity;

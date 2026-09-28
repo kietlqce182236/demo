@@ -12,6 +12,7 @@ import { ExportReportModal } from './components/ExportReportModal';
 import { attendanceApi } from './api/attendanceApi';
 import { AttendanceResponse, ClassItem, ChildAttendanceItem, MealOption } from './types';
 import { Loader2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import { getKitchenSocket } from '../../core/socket';
 
 export const AttendancePage: React.FC = () => {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ export const AttendancePage: React.FC = () => {
   // State
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('f1000000-0000-0000-0000-000000000001');
-  const [selectedDate, setSelectedDate] = useState<string>('2024-10-25');
+  const [selectedDate, setSelectedDate] = useState<string>('2026-09-25');
   const [mealFilter, setMealFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -44,6 +45,25 @@ export const AttendancePage: React.FC = () => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   };
+
+  // Listen to Real-time WebSocket events from Kitchen
+  useEffect(() => {
+    const socket = getKitchenSocket();
+
+    const handleKitchenStatus = (payload: any) => {
+      if (payload && payload.classId === selectedClassId) {
+        showToast(payload.message || '👨‍🍳 Bếp trung tâm đã cập nhật tiến độ chuẩn bị suất ăn!', 'info');
+        fetchAttendance();
+      }
+    };
+
+    socket.on('KITCHEN_PORTIONS_ACKNOWLEDGED', handleKitchenStatus);
+
+    return () => {
+      socket.off('KITCHEN_PORTIONS_ACKNOWLEDGED', handleKitchenStatus);
+    };
+  }, [selectedClassId]);
+
 
   // Load Classes
   useEffect(() => {
@@ -265,8 +285,10 @@ export const AttendancePage: React.FC = () => {
         activeTab={activeTab}
         onTabChange={(t) => {
           setActiveTab(t);
-          if (t === 'evaluation') navigate('/evaluation');
+          if (t === 'notes') navigate('/coordination-notes');
+          else if (t === 'evaluation') navigate('/evaluation');
           else if (t === 'attendance') navigate('/attendance');
+          else if (t === 'history') navigate('/history');
         }}
       />
 
