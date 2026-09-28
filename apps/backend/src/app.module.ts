@@ -12,6 +12,9 @@ import { GrowthModule } from './modules/growth/growth.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
 import { SnackServicesModule } from './modules/snack-services/snack-services.module';
 
+import { TenantModule } from './modules/tenant/tenant.module';
+import { UsersModule } from './modules/users/users.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -21,6 +24,8 @@ import { SnackServicesModule } from './modules/snack-services/snack-services.mod
     }),
     DatabaseModule,
     AuthModule,
+    UsersModule,
+    TenantModule,
     NutritionEngineModule,
     PaymentsModule,
     GrowthModule,
