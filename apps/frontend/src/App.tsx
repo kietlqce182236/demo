@@ -41,6 +41,7 @@ const RoleBasedRedirect: React.FC = () => {
   return <Navigate to="/dashboard" replace />;
 };
 
+
 export const App: React.FC = () => {
   const { hydrate, isAuthenticated, logout, user } = useAuthStore();
 
@@ -196,7 +197,7 @@ export const App: React.FC = () => {
           <Route path="/children" element={<WeeklyMenuManagementPage />} />
           <Route path="/growth" element={<WeeklyMenuManagementPage />} />
           <Route path="/payments" element={<WeeklyMenuManagementPage />} />
-        </Route>
+
 
         {/* ─── 3. PHÂN HỆ TABLET GIÁO VIÊN ─── */}
         <Route

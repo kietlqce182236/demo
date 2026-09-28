@@ -32,7 +32,9 @@ export const AdminDashboardLayout: React.FC = () => {
     { label: 'Quản trị Lớp học', path: '/classes', icon: GraduationCap },
     { label: 'Nhân sự & Bếp', path: '/staff', icon: Users2 },
     { label: 'Dịch vụ bán trú', path: '/services', icon: Coffee },
+
     { label: 'Phê duyệt thực đơn', path: '/menu-approval', icon: FileCheck2 },
+
     { label: 'Kho & Dinh dưỡng', path: '/inventory', icon: PackageOpen },
     { label: 'Sổ kiểm thực 3 bước', path: '/food-safety', icon: ShieldCheck },
     { label: 'Báo cáo tài chính', path: '/finances', icon: CircleDollarSign },
