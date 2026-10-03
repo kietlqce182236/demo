@@ -20,12 +20,8 @@ export const SchoolProposalForm: React.FC<SchoolProposalFormProps> = ({
   isSubmitting,
 }) => {
   const [category, setCategory] = useState<string>('Đề xuất món mới bé yêu thích');
-  const [title, setTitle] = useState<string>(
-    'Gợi ý thêm món chả tôm cuộn lá lốt hoặc súp cua cho thực đơn'
-  );
-  const [content, setContent] = useState<string>(
-    'Ở nhà bé Bảo Nam rất thích món súp gà nấu ngô ngọt và chả lá lốt mềm. Em mong Bếp nghiên cứu xem có thể luân phiên thêm vào thực đơn ngày thứ Năm để các bé đổi vị phong phú hơn ạ!'
-  );
+  const [title, setTitle] = useState<string>('');
+  const [content, setContent] = useState<string>('');
   const [isAnonymous, setIsAnonymous] = useState<boolean>(false);
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
@@ -35,10 +31,13 @@ export const SchoolProposalForm: React.FC<SchoolProposalFormProps> = ({
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setUploadedFileName(file.name);
-      // Dummy data URL for demonstration
-      setPhotos([
-        'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&auto=format&fit=crop&q=80',
-      ]);
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        if (uploadEvent.target?.result) {
+          setPhotos([uploadEvent.target.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 

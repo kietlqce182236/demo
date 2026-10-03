@@ -22,3 +22,6 @@ export abstract class BaseTenantEntity {
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt?: Date;
 }
+
+export { BaseTenantEntity as BaseTenantTimestampedEntity };
+export { BaseTenantEntity as BaseTenantSoftDeleteEntity };

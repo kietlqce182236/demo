@@ -126,9 +126,9 @@ export class MenuScannerService {
 
     // 3. Lấy danh sách món ăn trong thực đơn kèm thông tin dinh dưỡng & dị ứng
     const dishRows = await this.entityManager.query(
-      `SELECT md.dish_id, d.name as dish_name, md.day_of_week, md.meal_time, md.portion_size_g,
+      `SELECT md.dish_id, d.name as dish_name, d.dish_category, md.day_of_week, md.meal_time, md.portion_size_g,
               d.standard_serving_size_g,
-              f.energy_kcal, f.protein_g, f.fat_g, f.carb_g, f.calcium_mg, f.iron_mg, f.zinc_mg,
+              f.name as food_name, f.energy_kcal, f.protein_g, f.fat_g, f.carb_g, f.calcium_mg, f.iron_mg, f.zinc_mg,
               f.allergens as food_allergens,
               ri.net_weight_per_portion_g
        FROM menu_dishes md
@@ -149,6 +149,8 @@ export class MenuScannerService {
 
     const dishesMap = new Map<string, { dishId: string; dishName: string; allergens: Set<string> }>();
     const dishOccurrenceMap = new Map<string, number>();
+    const lunchCategoriesByDay = new Map<number, Set<string>>();
+    const proteinGroupDays = new Map<string, Set<number>>();
 
     for (const row of dishRows) {
       const factor = (Number(row.net_weight_per_portion_g) || 50) / 100;
@@ -175,6 +177,34 @@ export class MenuScannerService {
 
       // Đếm số lần lặp món
       dishOccurrenceMap.set(row.dish_name, (dishOccurrenceMap.get(row.dish_name) || 0) + 1);
+
+      // Phân tích bữa trưa: Cấu trúc món & Nguồn đạm chính
+      if (row.meal_time === 'LUNCH') {
+        const day = Number(row.day_of_week);
+        if (!lunchCategoriesByDay.has(day)) {
+          lunchCategoriesByDay.set(day, new Set());
+        }
+        if (row.dish_category) {
+          lunchCategoriesByDay.get(day)!.add(row.dish_category);
+        }
+
+        const dishNameLower = (row.dish_name || '').toLowerCase();
+        const foodNameLower = (row.food_name || '').toLowerCase();
+        let proteinType: string | null = null;
+        if (dishNameLower.includes('bò') || foodNameLower.includes('thịt bò')) proteinType = 'Thịt bò';
+        else if (dishNameLower.includes('heo') || dishNameLower.includes('lợn') || foodNameLower.includes('thịt heo') || foodNameLower.includes('thịt lợn')) proteinType = 'Thịt heo';
+        else if (dishNameLower.includes('gà') || foodNameLower.includes('thịt gà')) proteinType = 'Thịt gà / gia cầm';
+        else if (dishNameLower.includes('tôm') || foodNameLower.includes('tôm')) proteinType = 'Tôm / Hải sản';
+        else if (dishNameLower.includes('cá') || foodNameLower.includes('cá')) proteinType = 'Cá';
+        else if (dishNameLower.includes('trứng') || foodNameLower.includes('trứng')) proteinType = 'Trứng';
+
+        if (proteinType) {
+          if (!proteinGroupDays.has(proteinType)) {
+            proteinGroupDays.set(proteinType, new Set());
+          }
+          proteinGroupDays.get(proteinType)!.add(day);
+        }
+      }
     }
 
     // Chuẩn hóa calo
@@ -317,6 +347,46 @@ export class MenuScannerService {
           message: `Món ăn "${dishName}" xuất hiện ${count} lần trong tuần.`,
           recommendation: 'Đa dạng hóa thực đơn bằng cách đổi món canh hoặc món mặn luân phiên.',
         });
+      }
+    }
+
+    // --- KIỂM TRA 5: CẤU TRÚC BỮA TRƯA ĐẠT CHUẨN MẦM NON ---
+    const dayNames: Record<number, string> = { 1: 'Thứ Hai', 2: 'Thứ Ba', 3: 'Thứ Tư', 4: 'Thứ Năm', 5: 'Thứ Sáu', 6: 'Thứ Bảy' };
+    for (const [dayOfWeek, catSet] of lunchCategoriesByDay.entries()) {
+      // Chỉ kiểm tra các ngày thứ 2 đến thứ 6 (1 đến 5)
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        const dayName = dayNames[dayOfWeek] || `Ngày ${dayOfWeek}`;
+        const missing: string[] = [];
+        if (!catSet.has('MAIN_SALTY')) missing.push('Món mặn');
+        if (!catSet.has('SOUP_BROTH')) missing.push('Món canh');
+        if (!catSet.has('STIR_FRY_STEAM')) missing.push('Món xào/rau');
+
+        if (missing.length > 0) {
+          violations.push({
+            code: 'INCOMPLETE_LUNCH_STRUCTURE',
+            severity: 'WARNING',
+            category: 'REPETITION',
+            title: `Cấu trúc bữa trưa chưa hoàn thiện (${dayName})`,
+            message: `Bữa trưa ${dayName} thiếu: ${missing.join(', ')}. Cấu trúc chuẩn mầm non cần đủ Món mặn, Canh và Rau/Xào.`,
+            recommendation: `Bổ sung ${missing.join(' và ')} cho bữa trưa ${dayName} để đảm bảo tính cân đối dinh dưỡng.`,
+          });
+          recommendations.push(`Bổ sung ${missing.join(' và ')} cho bữa trưa ${dayName}.`);
+        }
+      }
+    }
+
+    // --- KIỂM TRA 6: NGUỒN ĐẠM LẶP LẠI QUÁ 3 NGÀY TRONG TUẦN ---
+    for (const [proteinName, days] of proteinGroupDays.entries()) {
+      if (days.size > 3) {
+        violations.push({
+          code: 'PROTEIN_GROUP_OVERUSED',
+          severity: 'WARNING',
+          category: 'REPETITION',
+          title: `Nguồn đạm lặp lại: ${proteinName}`,
+          message: `Nguồn đạm "${proteinName}" xuất hiện trong bữa trưa ${days.size} ngày/tuần (khuyến nghị tối đa 3 ngày/tuần theo Thông tư 28).`,
+          recommendation: `Đa dạng hóa nguồn đạm bằng cách bổ sung thêm cá, tôm, thịt gia cầm hoặc đậu phụ luân phiên.`,
+        });
+        recommendations.push(`Giảm tần suất sử dụng ${proteinName} xuống tối đa 3 ngày/tuần và thay thế bằng cá, tôm hoặc gia cầm.`);
       }
     }
 

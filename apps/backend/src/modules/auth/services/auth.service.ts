@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { TwoFactorService } from './two-factor.service';
 import { LoginDto } from '../dto/login.dto';
+import { ChangePasswordDto } from '../dto/change-password.dto';
 import { User } from '../entities/user.entity';
 import { Tenant } from '../entities/tenant.entity';
 import { JwtPayload } from '../strategies/jwt.strategy';
@@ -132,6 +133,8 @@ export class AuthService {
         avatarUrl: user.avatarUrl,
         roles: roleCodes,
         tenantId: user.tenantId,
+        mustChangePassword: !user.lastLoginAt || user.status === 'INVITED',
+        twoFactorEnabled: user.twoFactorEnabled,
       },
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -283,5 +286,96 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken };
+  }
+
+  /**
+   * Đổi mật khẩu (dùng cho đổi lần đầu hoặc đổi định kỳ)
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.userRepo
+      .createQueryBuilder('u')
+      .addSelect('u.passwordHash')
+      .where('u.id = :userId', { userId })
+      .getOne();
+
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng');
+    }
+
+    const isMatch = await bcrypt.compare(dto.oldPassword, user.passwordHash);
+    if (!isMatch) {
+      throw new BadRequestException('Mật khẩu hiện tại không chính xác');
+    }
+
+    user.passwordHash = await bcrypt.hash(dto.newPassword, 12);
+    if (user.status === 'INVITED') {
+      user.status = 'ACTIVE';
+    }
+    await this.userRepo.save(user);
+
+    return { success: true, message: 'Đổi mật khẩu thành công' };
+  }
+
+  /**
+   * Bắt đầu cài đặt 2FA — Tạo secret và mã QR
+   */
+  async setup2Fa(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng');
+    }
+    const secret = this.twoFactorService.generateSecret();
+    const otpAuthUrl = this.twoFactorService.generateOtpAuthUrl(user.email, secret);
+    const qrCode = await this.twoFactorService.generateQrCodeDataUrl(otpAuthUrl);
+
+    await this.userRepo.update(userId, { twoFactorSecret: secret });
+
+    return { secret, qrCode };
+  }
+
+  /**
+   * Kích hoạt 2FA sau khi nhập đúng mã OTP xác nhận từ Authenticator app
+   */
+  async enable2Fa(userId: string, code: string) {
+    const user = await this.userRepo
+      .createQueryBuilder('u')
+      .addSelect('u.twoFactorSecret')
+      .where('u.id = :userId', { userId })
+      .getOne();
+
+    if (!user || !user.twoFactorSecret) {
+      throw new BadRequestException('Chưa tạo mã thiết lập 2FA. Vui lòng gọi setup trước.');
+    }
+
+    const isValid = this.twoFactorService.verifyCode(code, user.twoFactorSecret);
+    if (!isValid) {
+      throw new BadRequestException('Mã xác thực 2FA không chính xác');
+    }
+
+    await this.userRepo.update(userId, { twoFactorEnabled: true });
+    return { success: true, message: 'Kích hoạt 2FA thành công' };
+  }
+
+  /**
+   * Hủy kích hoạt 2FA
+   */
+  async disable2Fa(userId: string, code: string) {
+    const user = await this.userRepo
+      .createQueryBuilder('u')
+      .addSelect('u.twoFactorSecret')
+      .where('u.id = :userId', { userId })
+      .getOne();
+
+    if (!user || !user.twoFactorEnabled) {
+      throw new BadRequestException('Tài khoản chưa bật 2FA');
+    }
+
+    const isValid = this.twoFactorService.verifyCode(code, user.twoFactorSecret!);
+    if (!isValid) {
+      throw new BadRequestException('Mã xác thực 2FA không chính xác');
+    }
+
+    await this.userRepo.update(userId, { twoFactorEnabled: false, twoFactorSecret: null });
+    return { success: true, message: 'Đã tắt 2FA thành công' };
   }
 }

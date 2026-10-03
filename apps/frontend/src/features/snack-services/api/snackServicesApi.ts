@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { apiClient } from '../../../core/api/axios';
 import {
   SnackServicesResponse,
   SnackServiceListResponse,
@@ -9,14 +9,12 @@ import {
   UpdateSnackServiceResponse,
 } from '../types/snackServices';
 
-const API_BASE_URL = 'http://localhost:3000/api/v1';
-
 export const fetchSnackServices = async (
   search?: string,
   status?: string,
   grade?: string,
 ): Promise<SnackServicesResponse> => {
-  const response = await axios.get<SnackServicesResponse>(`${API_BASE_URL}/snack-services`, {
+  const response = await apiClient.get<SnackServicesResponse>('/snack-services', {
     params: {
       search,
       status: status !== 'ALL' ? status : undefined,
@@ -28,7 +26,7 @@ export const fetchSnackServices = async (
 
 /** UC56: Lấy danh sách gói ăn xế đang hoạt động (cho dropdown) */
 export const fetchSnackServicesList = async (): Promise<SnackServiceListResponse> => {
-  const response = await axios.get<SnackServiceListResponse>(`${API_BASE_URL}/snack-services/list`);
+  const response = await apiClient.get<SnackServiceListResponse>('/snack-services/list');
   return response.data;
 };
 
@@ -36,13 +34,13 @@ export const fetchSnackServicesList = async (): Promise<SnackServiceListResponse
 export const createSnackServicePeriod = async (
   dto: CreateSnackServicePeriodDto,
 ): Promise<CreatePeriodResponse> => {
-  const response = await axios.post<CreatePeriodResponse>(`${API_BASE_URL}/snack-services/periods`, dto);
+  const response = await apiClient.post<CreatePeriodResponse>('/snack-services/periods', dto);
   return response.data;
 };
 
 /** UC57: Lấy chi tiết 1 gói dịch vụ ăn xế */
 export const fetchSnackServiceById = async (id: string): Promise<SnackServiceDetailResponse> => {
-  const response = await axios.get<SnackServiceDetailResponse>(`${API_BASE_URL}/snack-services/${id}`);
+  const response = await apiClient.get<SnackServiceDetailResponse>(`/snack-services/${id}`);
   return response.data;
 };
 
@@ -51,7 +49,7 @@ export const updateSnackService = async (
   id: string,
   dto: UpdateSnackServiceDto,
 ): Promise<UpdateSnackServiceResponse> => {
-  const response = await axios.put<UpdateSnackServiceResponse>(`${API_BASE_URL}/snack-services/${id}`, dto);
+  const response = await apiClient.put<UpdateSnackServiceResponse>(`/snack-services/${id}`, dto);
   return response.data;
 };
 

@@ -26,12 +26,10 @@ export const QuickMealEvaluationForm: React.FC<QuickMealEvaluationFormProps> = (
 }) => {
   const [rating, setRating] = useState<number>(5);
   const [hoverRating, setHoverRating] = useState<number>(0);
-  const [tastePreference, setTastePreference] = useState<string>('Rất thích (Ăn hết 95%)');
-  const [allergySafe, setAllergySafe] = useState<string>('100% Không tôm cua');
-  const [portionFit, setPortionFit] = useState<string>('Vừa vặn thể trạng');
-  const [message, setMessage] = useState<string>(
-    'Hôm nay bé về khen sườn rim rất mềm và ngon miệng, bé đòi ăn thêm canh cải. Cảm ơn các cô và các chú đầu bếp rất nhiều ạ!'
-  );
+  const [tastePreference, setTastePreference] = useState<string>('');
+  const [allergySafe, setAllergySafe] = useState<string>('');
+  const [portionFit, setPortionFit] = useState<string>('');
+  const [message, setMessage] = useState<string>('');
   const [showSuccessToast, setShowSuccessToast] = useState<string | null>(null);
 
   const getRatingLabel = (score: number) => {
@@ -198,10 +196,8 @@ export const QuickMealEvaluationForm: React.FC<QuickMealEvaluationFormProps> = (
           {/* Tag 1: Khẩu vị & Sức ăn */}
           <div
             onClick={() =>
-              setTastePreference(
-                tastePreference === 'Rất thích (Ăn hết 95%)'
-                  ? 'Ăn vừa đủ (70-80%)'
-                  : 'Rất thích (Ăn hết 95%)'
+              setTastePreference((prev) =>
+                prev === 'Rất thích (Ăn hết)' ? 'Ăn vừa đủ' : 'Rất thích (Ăn hết)'
               )
             }
             className="p-2.5 rounded-xl border border-teal-200 bg-teal-50/60 hover:bg-teal-50 text-teal-900 cursor-pointer transition select-none flex flex-col justify-between"
@@ -210,16 +206,14 @@ export const QuickMealEvaluationForm: React.FC<QuickMealEvaluationFormProps> = (
               <Heart className="w-3.5 h-3.5 fill-teal-600 text-teal-600" />
               <span>Khẩu vị & Sức ăn</span>
             </div>
-            <p className="text-xs font-bold text-slate-800">{tastePreference}</p>
+            <p className="text-xs font-bold text-slate-800">{tastePreference || 'Chạm để chọn'}</p>
           </div>
 
           {/* Tag 2: An toàn dị ứng */}
           <div
             onClick={() =>
-              setAllergySafe(
-                allergySafe === '100% Không tôm cua'
-                  ? 'Được kiểm tra trước bữa'
-                  : '100% Không tôm cua'
+              setAllergySafe((prev) =>
+                prev === 'An toàn tuyệt đối' ? 'Đã kiểm tra kỹ' : 'An toàn tuyệt đối'
               )
             }
             className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50 text-emerald-900 cursor-pointer transition select-none flex flex-col justify-between"
@@ -228,16 +222,14 @@ export const QuickMealEvaluationForm: React.FC<QuickMealEvaluationFormProps> = (
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>An toàn dị ứng</span>
             </div>
-            <p className="text-xs font-bold text-slate-800">{allergySafe}</p>
+            <p className="text-xs font-bold text-slate-800">{allergySafe || 'Chạm để chọn'}</p>
           </div>
 
           {/* Tag 3: Định lượng khẩu phần */}
           <div
             onClick={() =>
-              setPortionFit(
-                portionFit === 'Vừa vặn thể trạng'
-                  ? 'Cần tăng thêm cơm'
-                  : 'Vừa vặn thể trạng'
+              setPortionFit((prev) =>
+                prev === 'Vừa vặn thể trạng' ? 'Cần tăng khẩu phần' : 'Vừa vặn thể trạng'
               )
             }
             className="p-2.5 rounded-xl border border-sky-200 bg-sky-50/60 hover:bg-sky-50 text-sky-900 cursor-pointer transition select-none flex flex-col justify-between"
@@ -246,7 +238,7 @@ export const QuickMealEvaluationForm: React.FC<QuickMealEvaluationFormProps> = (
               <Scale className="w-3.5 h-3.5 text-sky-600" />
               <span>Định lượng khẩu phần</span>
             </div>
-            <p className="text-xs font-bold text-slate-800">{portionFit}</p>
+            <p className="text-xs font-bold text-slate-800">{portionFit || 'Chạm để chọn'}</p>
           </div>
         </div>
 

@@ -36,7 +36,7 @@ export const WeeklyMenuGrid: React.FC<WeeklyMenuGridProps> = ({ days }) => {
                   <span className="text-[10px] font-medium text-slate-400">({day.lunch.timeText})</span>
                 </div>
                 <span className="text-[10px] font-extrabold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100">
-                  {day.lunch.calories} Kcal
+                  {Number(day.lunch.calories).toFixed(1)} Kcal
                 </span>
               </div>
 
@@ -87,7 +87,7 @@ export const WeeklyMenuGrid: React.FC<WeeklyMenuGridProps> = ({ days }) => {
                   <span className="text-[10px] font-medium text-slate-400">({day.afternoonSnack.timeText})</span>
                 </div>
                 <span className="text-[10px] font-extrabold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
-                  {day.afternoonSnack.calories} Kcal
+                  {Number(day.afternoonSnack.calories).toFixed(1)} Kcal
                 </span>
               </div>
 
@@ -120,7 +120,7 @@ export const WeeklyMenuGrid: React.FC<WeeklyMenuGridProps> = ({ days }) => {
           <div className="p-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-700">
             <span className="flex items-center gap-1">
               <Flame className="w-3 h-3 text-amber-500" />
-              Tổng: {day.nutrition.totalCalories} Kcal
+              Tổng: {Number(day.nutrition.totalCalories).toFixed(1)} Kcal
             </span>
             <span className="text-teal-700 font-extrabold text-[10px]">
               P:L:G = {day.nutrition.ratioPLG}

@@ -64,6 +64,25 @@ export class Menu {
   @Column({ name: 'rejection_reason', type: 'text', nullable: true })
   rejectionReason: string | null;
 
+  /** Quản lý yêu cầu xin phép Hiệu trưởng chỉnh sửa thực đơn đã duyệt/công bố */
+  @Column({ name: 'edit_request_status', type: 'varchar', length: 50, default: 'NONE' })
+  editRequestStatus: string;
+
+  @Column({ name: 'edit_request_reason', type: 'text', nullable: true })
+  editRequestReason: string | null;
+
+  @Column({ name: 'edit_request_at', type: 'timestamptz', nullable: true })
+  editRequestAt: Date | null;
+
+  @Column({ name: 'edit_request_by', type: 'uuid', nullable: true })
+  editRequestBy: string | null;
+
+  @Column({ name: 'edit_request_response_notes', type: 'text', nullable: true })
+  editRequestResponseNotes: string | null;
+
+  @Column({ name: 'edit_request_responded_at', type: 'timestamptz', nullable: true })
+  editRequestRespondedAt: Date | null;
+
   /** Quản lý phiên bản: 1, 2, 3... tương ứng v1.0, v1.1, v2.0 */
   @Column({ name: 'version', type: 'int', default: 1 })
   version: number;

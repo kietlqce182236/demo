@@ -31,6 +31,14 @@ export class CreateDishDto {
 
   @IsString()
   @IsOptional()
+  dishCategory?: string;
+
+  @IsString()
+  @IsOptional()
+  approvalStatus?: string;
+
+  @IsString()
+  @IsOptional()
   targetAgeGroup?: string;
 
   @IsString()

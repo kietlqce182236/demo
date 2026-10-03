@@ -84,8 +84,8 @@ export const DishModal: React.FC<DishModalProps> = ({ isOpen, mode, dishId, onCl
 
   const fetchFoods = async () => {
     try {
-      // Fetch some common foods for the dropdown (in real app, this should be searchable)
-      const res = await apiClient.get('/foods', { params: { limit: 100 } });
+      // Fetch all foods for the recipe dropdown
+      const res = await apiClient.get('/foods', { params: { limit: 500 } });
       setFoods(res.data.items);
     } catch (error) {
       console.error(error);

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, FileSpreadsheet, Upload, CheckCircle2, AlertCircle, FileText, Sparkles } from 'lucide-react';
 import { ImportExcelPayload } from '../api/weekly-menus.api';
+import { apiClient } from '../../../core/api/axios';
 
 interface ExcelImportModalProps {
   isOpen: boolean;
@@ -13,47 +14,82 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   onClose,
   onImport,
 }) => {
-  const [title, setTitle] = useState('Thực đơn Tuần Mới (Nhập từ Excel)');
-  const [startDate, setStartDate] = useState('2026-09-28');
-  const [endDate, setEndDate] = useState('2026-10-02');
+  const [title, setTitle] = useState('');
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 5);
+    return d.toISOString().split('T')[0];
+  });
   const [targetAgeGroup, setTargetAgeGroup] = useState('ALL_AGES');
-  const [cycleWeekNumber, setCycleWeekNumber] = useState(39);
+  const [cycleWeekNumber, setCycleWeekNumber] = useState(1);
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsedItems, setParsedItems] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Mẫu dữ liệu thực đơn tuần mẫu khi import nhanh
-  const sampleExcelData = [
-    { dayOfWeek: 1, mealTime: 'BREAKFAST', dishName: 'Cháo sườn non cà rốt', portionSizeG: 200, calories: 145 },
-    { dayOfWeek: 1, mealTime: 'MORNING_SNACK', dishName: 'Sữa tươi tiệt trùng', portionSizeG: 150, calories: 95 },
-    { dayOfWeek: 1, mealTime: 'LUNCH', dishName: 'Cơm trắng gạo tẻ dẻo', portionSizeG: 100, calories: 172 },
-    { dayOfWeek: 1, mealTime: 'LUNCH', dishName: 'Thịt lợn nạc rim vừng dừa', portionSizeG: 60, calories: 90 },
-    { dayOfWeek: 1, mealTime: 'LUNCH', dishName: 'Canh rau ngót nấu tôm đồng', portionSizeG: 120, calories: 28 },
-    { dayOfWeek: 1, mealTime: 'AFTERNOON_SNACK', dishName: 'Sữa chua dầm chuối tiêu tươi', portionSizeG: 110, calories: 110 },
-    { dayOfWeek: 2, mealTime: 'BREAKFAST', dishName: 'Cháo thịt bò hạt sen bí đỏ', portionSizeG: 200, calories: 171 },
-    { dayOfWeek: 2, mealTime: 'LUNCH', dishName: 'Cơm trắng gạo tẻ dẻo', portionSizeG: 100, calories: 172 },
-    { dayOfWeek: 2, mealTime: 'LUNCH', dishName: 'Cá hồi áp chảo sốt bơ tỏi', portionSizeG: 65, calories: 82 },
-    { dayOfWeek: 2, mealTime: 'LUNCH', dishName: 'Canh bí đỏ thịt băm', portionSizeG: 120, calories: 33 },
-    { dayOfWeek: 2, mealTime: 'AFTERNOON_SNACK', dishName: 'Sữa đậu nành lá dứa hạt sen', portionSizeG: 150, calories: 120 },
-    { dayOfWeek: 3, mealTime: 'LUNCH', dishName: 'Trứng cuộn rau củ tam sắc', portionSizeG: 55, calories: 70 },
-    { dayOfWeek: 4, mealTime: 'LUNCH', dishName: 'Thịt bò xào su su cà rốt', portionSizeG: 60, calories: 72 },
-    { dayOfWeek: 5, mealTime: 'LUNCH', dishName: 'Thịt lợn nạc rim vừng dừa', portionSizeG: 60, calories: 90 },
-  ];
-
-  const handleSimulateUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      setParsedItems(sampleExcelData);
-      setError(null);
+    if (!file) return;
+    setFileName(file.name);
+    setError(null);
+
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      const parsed: any[] = [];
+      lines.forEach((line, index) => {
+        if (index === 0 && (line.toLowerCase().includes('món') || line.toLowerCase().includes('dish'))) return;
+        const parts = line.split(/[,\t;|]/);
+        if (parts.length >= 3) {
+          parsed.push({
+            dayOfWeek: parseInt(parts[0]) || ((index % 5) + 1),
+            mealTime: parts[1]?.trim() || 'LUNCH',
+            dishName: parts[2]?.trim() || parts[0]?.trim(),
+            portionSizeG: parseInt(parts[3]) || 100,
+            calories: parseInt(parts[4]) || 150,
+          });
+        } else if (parts[0]?.trim()) {
+          parsed.push({
+            dayOfWeek: (index % 5) + 1,
+            mealTime: 'LUNCH',
+            dishName: parts[0]?.trim(),
+            portionSizeG: 100,
+            calories: 150,
+          });
+        }
+      });
+
+      if (parsed.length > 0) {
+        setParsedItems(parsed);
+      } else {
+        setError('Không nhận diện được dòng món ăn hợp lệ từ tệp.');
+      }
+    } catch (err: any) {
+      setError('Lỗi khi đọc file: ' + err.message);
     }
   };
 
-  const handleUseSample = () => {
-    setFileName('Thuc_don_tuan_chuan_VN_RDA.xlsx');
-    setParsedItems(sampleExcelData);
-    setError(null);
+  const handleLoadDishesFromDatabase = async () => {
+    try {
+      const res = await apiClient.get('/menus/available-dishes');
+      const dishes = res.data || [];
+      if (dishes.length > 0) {
+        setFileName('Thuc_don_tu_kho_mon_an.xlsx');
+        const mealTimes = ['BREAKFAST', 'LUNCH', 'AFTERNOON_SNACK'];
+        const mapped = dishes.slice(0, 15).map((d: any, idx: number) => ({
+          dayOfWeek: (idx % 5) + 1,
+          mealTime: mealTimes[idx % 3],
+          dishName: d.name,
+          portionSizeG: d.standardServingSizeG || 100,
+          calories: d.totalCalories || 120,
+        }));
+        setParsedItems(mapped);
+        setError(null);
+      }
+    } catch (err: any) {
+      setError('Lỗi khi tải món ăn từ database: ' + (err.message || ''));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -164,8 +200,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             <input
               type="file"
               id="excel-file"
-              accept=".xlsx,.xls,.csv"
-              onChange={handleSimulateUpload}
+              accept=".xlsx,.xls,.csv,.txt"
+              onChange={handleFileUpload}
               className="hidden"
             />
             <label htmlFor="excel-file" className="cursor-pointer flex flex-col items-center">
@@ -176,7 +212,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 {fileName ? fileName : 'Bấm để chọn file Excel (.xlsx / .csv) hoặc kéo thả vào đây'}
               </p>
               <p className="text-[11px] text-slate-400 mt-1">
-                Hỗ trợ định dạng biểu mẫu Excel thực đơn bán trú 5 ngày theo Thông tư 28
+                Hỗ trợ định dạng biểu mẫu Excel/CSV thực đơn bán trú 5 ngày theo Thông tư 28
               </p>
             </label>
 
@@ -184,11 +220,11 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               <div className="mt-3">
                 <button
                   type="button"
-                  onClick={handleUseSample}
+                  onClick={handleLoadDishesFromDatabase}
                   className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-full transition"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  Nạp nhanh file mẫu chuẩn VN-RDA (14 món tuần)
+                  Nạp từ kho món ăn trong Cơ sở dữ liệu
                 </button>
               </div>
             )}

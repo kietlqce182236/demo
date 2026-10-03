@@ -45,7 +45,8 @@ export const CreateEditCoordinationNoteModal: React.FC<CreateEditCoordinationNot
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [kitchenResponse, setKitchenResponse] = useState('');
-  const [teacherName, setTeacherName] = useState('Cô Nguyễn Lan Anh (GVCN Chồi 1)');
+  const currentLoggedInTeacher = localStorage.getItem('user_full_name') || localStorage.getItem('user_name') || '';
+  const [teacherName, setTeacherName] = useState(currentLoggedInTeacher);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -61,7 +62,7 @@ export const CreateEditCoordinationNoteModal: React.FC<CreateEditCoordinationNot
       setTitle(noteToEdit.title);
       setContent(noteToEdit.content);
       setKitchenResponse(noteToEdit.kitchenResponse || '');
-      setTeacherName(noteToEdit.teacherName || 'Cô Nguyễn Lan Anh (GVCN Chồi 1)');
+      setTeacherName(noteToEdit.teacherName || currentLoggedInTeacher);
     } else {
       const effectiveClassId = selectedClassId || availableClasses[0]?.id || '';
       setClassId(effectiveClassId);
@@ -74,7 +75,7 @@ export const CreateEditCoordinationNoteModal: React.FC<CreateEditCoordinationNot
       setTitle('');
       setContent('');
       setKitchenResponse('');
-      setTeacherName('Cô Nguyễn Lan Anh (GVCN Chồi 1)');
+      setTeacherName(currentLoggedInTeacher);
     }
     setErrorMsg('');
   }, [noteToEdit, selectedClassId, availableClasses, isOpen]);

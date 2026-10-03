@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
+import { RecipeItem } from '../../dishes/entities/recipe-item.entity';
 
 @Entity('dishes')
 export class Dish {
@@ -17,6 +18,12 @@ export class Dish {
 
   @Column({ type: 'varchar', length: 255 })
   name: string;
+
+  @Column({ name: 'dish_category', type: 'varchar', length: 50, nullable: true })
+  dishCategory: string;
+
+  @Column({ name: 'approval_status', type: 'varchar', length: 30, default: 'APPROVED' })
+  approvalStatus: string;
 
   /**
    * MAIN_COURSE | SOUP | SIDE_VEGETABLE | RICE_STAPLE | PORRIDGE_NOODLE | DESSERT | SNACK_AFTERNOON | DRINK
@@ -71,4 +78,7 @@ export class Dish {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @OneToMany(() => RecipeItem, (recipeItem) => recipeItem.dish, { cascade: true })
+  recipeItems: RecipeItem[];
 }

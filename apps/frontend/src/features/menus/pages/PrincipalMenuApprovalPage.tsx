@@ -35,6 +35,7 @@ import { MenuStatsCards } from '../components/MenuStatsCards';
 import { WeeklyGridTable } from '../components/WeeklyGridTable';
 import { ApprovalModal } from '../components/ApprovalModal';
 import { PrintPreviewModal } from '../components/PrintPreviewModal';
+import { RespondEditRequestModal } from '../components/RespondEditRequestModal';
 
 export const PrincipalMenuApprovalPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -57,6 +58,7 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
 
   // Modals
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState<boolean>(false);
+  const [isRespondEditModalOpen, setIsRespondEditModalOpen] = useState<boolean>(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [printData, setPrintData] = useState<ExportDataResponse | null>(null);
 
@@ -162,6 +164,34 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
       await fetchAllData(updated.id);
     } catch (err: any) {
       showNotify('error', err?.response?.data?.message || 'Không thể từ chối thực đơn.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 4.1. Hiệu trưởng chấp thuận yêu cầu xin phép chỉnh sửa (mở khóa về DRAFT)
+  const handleApproveEditRequest = async (id: string, notes?: string) => {
+    try {
+      setActionLoading(true);
+      const updated = await weeklyMenusApi.approveEditRequest(id, notes);
+      showNotify('success', `Đã chấp thuận yêu cầu chỉnh sửa cho thực đơn: ${updated.title}. Thực đơn đã mở khóa về Bản dự thảo.`);
+      await fetchAllData(updated.id);
+    } catch (err: any) {
+      showNotify('error', err?.response?.data?.message || 'Không thể chấp thuận yêu cầu chỉnh sửa.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 4.2. Hiệu trưởng từ chối yêu cầu xin phép chỉnh sửa
+  const handleRejectEditRequest = async (id: string, reason: string) => {
+    try {
+      setActionLoading(true);
+      const updated = await weeklyMenusApi.rejectEditRequest(id, reason);
+      showNotify('success', `Đã từ chối yêu cầu xin chỉnh sửa thực đơn.`);
+      await fetchAllData(updated.id);
+    } catch (err: any) {
+      showNotify('error', err?.response?.data?.message || 'Không thể từ chối yêu cầu chỉnh sửa.');
     } finally {
       setActionLoading(false);
     }
@@ -469,6 +499,11 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
                               Cần duyệt
                             </span>
                           )}
+                          {menu.editRequestStatus === 'PENDING' && (
+                            <span className="bg-purple-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded uppercase animate-pulse">
+                              Xin sửa
+                            </span>
+                          )}
                         </div>
                         <p className="text-[11px] text-slate-400 font-normal mt-0.5">
                           Mã: <code className="text-[10px]">{menu.id.slice(0, 8)}</code> • Tuần {menu.cycleWeekNumber}
@@ -492,13 +527,19 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Năng lượng TB */}
+                      {/* Năng lượng TB & Dinh dưỡng */}
                       <td className="py-3.5 px-4 text-center">
                         <span className="font-black text-amber-700 text-xs inline-flex items-center gap-1">
                           <Flame className="w-3 h-3 text-amber-500" />
-                          {menu.dailyAverageCalories || 0} Kcal
+                          {Number(menu.dailyAverageCalories || 0).toFixed(1)} Kcal
                         </span>
-                        <span className="block text-[10px] text-slate-400">Chuẩn TT 28</span>
+                        <div className="flex items-center justify-center gap-1 mt-0.5 text-[10px] font-semibold">
+                          <span className="text-blue-700">P:{Number(menu.dailyAverageProteinG || 0).toFixed(0)}g</span>
+                          <span className="text-slate-300">•</span>
+                          <span className="text-amber-700">L:{Number(menu.dailyAverageFatG || 0).toFixed(0)}g</span>
+                          <span className="text-slate-300">•</span>
+                          <span className="text-emerald-700">G:{Number(menu.dailyAverageCarbG || 0).toFixed(0)}g</span>
+                        </div>
                       </td>
 
                       {/* Người lập & Ngày gửi */}
@@ -529,6 +570,21 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
                             <Eye className="w-3.5 h-3.5 text-teal-600" />
                             <span>Xem chi tiết</span>
                           </button>
+
+                          {/* Nút Duyệt xin sửa nếu có yêu cầu */}
+                          {menu.editRequestStatus === 'PENDING' && (
+                            <button
+                              onClick={() => {
+                                handleSelectMenu(menu.id, false);
+                                setIsRespondEditModalOpen(true);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center gap-1 transition shadow-xs animate-pulse cursor-pointer"
+                              title="Hiệu trưởng duyệt yêu cầu xin phép chỉnh sửa thực đơn"
+                            >
+                              <ShieldAlert className="w-3.5 h-3.5" />
+                              <span>Duyệt xin sửa</span>
+                            </button>
+                          )}
 
                           {/* Nút Duyệt nhanh nếu đang chờ duyệt */}
                           {menu.status === 'SUBMITTED_FOR_REVIEW' && (
@@ -624,23 +680,74 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
 
             {/* Nội dung chi tiết cuộn được */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Thẻ thẩm định nhanh 4 tiêu chí */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-amber-50/80 border border-amber-200/80 p-3.5 rounded-2xl text-center">
-                  <span className="text-[10px] uppercase font-bold text-amber-800 block">Năng lượng TB/ngày</span>
-                  <span className="text-lg font-black text-amber-950 mt-0.5 block">
-                    {selectedMenu.dailyAverageCalories || 0} Kcal
-                  </span>
-                  <span className="text-[10px] text-amber-700 font-medium">Chuẩn TT 28 (650-880)</span>
+              {/* Banner YÊU CẦU XIN PHÉP CHỈNH SỬA nếu có */}
+              {selectedMenu.editRequestStatus === 'PENDING' && (
+                <div className="p-4 bg-gradient-to-r from-amber-50 via-purple-50/50 to-white border border-amber-300 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-sm animate-in fade-in">
+                  <div className="flex items-start gap-3 flex-1 min-w-[280px]">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-md shadow-amber-500/25 shrink-0 mt-0.5">
+                      <ShieldAlert className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-amber-950 text-sm">
+                          YÊU CẦU XIN PHÉP CHỈNH SỬA THỰC ĐƠN
+                        </span>
+                        <span className="bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                          Chờ BGH duyệt
+                        </span>
+                      </div>
+                      <p className="text-xs text-amber-900 mt-1 font-semibold">
+                        Lý do xin sửa: "{selectedMenu.editRequestReason}"
+                      </p>
+                      <p className="text-[11px] text-amber-700 mt-0.5">
+                        Gửi lúc: {selectedMenu.editRequestAt ? new Date(selectedMenu.editRequestAt).toLocaleString('vi-VN') : 'Mới đây'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsRespondEditModalOpen(true)}
+                    className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-600 to-purple-600 hover:from-amber-700 hover:to-purple-700 text-white text-xs font-bold shadow-md shadow-amber-600/30 flex items-center gap-1.5 transition shrink-0 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Duyệt yêu cầu xin sửa</span>
+                  </button>
                 </div>
+              )}
 
-                <div className="bg-emerald-50/80 border border-emerald-200/80 p-3.5 rounded-2xl text-center">
-                  <span className="text-[10px] uppercase font-bold text-emerald-800 block">Cân đối P : L : G</span>
-                  <span className="text-lg font-black text-emerald-950 mt-0.5 block">
-                    14% : 28% : 58%
-                  </span>
-                  <span className="text-[10px] text-emerald-700 font-medium">Đạt tỷ lệ cân đối</span>
-                </div>
+              {/* Thẻ thẩm định nhanh 4 tiêu chí */}
+              {/* Thẻ thẩm định nhanh 4 tiêu chí */}
+              {(() => {
+                const selCal = Number(selectedMenu.dailyAverageCalories) || 0;
+                const selP = Number(selectedMenu.dailyAverageProteinG) || 0;
+                const selL = Number(selectedMenu.dailyAverageFatG) || 0;
+                const selG = Number(selectedMenu.dailyAverageCarbG) || 0;
+                const selPPct = selCal > 0 ? Math.round((selP * 4 / selCal) * 100) : 16;
+                const selLPct = selCal > 0 ? Math.round((selL * 9 / selCal) * 100) : 30;
+                const selGPct = Math.max(0, 100 - selPPct - selLPct);
+
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-amber-50/80 border border-amber-200/80 p-3.5 rounded-2xl text-center shadow-2xs">
+                      <span className="text-[10px] uppercase font-bold text-amber-800 block">Năng lượng TB/ngày</span>
+                      <span className="text-lg font-black text-amber-950 mt-0.5 block">
+                        {selCal.toFixed(1)} Kcal
+                      </span>
+                      <span className="text-[10px] text-amber-700 font-medium">Chuẩn TT 28 (615 - 726 Kcal)</span>
+                    </div>
+
+                    <div className="bg-emerald-50/80 border border-emerald-200/80 p-3.5 rounded-2xl text-center shadow-2xs">
+                      <span className="text-[10px] uppercase font-bold text-emerald-800 block">Cơ cấu P : L : G</span>
+                      <span className="text-lg font-black text-emerald-950 mt-0.5 block">
+                        {selPPct}% : {selLPct}% : {selGPct}%
+                      </span>
+                      <span className="text-[10px] text-emerald-700 font-medium">
+                        P: {selP.toFixed(1)}g | L: {selL.toFixed(1)}g | G: {selG.toFixed(1)}g
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+              <div className="grid grid-cols-2 gap-3 -mt-3">
 
                 <div className="bg-blue-50/80 border border-blue-200/80 p-3.5 rounded-2xl text-center">
                   <span className="text-[10px] uppercase font-bold text-blue-800 block">Nhóm tuổi phục vụ</span>
@@ -744,6 +851,15 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
         menu={selectedMenu}
         onApprove={handleApprove}
         onReject={handleReject}
+      />
+
+      {/* Modal Hiệu trưởng Duyệt / Từ chối yêu cầu xin phép chỉnh sửa */}
+      <RespondEditRequestModal
+        isOpen={isRespondEditModalOpen}
+        onClose={() => setIsRespondEditModalOpen(false)}
+        menu={selectedMenu}
+        onApprove={handleApproveEditRequest}
+        onReject={handleRejectEditRequest}
       />
 
       {/* Modal Xem trước & In ấn (Print Preview) */}

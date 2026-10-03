@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-interface GrowthDataPoint {
+export interface GrowthDataPoint {
   month: number;
   childWeight: number;
   sdMinus2: number;
@@ -18,15 +18,28 @@ interface GrowthDataPoint {
   sdPlus2: number;
 }
 
-const mockWhoData: GrowthDataPoint[] = [
-  { month: 24, childWeight: 12.2, sdMinus2: 10.6, median: 12.2, sdPlus2: 14.3 },
-  { month: 27, childWeight: 12.9, sdMinus2: 11.2, median: 12.9, sdPlus2: 15.2 },
-  { month: 30, childWeight: 13.5, sdMinus2: 11.8, median: 13.6, sdPlus2: 16.0 },
-  { month: 33, childWeight: 14.1, sdMinus2: 12.4, median: 14.2, sdPlus2: 16.8 },
-  { month: 36, childWeight: 14.6, sdMinus2: 12.9, median: 14.8, sdPlus2: 17.6 },
-];
+interface WhoGrowthChartProps {
+  data?: GrowthDataPoint[];
+  childName?: string;
+  className?: string;
+  zScoreText?: string;
+}
 
-export const WhoGrowthChart: React.FC = () => {
+export const WhoGrowthChart: React.FC<WhoGrowthChartProps> = ({
+  data,
+  childName,
+  className,
+  zScoreText,
+}) => {
+  if (!data || data.length === 0) {
+    return (
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center py-12">
+        <p className="text-sm font-semibold text-slate-500">Chưa có dữ liệu đo thể lực cho học sinh này.</p>
+        <p className="text-xs text-slate-400 mt-1">Vui lòng ghi nhận chỉ số cân đo mới từ thực tế.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
       <div className="flex items-center justify-between mb-4">
@@ -34,19 +47,25 @@ export const WhoGrowthChart: React.FC = () => {
           <h3 className="font-bold text-slate-800 text-base">
             Biểu đồ Tăng trưởng Cân nặng theo Tuổi (WHO Standards)
           </h3>
-          <p className="text-xs text-slate-500">Bé: Trần Gia Bảo (Lớp Chồi 1) – Bé trai</p>
+          {(childName || className) && (
+            <p className="text-xs text-slate-500">
+              {childName && `Bé: ${childName}`} {className && `(${className})`}
+            </p>
+          )}
         </div>
-        <span className="text-xs bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full font-bold">
-          Z-Score: +0.2 SD (Phát triển bình thường)
-        </span>
+        {zScoreText && (
+          <span className="text-xs bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full font-bold">
+            {zScoreText}
+          </span>
+        )}
       </div>
 
       <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={mockWhoData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+          <LineChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="month" unit=" thg" tick={{ fontSize: 12 }} />
-            <YAxis unit=" kg" domain={[8, 20]} tick={{ fontSize: 12 }} />
+            <YAxis unit=" kg" domain={['dataMin - 1', 'dataMax + 2']} tick={{ fontSize: 12 }} />
             <Tooltip />
             <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
 

@@ -15,6 +15,12 @@ export class Dish {
   @Column({ name: 'dish_type', type: 'varchar', length: 50, nullable: true })
   dishType: string;
 
+  @Column({ name: 'dish_category', type: 'varchar', length: 50, nullable: true })
+  dishCategory: string; // 'SOUP_NOODLE' | 'MAIN_SALTY' | 'SOUP_BROTH' | 'STIR_FRY_STEAM' | 'DESSERT' | 'MILK'
+
+  @Column({ name: 'approval_status', type: 'varchar', length: 30, default: 'APPROVED' })
+  approvalStatus: string; // 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'
+
   @Column({ name: 'target_age_group', type: 'varchar', length: 50, nullable: true })
   targetAgeGroup: string;
 

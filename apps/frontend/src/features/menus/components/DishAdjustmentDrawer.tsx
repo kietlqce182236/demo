@@ -36,6 +36,8 @@ export const DishAdjustmentDrawer: React.FC<DishAdjustmentDrawerProps> = ({
     3: 'Thứ Tư',
     4: 'Thứ Năm',
     5: 'Thứ Sáu',
+    6: 'Thứ Bảy',
+    7: 'Chủ Nhật',
   };
 
   const mealTimeNames: Record<string, string> = {
@@ -162,6 +164,8 @@ export const DishAdjustmentDrawer: React.FC<DishAdjustmentDrawerProps> = ({
                   <option value={3}>Thứ Tư</option>
                   <option value={4}>Thứ Năm</option>
                   <option value={5}>Thứ Sáu</option>
+                  <option value={6}>Thứ Bảy</option>
+                  <option value={7}>Chủ Nhật</option>
                 </select>
               </div>
 
@@ -276,6 +280,45 @@ export const DishAdjustmentDrawer: React.FC<DishAdjustmentDrawerProps> = ({
                     </span>
                   </div>
                 </div>
+
+                {/* Danh sách thành phần nguyên liệu cấu thành */}
+                {currentDish.recipeItems && currentDish.recipeItems.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-200/80">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Utensils className="w-3.5 h-3.5 text-teal-600" />
+                        Nguyên liệu cấu thành ({currentDish.recipeItems.length}):
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-semibold">
+                        Quy tắc: (Định lượng/100) × DB
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {currentDish.recipeItems.map((ri, idx) => {
+                        const food = ri.food;
+                        const ratio = (portionSizeG / Number(currentDish.standardServingSizeG || 100));
+                        const scaledNetG = (Number(ri.netWeightPerPortionG) * ratio).toFixed(1);
+                        const foodKcal = food ? ((Number(ri.netWeightPerPortionG) / 100) * Number(food.energyKcal) * ratio).toFixed(1) : '-';
+                        return (
+                          <div key={idx} className="flex items-center justify-between text-xs bg-white p-2 rounded-xl border border-slate-100 shadow-2xs">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-slate-800">{food?.name || 'Nguyên liệu'}</span>
+                              {food?.allergens && food.allergens.length > 0 && (
+                                <span className="text-[9px] bg-red-50 text-red-600 px-1 py-0.5 rounded font-bold border border-red-100">
+                                  {food.allergens.join(', ')}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-slate-500 font-medium">
+                              <span className="bg-slate-100 px-1.5 py-0.5 rounded font-bold text-slate-700">{scaledNetG}g</span>
+                              <span className="text-amber-700 font-bold">{foodKcal} kcal</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

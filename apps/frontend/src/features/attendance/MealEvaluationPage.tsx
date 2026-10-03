@@ -23,8 +23,8 @@ export const MealEvaluationPage: React.FC = () => {
 
   // State
   const [classes, setClasses] = useState<ClassItem[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<string>('f1000000-0000-0000-0000-000000000001');
-  const [selectedDate, setSelectedDate] = useState<string>('2026-09-25');
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [selectedMealType, setSelectedMealType] = useState<string>('LUNCH');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);

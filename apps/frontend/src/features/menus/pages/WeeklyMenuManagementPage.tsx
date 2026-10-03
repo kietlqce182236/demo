@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Clock,
   ChevronDown,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAuthStore } from '../../../core/stores/auth.store';
 import {
@@ -27,6 +28,7 @@ import {
   DishItem,
   MenuDishItem,
   ExportDataResponse,
+  MenuAdvisoryResponse,
 } from '../api/weekly-menus.api';
 import { NutriKidHeader } from '../components/NutriKidHeader';
 import { MenuStatsCards } from '../components/MenuStatsCards';
@@ -36,6 +38,10 @@ import { DishAdjustmentDrawer } from '../components/DishAdjustmentDrawer';
 import { ExcelImportModal } from '../components/ExcelImportModal';
 import { ApprovalModal } from '../components/ApprovalModal';
 import { PrintPreviewModal } from '../components/PrintPreviewModal';
+import { AutoGenerateMenuModal } from '../components/AutoGenerateMenuModal';
+import { AllergyAndBmiAdvisorModal } from '../components/AllergyAndBmiAdvisorModal';
+import { RequestEditMenuModal } from '../components/RequestEditMenuModal';
+import { RespondEditRequestModal } from '../components/RespondEditRequestModal';
 
 interface WeeklyMenuManagementPageProps {
   hideHeader?: boolean;
@@ -74,6 +80,14 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState<boolean>(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [printData, setPrintData] = useState<ExportDataResponse | null>(null);
+  const [isAutoGenerateModalOpen, setIsAutoGenerateModalOpen] = useState<boolean>(false);
+  const [isRequestEditModalOpen, setIsRequestEditModalOpen] = useState<boolean>(false);
+  const [isRespondEditModalOpen, setIsRespondEditModalOpen] = useState<boolean>(false);
+  const [advisory, setAdvisory] = useState<MenuAdvisoryResponse | null>(null);
+  const [isAdvisorModalOpen, setIsAdvisorModalOpen] = useState<boolean>(false);
+  const [advisorFocusDishId, setAdvisorFocusDishId] = useState<string | null>(null);
+  const [advisorInitialTab, setAdvisorInitialTab] = useState<'STUNTED' | 'OBESE' | 'ALLERGIES'>('STUNTED');
+  const [advisorCategoryLock, setAdvisorCategoryLock] = useState<'STUNTED' | 'OBESE' | 'ALLERGIES' | null>(null);
 
   // 1. Tải dữ liệu ban đầu
   const fetchInitialData = async () => {
@@ -101,6 +115,7 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
       } else {
         setSelectedMenu(null);
         setMenuVersions([]);
+        setAdvisory(null);
       }
     } catch (err: any) {
       showNotify('error', 'Không thể tải dữ liệu thực đơn tuần.');
@@ -116,12 +131,17 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
   // 2. Chọn thực đơn cụ thể
   const handleSelectMenu = async (menuId: string) => {
     try {
-      const [detailRes, versionsRes] = await Promise.all([
+      const [detailRes, versionsRes, advisoryRes] = await Promise.all([
         weeklyMenusApi.getMenuById(menuId),
         weeklyMenusApi.getMenuVersions(menuId),
+        weeklyMenusApi.getAdvisory(menuId).catch((e) => {
+          console.warn('Lỗi khi tải tư vấn dị ứng & BMI:', e);
+          return null;
+        }),
       ]);
       setSelectedMenu(detailRes);
       setMenuVersions(versionsRes);
+      setAdvisory(advisoryRes);
     } catch (err) {
       showNotify('error', 'Không thể tải chi tiết thực đơn.');
     }
@@ -192,11 +212,77 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
     try {
       setActionLoading(true);
       const updated = await weeklyMenusApi.submitForReview(selectedMenu.id);
-      showNotify('success', 'Đã gửi thực đơn lên Ban Giám Hiệu để phê duyệt.');
+      showNotify(
+        'success',
+        selectedMenu.status === 'SUBMITTED_FOR_REVIEW'
+          ? 'Đã cập nhật và gửi lại thực đơn lên Ban Giám Hiệu phê duyệt.'
+          : 'Đã gửi thực đơn lên Ban Giám Hiệu để phê duyệt.'
+      );
       await fetchInitialData();
       await handleSelectMenu(updated.id);
     } catch (err: any) {
       showNotify('error', err?.response?.data?.message || 'Không thể gửi duyệt.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 7.1. Chuyên viên Dinh dưỡng xin phép Hiệu trưởng chỉnh sửa thực đơn đã duyệt
+  const handleRequestEditMenu = async (id: string, reason: string) => {
+    try {
+      setActionLoading(true);
+      const updated = await weeklyMenusApi.requestEditMenu(id, reason);
+      showNotify('success', 'Đã gửi tờ trình xin phép Hiệu trưởng chỉnh sửa thực đơn.');
+      await fetchInitialData();
+      await handleSelectMenu(updated.id);
+    } catch (err: any) {
+      showNotify('error', err?.response?.data?.message || 'Không thể gửi yêu cầu xin chỉnh sửa.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 7.2. Hiệu trưởng chấp thuận yêu cầu chỉnh sửa (mở khóa về DRAFT)
+  const handleApproveEditRequest = async (id: string, notes?: string) => {
+    try {
+      setActionLoading(true);
+      const updated = await weeklyMenusApi.approveEditRequest(id, notes);
+      showNotify('success', 'Hiệu trưởng đã chấp thuận cho phép chỉnh sửa. Thực đơn đã được mở khóa về Bản dự thảo.');
+      await fetchInitialData();
+      await handleSelectMenu(updated.id);
+    } catch (err: any) {
+      showNotify('error', err?.response?.data?.message || 'Không thể chấp thuận yêu cầu.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 7.3. Hiệu trưởng từ chối yêu cầu chỉnh sửa
+  const handleRejectEditRequest = async (id: string, reason: string) => {
+    try {
+      setActionLoading(true);
+      const updated = await weeklyMenusApi.rejectEditRequest(id, reason);
+      showNotify('success', 'Hiệu trưởng đã từ chối yêu cầu xin chỉnh sửa thực đơn.');
+      await fetchInitialData();
+      await handleSelectMenu(updated.id);
+    } catch (err: any) {
+      showNotify('error', err?.response?.data?.message || 'Không thể từ chối yêu cầu.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 7.4. Hủy yêu cầu xin chỉnh sửa
+  const handleCancelEditRequest = async (id: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn hủy yêu cầu xin phép chỉnh sửa này?')) return;
+    try {
+      setActionLoading(true);
+      const updated = await weeklyMenusApi.cancelEditRequest(id);
+      showNotify('success', 'Đã hủy yêu cầu xin phép chỉnh sửa.');
+      await fetchInitialData();
+      await handleSelectMenu(updated.id);
+    } catch (err: any) {
+      showNotify('error', err?.response?.data?.message || 'Không thể hủy yêu cầu.');
     } finally {
       setActionLoading(false);
     }
@@ -338,7 +424,7 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
       )}
 
       {/* Nội dung chính */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6 flex-1 w-full">
+      <main className="max-w-[1700px] w-full mx-auto px-2 sm:px-4 lg:px-6 pt-5 space-y-5 flex-1">
         {/* 2. CÁC Ô THỐNG KÊ Ở ĐẦU GIAO DIỆN (5 KPI CARDS) */}
         <MenuStatsCards stats={stats} loading={loading} />
 
@@ -425,16 +511,69 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
 
           {/* Nhóm Nút Hành Động Bên Phải */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Nút Tạo Thực Đơn Mới -> Mở MenuDrawer */}
+            {/* Nút Tư Vấn Dị Ứng Học Sinh & Cá Nhân Hóa BMI */}
+            {selectedMenu && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAdvisorFocusDishId(null);
+                  setIsAdvisorModalOpen(true);
+                }}
+                className={`px-3.5 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 transition shadow-xs cursor-pointer ${
+                  advisory && (advisory.allergySummary.totalConflicts > 0 || (advisory.bmiSummary.overweightObeseCount + advisory.bmiSummary.wastedUnderweightCount > 0))
+                    ? 'bg-rose-50/90 border-rose-300 text-rose-900 hover:bg-rose-100 hover:border-rose-400'
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+                title="Tạo thực đơn thay thế cho 3 nhóm học sinh: Loại 1 Còi xương/SDD, Loại 2 Béo phì, Loại 3 Dị ứng"
+              >
+                <div className="relative">
+                  <AlertCircle className={`w-4 h-4 ${
+                    advisory && advisory.allergySummary.totalConflicts > 0 ? 'text-rose-600 animate-pulse' : 'text-amber-500'
+                  }`} />
+                  {advisory && advisory.allergySummary.criticalCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-600 rounded-full animate-ping" />
+                  )}
+                </div>
+                <span>Thực đơn Thay thế (3 loại học sinh)</span>
+                {advisory && (
+                  <div className="flex items-center gap-1 font-black">
+                    {advisory.allergySummary.totalConflicts > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-rose-600 text-white shadow-2xs">
+                        {advisory.allergySummary.totalConflicts} Dị ứng
+                      </span>
+                    )}
+                    {(advisory.bmiSummary.overweightObeseCount + advisory.bmiSummary.wastedUnderweightCount) > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-amber-500 text-white shadow-2xs">
+                        {advisory.bmiSummary.overweightObeseCount + advisory.bmiSummary.wastedUnderweightCount} BMI
+                      </span>
+                    )}
+                  </div>
+                )}
+              </button>
+            )}
+
+            {/* Nút Tạo Thực Đơn Tự Động (AI / Smart Menu) */}
+            <button
+              onClick={() => setIsAutoGenerateModalOpen(true)}
+              className="px-4 py-2.5 rounded-2xl bg-emerald-600 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30 flex items-center gap-2 transition hover:scale-102 active:scale-98 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-200 animate-pulse" />
+              <span>Tự động tạo thực đơn</span>
+              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-white/20 text-white">
+                AI Smart
+              </span>
+            </button>
+
+            {/* Nút Tạo Thực Đơn Mới Thủ Công -> Mở MenuDrawer */}
             <button
               onClick={() => {
                 setMenuDrawerMode('create');
                 setIsMenuDrawerOpen(true);
               }}
-              className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/25 flex items-center gap-2 transition"
+              className="px-3.5 py-2.5 rounded-2xl border border-slate-200 hover:border-emerald-300 bg-white text-slate-700 hover:text-emerald-700 text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
             >
-              <Plus className="w-4 h-4" />
-              <span>Tạo thực đơn tuần</span>
+              <Plus className="w-4 h-4 text-emerald-600" />
+              <span>Tạo thủ công</span>
             </button>
 
             {/* Nút Import Excel */}
@@ -464,10 +603,73 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
               <button
                 onClick={handleSubmitForReview}
                 disabled={actionLoading}
-                className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md shadow-amber-500/25 flex items-center gap-1.5 transition disabled:opacity-50"
+                className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md shadow-amber-500/25 flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
               >
                 <Send className="w-4 h-4" />
                 <span>Gửi Hiệu trưởng duyệt</span>
+              </button>
+            )}
+
+            {/* Nút CẬP NHẬT & GỬI LẠI DUYỆT cho Chuyên gia Dinh dưỡng khi thực đơn đang SUBMITTED_FOR_REVIEW */}
+            {selectedMenu && selectedMenu.status === 'SUBMITTED_FOR_REVIEW' && !isPrincipal && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSubmitForReview}
+                  disabled={actionLoading}
+                  className="px-4 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-600/30 flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
+                  title="Thực đơn đang chờ duyệt, bạn có thể chỉnh sửa các món ăn và bấm nút này để gửi lại bản mới nhất cho Hiệu trưởng"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>Cập nhật & Gửi lại Hiệu trưởng duyệt</span>
+                </button>
+                <div className="px-3 py-2 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+                  <Clock className="w-4 h-4 text-amber-600 animate-pulse" />
+                  <span>Đang chờ duyệt (Có thể sửa)</span>
+                </div>
+              </div>
+            )}
+
+            {/* Nút XIN PHÉP HIỆU TRƯỞNG CHỈNH SỬA (Dành cho CV Dinh dưỡng khi menu đã APPROVED hoặc ACTIVE) */}
+            {selectedMenu && (selectedMenu.status === 'APPROVED' || selectedMenu.status === 'ACTIVE') && !isPrincipal && (
+              <>
+                {selectedMenu.editRequestStatus === 'PENDING' ? (
+                  <div className="flex items-center gap-2">
+                    <div className="px-3.5 py-2 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+                      <Clock className="w-4 h-4 text-purple-600 animate-spin" />
+                      <span>Đang chờ Hiệu trưởng cấp quyền sửa</span>
+                    </div>
+                    <button
+                      onClick={() => handleCancelEditRequest(selectedMenu.id)}
+                      disabled={actionLoading}
+                      className="px-3 py-2 rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-bold transition cursor-pointer"
+                      title="Hủy yêu cầu xin phép chỉnh sửa"
+                    >
+                      Hủy xin sửa
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsRequestEditModalOpen(true)}
+                    disabled={actionLoading}
+                    className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold shadow-md shadow-purple-600/25 flex items-center gap-1.5 transition cursor-pointer hover:scale-102 active:scale-98"
+                    title="Thực đơn đã duyệt/công bố. Gửi yêu cầu kèm lý do lên Hiệu trưởng để được mở khóa chỉnh sửa."
+                  >
+                    <ShieldAlert className="w-4 h-4 text-purple-200" />
+                    <span>Xin phép Hiệu trưởng chỉnh sửa</span>
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* Nút cho HIỆU TRƯỞNG khi CV Dinh dưỡng gửi Yêu cầu xin phép chỉnh sửa thực đơn */}
+            {selectedMenu && (selectedMenu.status === 'APPROVED' || selectedMenu.status === 'ACTIVE') && isPrincipal && selectedMenu.editRequestStatus === 'PENDING' && (
+              <button
+                onClick={() => setIsRespondEditModalOpen(true)}
+                className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-600 to-purple-600 hover:from-amber-700 hover:to-purple-700 text-white text-xs font-bold shadow-md shadow-amber-600/30 flex items-center gap-1.5 transition animate-pulse cursor-pointer"
+                title="Chuyên viên Dinh dưỡng vừa gửi yêu cầu xin phép chỉnh sửa thực đơn đã duyệt này"
+              >
+                <AlertCircle className="w-4 h-4 text-amber-200" />
+                <span>Hiệu trưởng: Duyệt yêu cầu xin sửa</span>
               </button>
             )}
 
@@ -487,19 +689,11 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
               </div>
             )}
 
-            {/* Trạng thái CHỜ DUYỆT cho Chuyên gia Dinh dưỡng */}
-            {selectedMenu && selectedMenu.status === 'SUBMITTED_FOR_REVIEW' && !isPrincipal && (
-              <div className="px-3.5 py-2 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
-                <Clock className="w-4 h-4 text-amber-600 animate-pulse" />
-                <span>Đang chờ Hiệu trưởng duyệt</span>
-              </div>
-            )}
-
-            {/* Nút Duyệt / Từ chối (CHỈ DÀNH CHO HIỆU TRƯỞNG / BGH) */}
+            {/* Nút Duyệt / Từ chối (CHỈ DÀNH CHO HIỆU TRƯỞNG / BGH khi SUBMITTED_FOR_REVIEW) */}
             {selectedMenu && selectedMenu.status === 'SUBMITTED_FOR_REVIEW' && isPrincipal && (
               <button
                 onClick={() => setIsApprovalModalOpen(true)}
-                className="px-4 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md shadow-teal-600/25 flex items-center gap-1.5 transition"
+                className="px-4 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md shadow-teal-600/25 flex items-center gap-1.5 transition cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Hiệu trưởng: Phê duyệt / Từ chối</span>
@@ -507,10 +701,10 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
             )}
 
             {/* Trạng thái ĐÃ DUYỆT cho Chuyên gia Dinh dưỡng */}
-            {selectedMenu && selectedMenu.status === 'APPROVED' && !isPrincipal && (
+            {selectedMenu && selectedMenu.status === 'APPROVED' && !isPrincipal && selectedMenu.editRequestStatus !== 'PENDING' && (
               <div className="px-3.5 py-2 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
                 <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                <span>Đã được Hiệu trưởng duyệt (Chờ BGH công bố)</span>
+                <span>Đã được Hiệu trưởng duyệt</span>
               </div>
             )}
 
@@ -519,7 +713,7 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
               <button
                 onClick={handlePublish}
                 disabled={actionLoading}
-                className="px-4 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-md shadow-emerald-700/25 flex items-center gap-1.5 transition disabled:opacity-50"
+                className="px-4 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-md shadow-emerald-700/25 flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
               >
                 <Lock className="w-4 h-4" />
                 <span>Hiệu trưởng: Khóa & Công bố</span>
@@ -572,10 +766,10 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
         {/* 4. MA TRẬN THỰC ĐƠN TUẦN 5 NGÀY x 5 BỮA ĂN */}
         <WeeklyGridTable
           menu={selectedMenu}
+          advisory={advisory}
           readOnly={
             isPrincipal ||
             selectedMenu?.status === 'ACTIVE' ||
-            selectedMenu?.status === 'SUBMITTED_FOR_REVIEW' ||
             selectedMenu?.status === 'APPROVED' ||
             showDeleted
           }
@@ -585,6 +779,18 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
             setIsDishDrawerOpen(true);
           }}
           onRemoveDish={handleRemoveDish}
+          onOpenAdvisoryForDish={(dishId, targetTab) => {
+            setAdvisorFocusDishId(dishId);
+            setAdvisorInitialTab(targetTab || 'ALLERGIES');
+            setAdvisorCategoryLock(targetTab || 'ALLERGIES');
+            setIsAdvisorModalOpen(true);
+          }}
+          onOpenAdvisoryModal={() => {
+            setAdvisorFocusDishId(null);
+            setAdvisorInitialTab('STUNTED');
+            setAdvisorCategoryLock(null);
+            setIsAdvisorModalOpen(true);
+          }}
         />
       </main>
 
@@ -629,6 +835,58 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
         onClose={() => setIsPrintModalOpen(false)}
         data={printData}
         onDownloadCsv={handleDownloadExcel}
+      />
+
+      {/* Modal 6: Tự động tạo thực đơn tuần (AI / Smart Menu Generator) */}
+      <AutoGenerateMenuModal
+        isOpen={isAutoGenerateModalOpen}
+        onClose={() => setIsAutoGenerateModalOpen(false)}
+        onSuccess={async (newMenu) => {
+          showNotify('success', `Đã tự động tạo thành công thực đơn: ${newMenu.title}`);
+          await fetchInitialData();
+          await handleSelectMenu(newMenu.id);
+        }}
+        currentMenu={selectedMenu}
+      />
+
+      {/* Modal 7: Tư vấn Cảnh báo Dị ứng & Đề xuất Cá nhân hóa BMI */}
+      {selectedMenu && (
+        <AllergyAndBmiAdvisorModal
+          isOpen={isAdvisorModalOpen}
+          onClose={() => {
+            setIsAdvisorModalOpen(false);
+            setAdvisorFocusDishId(null);
+            setAdvisorCategoryLock(null);
+          }}
+          menuId={selectedMenu.id}
+          menuTitle={selectedMenu.title}
+          menu={selectedMenu}
+          focusMenuDishId={advisorFocusDishId}
+          initialTab={advisorInitialTab}
+          categoryLock={advisorCategoryLock}
+          onSubstituteApplied={async () => {
+            if (selectedMenu) {
+              await handleSelectMenu(selectedMenu.id);
+            }
+          }}
+        />
+      )}
+
+      {/* Modal 8: Chuyên viên Dinh dưỡng xin phép Hiệu trưởng chỉnh sửa thực đơn */}
+      <RequestEditMenuModal
+        isOpen={isRequestEditModalOpen}
+        onClose={() => setIsRequestEditModalOpen(false)}
+        menu={selectedMenu}
+        onSubmitRequest={handleRequestEditMenu}
+      />
+
+      {/* Modal 9: Hiệu trưởng duyệt / từ chối yêu cầu xin chỉnh sửa thực đơn */}
+      <RespondEditRequestModal
+        isOpen={isRespondEditModalOpen}
+        onClose={() => setIsRespondEditModalOpen(false)}
+        menu={selectedMenu}
+        onApprove={handleApproveEditRequest}
+        onReject={handleRejectEditRequest}
       />
     </div>
   );

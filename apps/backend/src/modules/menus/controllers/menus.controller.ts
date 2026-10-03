@@ -26,6 +26,12 @@ import { ApproveMenuDto } from '../dto/approve-menu.dto';
 import { RejectMenuDto } from '../dto/reject-menu.dto';
 import { ImportExcelMenuDto } from '../dto/import-excel.dto';
 import { QueryMenuDto } from '../dto/query-menu.dto';
+import { RotateCycleMenuDto } from '../dto/rotate-cycle-menu.dto';
+import { EmergencyRotateDishDto } from '../dto/emergency-rotate-dish.dto';
+import { AutoGenerateMenuDto } from '../dto/auto-generate-menu.dto';
+import { ApplySubstituteDishDto } from '../dto/apply-substitute-dish.dto';
+import { RequestEditMenuDto } from '../dto/request-edit-menu.dto';
+import { RespondEditRequestDto } from '../dto/respond-edit-request.dto';
 
 @Controller('menus')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -106,6 +112,20 @@ export class MenusController {
     @Body() dto: ImportExcelMenuDto,
   ) {
     return this.menusService.importExcel(tenantId, userId, dto);
+  }
+
+  /**
+   * 7.1 POST /api/v1/menus/auto-generate: Tự động tạo thực đơn tuần (Chống trùng lặp 2 tuần & Chuẩn TT 28)
+   */
+  @Post('auto-generate')
+  @Roles('NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN')
+  @HttpCode(HttpStatus.OK)
+  async autoGenerate(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: AutoGenerateMenuDto,
+  ) {
+    return this.menusService.autoGenerateWeeklyMenu(tenantId, userId, dto);
   }
 
   /**
@@ -211,6 +231,61 @@ export class MenusController {
   }
 
   /**
+   * 15.1. POST /api/v1/menus/:id/request-edit: Chuyên viên Dinh dưỡng xin phép Hiệu trưởng chỉnh sửa thực đơn đã duyệt
+   */
+  @Post(':id/request-edit')
+  @Roles('NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN')
+  async requestEdit(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body() dto: RequestEditMenuDto,
+  ) {
+    return this.menusService.requestEdit(tenantId, userId, id, dto.reason);
+  }
+
+  /**
+   * 15.2. POST /api/v1/menus/:id/approve-edit-request: Hiệu trưởng chấp thuận yêu cầu chỉnh sửa (mở khóa về DRAFT)
+   */
+  @Post(':id/approve-edit-request')
+  @Roles('PRINCIPAL', 'SUPER_ADMIN')
+  async approveEditRequest(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body() dto: RespondEditRequestDto,
+  ) {
+    return this.menusService.approveEditRequest(tenantId, userId, id, dto.notes);
+  }
+
+  /**
+   * 15.3. POST /api/v1/menus/:id/reject-edit-request: Hiệu trưởng từ chối yêu cầu chỉnh sửa
+   */
+  @Post(':id/reject-edit-request')
+  @Roles('PRINCIPAL', 'SUPER_ADMIN')
+  async rejectEditRequest(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body() dto: RequestEditMenuDto,
+  ) {
+    return this.menusService.rejectEditRequest(tenantId, userId, id, dto.reason);
+  }
+
+  /**
+   * 15.4. POST /api/v1/menus/:id/cancel-edit-request: Hủy yêu cầu xin chỉnh sửa
+   */
+  @Post(':id/cancel-edit-request')
+  @Roles('NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN')
+  async cancelEditRequest(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.menusService.cancelEditRequest(tenantId, userId, id);
+  }
+
+  /**
    * 16. DELETE /api/v1/menus/:id: Xóa mềm thực đơn tuần (Soft Delete)
    */
   @Delete(':id')
@@ -252,4 +327,62 @@ export class MenusController {
     res.setHeader('Content-Disposition', `attachment; filename="Thuc_don_tuan_${id}.csv"`);
     res.send(buffer);
   }
+
+  /**
+   * 20. POST /api/v1/menus/:id/rotate-cycle: Xoay vòng chu kỳ thực đơn (2-4 tuần)
+   */
+  @Post(':id/rotate-cycle')
+  @Roles('NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN')
+  async rotateCycle(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body() dto: RotateCycleMenuDto,
+  ) {
+    return this.menusService.rotateCycleMenu(tenantId, userId, id, dto);
+  }
+
+  /**
+   * 21. POST /api/v1/menus/:id/dishes/:menuDishId/emergency-rotate: Đổi món khẩn cấp trong ca bếp / dị ứng
+   */
+  @Post(':id/dishes/:menuDishId/emergency-rotate')
+  @Roles('KITCHEN_STAFF', 'NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN')
+  async emergencyRotate(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('id') menuId: string,
+    @Param('menuDishId') menuDishId: string,
+    @Body() dto: EmergencyRotateDishDto,
+  ) {
+    return this.menusService.emergencyRotateDish(tenantId, menuId, menuDishId, dto);
+  }
+
+  /**
+   * 22. GET /api/v1/menus/:id/advisory: Cảnh báo Dị ứng & Đề xuất cá nhân hóa theo chỉ số BMI (Béo/Gầy)
+   */
+  @Get(':id/advisory')
+  @Roles('NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN', 'TEACHER', 'KITCHEN_STAFF')
+  async getAdvisory(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.menusService.getAllergyAndBmiAdvisory(tenantId, id);
+  }
+
+  /**
+   * 23. POST /api/v1/menus/:id/dishes/:menuDishId/apply-substitute: Gán món ăn thay thế an toàn cho ô thực đơn
+   */
+  @Post(':id/dishes/:menuDishId/apply-substitute')
+  @Roles('NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN', 'KITCHEN_STAFF')
+  async applySubstitute(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('id') menuId: string,
+    @Param('menuDishId') menuDishId: string,
+    @Body() dto: ApplySubstituteDishDto,
+  ) {
+    return this.menusService.applySubstituteDish(
+      tenantId,
+      menuId,
+      menuDishId,
+      dto.substituteDishId,
+      dto.notes,
+    );
+  }
 }
+

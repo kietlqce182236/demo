@@ -43,18 +43,17 @@ export const EvaluationCard: React.FC<EvaluationCardProps> = ({
   // Avatar Initials & Color
   const getAvatarInfo = (name?: string) => {
     if (!name) return { initials: 'PH', bg: 'bg-teal-600' };
-    const parts = name.trim().split(' ');
+    const parts = name.trim().split(' ').filter(Boolean);
     const initials =
       parts.length >= 2
         ? `${parts[parts.length - 2][0]}${parts[parts.length - 1][0]}`.toUpperCase()
         : name.slice(0, 2).toUpperCase();
 
-    if (name.includes('Thùy Linh')) return { initials: 'TL', bg: 'bg-teal-600' };
-    if (name.includes('Quốc Hưng')) return { initials: 'QH', bg: 'bg-blue-600' };
-    if (name.includes('Thị Tuyết')) return { initials: 'BT', bg: 'bg-amber-600' };
-    if (name.includes('Tuấn Kiệt')) return { initials: 'TK', bg: 'bg-slate-700' };
+    const colors = ['bg-teal-600', 'bg-blue-600', 'bg-indigo-600', 'bg-purple-600', 'bg-emerald-600'];
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const bg = colors[hash % colors.length];
 
-    return { initials, bg: 'bg-teal-600' };
+    return { initials, bg };
   };
 
   const avatar = getAvatarInfo(item.parentNameCustom);

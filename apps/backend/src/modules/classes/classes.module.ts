@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClassesService } from './classes.service';
 import { ClassesController } from './classes.controller';
-import { ClassEntity } from '../../database/entities/class.entity';
-import { UserEntity } from '../../database/entities/user.entity';
+import { ClassEntity } from './entities/class.entity';
+import { UserEntity } from './entities/user.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([ClassEntity, UserEntity])],

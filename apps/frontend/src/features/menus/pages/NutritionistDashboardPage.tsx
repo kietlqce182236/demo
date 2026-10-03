@@ -39,7 +39,10 @@ export const NutritionistDashboardPage: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* Banner chào mừng & Thông điệp chuyên môn */}
-      <div className="bg-linear-to-r from-emerald-900 via-emerald-800 to-teal-900 rounded-3xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+      <div 
+        style={{ backgroundColor: '#064e3b' }}
+        className="bg-emerald-950 bg-gradient-to-r from-emerald-950 via-emerald-850 to-teal-900 rounded-3xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden"
+      >
         <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-80 h-80 bg-emerald-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="relative z-10 max-w-2xl">

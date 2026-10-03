@@ -13,11 +13,27 @@ import { NutritionRulesPage } from './features/menus/pages/NutritionRulesPage';
 import { SchoolSettingsPage } from './features/tenant/pages/SchoolSettingsPage';
 import { StaffManagementPage } from './features/staff/pages/StaffManagementPage';
 import { PrincipalMenuApprovalPage } from './features/menus/pages/PrincipalMenuApprovalPage';
+import { MenuPlanningPage } from './features/menus/pages/MenuPlanningPage';
+import { SnackServicesPage } from './features/snack-services/pages/SnackServicesPage';
+import { ClassesPage } from './features/classes/pages/ClassesPage';
+import { CreateClassPage } from './features/classes/pages/CreateClassPage';
+import { EditClassPage } from './features/classes/pages/EditClassPage';
+import { ClassDetailsPage } from './features/classes/pages/ClassDetailsPage';
 import { TeacherTabletPage } from './features/attendance/pages/TeacherTabletPage';
 
 import { ProtectedRoute } from './core/components/ProtectedRoute';
 import { useAuthStore } from './core/stores/auth.store';
 import { ChefHat, Tablet, LayoutDashboard, Sparkles, LogOut, Users, Scale, UtensilsCrossed } from 'lucide-react';
+
+import { FoodIngredientsPage } from './features/foods/components/FoodIngredientsPage';
+import { CreateFoodPage } from './features/foods/components/CreateFoodPage';
+import { DishesPage } from './features/dishes/components/DishesPage';
+import { InspectionsPage } from './features/inspections/components/InspectionsPage';
+import { InspectionDetailPage } from './features/inspections/components/InspectionDetailPage';
+import { ExecutiveDashboardPage } from './features/dashboard/pages/ExecutiveDashboardPage';
+import { ChildrenManagementPage } from './features/children/pages/ChildrenManagementPage';
+import { ChildGrowthMonitoringPage } from './features/growth/pages/ChildGrowthMonitoringPage';
+import { SnackBillingPaymentPage } from './features/payments/pages/SnackBillingPaymentPage';
 
 /**
  * Component điều hướng thông minh theo Role người dùng khi vào trang chủ "/"
@@ -150,23 +166,16 @@ export const App: React.FC = () => {
           <Route path="menus" element={<WeeklyMenuManagementPage />} />
           <Route path="rules" element={<NutritionRulesPage />} />
           <Route path="allergens" element={<NutritionRulesPage />} />
-          <Route path="foods" element={<NutritionRulesPage />} />
-          <Route path="dishes" element={<NutritionRulesPage />} />
-          <Route path="children" element={<NutritionistDashboardPage />} />
-          <Route path="food-safety" element={<NutritionistDashboardPage />} />
-          <Route path="growth" element={<NutritionistDashboardPage />} />
+          <Route path="foods" element={<FoodIngredientsPage />} />
+          <Route path="foods/create" element={<CreateFoodPage />} />
+          <Route path="dishes" element={<DishesPage />} />
+          <Route path="food-safety" element={<InspectionsPage />} />
+          <Route path="food-safety/:id" element={<InspectionDetailPage />} />
+          <Route path="children" element={<ChildrenManagementPage />} />
+          <Route path="growth" element={<ChildGrowthMonitoringPage />} />
           <Route path="reports" element={<NutritionistDashboardPage />} />
         </Route>
 
-        {/* Tương thích ngược đường dẫn cũ /menus -> chuyển sang Cổng Dinh Dưỡng */}
-        <Route
-          path="/menus"
-          element={
-            <ProtectedRoute>
-              <Navigate to="/nutritionist/menus" replace />
-            </ProtectedRoute>
-          }
-        />
         <Route
           path="/nutrition-rules"
           element={
@@ -185,18 +194,28 @@ export const App: React.FC = () => {
             </ProtectedRoute>
           }
         >
-          <Route path="/dashboard" element={<SchoolSettingsPage />} />
+          <Route index element={<ExecutiveDashboardPage />} />
+          <Route path="/dashboard" element={<ExecutiveDashboardPage />} />
           <Route path="/settings" element={<SchoolSettingsPage />} />
-          <Route path="/classes" element={<SchoolSettingsPage />} />
+          <Route path="/classes" element={<ClassesPage />} />
+          <Route path="/classes/create" element={<CreateClassPage />} />
+          <Route path="/classes/:id/edit" element={<EditClassPage />} />
+          <Route path="/classes/:id" element={<ClassDetailsPage />} />
           <Route path="/staff" element={<StaffManagementPage />} />
-          <Route path="/inventory" element={<NutritionRulesPage />} />
+          <Route path="/menus" element={<PrincipalMenuApprovalPage />} />
           <Route path="/menu-approval" element={<PrincipalMenuApprovalPage />} />
+          <Route path="/menu-planning" element={<MenuPlanningPage />} />
           <Route path="/services" element={<WeeklyMenuManagementPage />} />
-          <Route path="/food-safety" element={<WeeklyMenuManagementPage />} />
+          <Route path="/snack-services" element={<SnackServicesPage />} />
+          <Route path="/inventory" element={<FoodIngredientsPage />} />
+          <Route path="/dishes" element={<DishesPage />} />
+          <Route path="/food-safety" element={<InspectionsPage />} />
+          <Route path="/food-safety/:id" element={<InspectionDetailPage />} />
           <Route path="/finances" element={<WeeklyMenuManagementPage />} />
-          <Route path="/children" element={<WeeklyMenuManagementPage />} />
-          <Route path="/growth" element={<WeeklyMenuManagementPage />} />
-          <Route path="/payments" element={<WeeklyMenuManagementPage />} />
+          <Route path="/children" element={<ChildrenManagementPage />} />
+          <Route path="/growth" element={<ChildGrowthMonitoringPage />} />
+          <Route path="/payments" element={<SnackBillingPaymentPage />} />
+        </Route>
 
 
         {/* ─── 3. PHÂN HỆ TABLET GIÁO VIÊN ─── */}

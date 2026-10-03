@@ -23,7 +23,7 @@ export const DaySelectorTabs: React.FC<DaySelectorTabsProps> = ({
           </div>
           <div>
             <h3 className="text-xs font-bold text-slate-800 tracking-tight">
-              Thực đơn & Sức ăn Tuần 9 (Tháng 10/2024)
+              Thực đơn & Sức ăn Bán trú ({new Date(selectedDate || Date.now()).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })})
             </h3>
             <p className="text-[11px] text-slate-500">
               Chọn ngày trong tuần để xem chi tiết từng bữa ăn của con

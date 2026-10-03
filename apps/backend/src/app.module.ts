@@ -15,6 +15,12 @@ import { SnackServicesModule } from './modules/snack-services/snack-services.mod
 import { TenantModule } from './modules/tenant/tenant.module';
 import { UsersModule } from './modules/users/users.module';
 import { MenusModule } from './modules/menus/menus.module';
+import { ClassesModule } from './modules/classes/classes.module';
+import { FoodsModule } from './modules/foods/foods.module';
+import { DishesModule } from './modules/dishes/dishes.module';
+import { InspectionsModule } from './modules/inspections/inspections.module';
+import { ChildrenModule } from './modules/children/children.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -33,6 +39,12 @@ import { MenusModule } from './modules/menus/menus.module';
     GrowthModule,
     WebsocketModule,
     SnackServicesModule,
+    ClassesModule,
+    FoodsModule,
+    DishesModule,
+    InspectionsModule,
+    ChildrenModule,
+    DashboardModule,
   ],
 })
 export class AppModule implements NestModule {

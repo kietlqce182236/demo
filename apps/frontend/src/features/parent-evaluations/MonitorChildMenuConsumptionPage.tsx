@@ -13,7 +13,7 @@ import { Loader2, Utensils, Sparkles, RefreshCw } from 'lucide-react';
 
 export const MonitorChildMenuConsumptionPage: React.FC = () => {
   const [data, setData] = useState<ChildMenuConsumptionData | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>('2024-10-29');
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 

@@ -12,8 +12,23 @@ import { PortionPlanSection } from './components/PortionPlanSection';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export const MealPortionsPage: React.FC = () => {
-  const [weekNumber, setWeekNumber] = useState<number>(14);
-  const [schoolYear, setSchoolYear] = useState<string>('Năm học 2024 - 2025 - Học kỳ 1');
+  const getCurrentWeekNumber = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    const diff = now.getTime() - start.getTime();
+    const oneWeek = 1000 * 60 * 60 * 24 * 7;
+    return Math.ceil(diff / oneWeek);
+  };
+
+  const getCurrentSchoolYear = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    return m >= 8 ? `Năm học ${y} - ${y + 1}` : `Năm học ${y - 1} - ${y}`;
+  };
+
+  const [weekNumber, setWeekNumber] = useState<number>(getCurrentWeekNumber);
+  const [schoolYear, setSchoolYear] = useState<string>(getCurrentSchoolYear);
   const [activeTab, setActiveTab] = useState<'both' | 'menu' | 'portion'>('both');
 
   const [data, setData] = useState<MealPortionPlanResponse | null>(null);

@@ -25,15 +25,24 @@ export const InspectionsPage = () => {
     step3Photo: null as File | null,
   });
   
-  const [dishes, setDishes] = useState([
-    { id: '10000000-0000-0000-0000-000000000001', name: 'Thịt bò tươi phi lê', qty: '' },
-    { id: '10000000-0000-0000-0000-000000000002', name: 'Rau cải ngọt & Cà rốt hữu cơ', qty: '' },
-    { id: '10000000-0000-0000-0000-000000000003', name: 'Gạo tẻ thơm ST25', qty: '' },
-  ]);
+  const [dishes, setDishes] = useState<Array<{ id: string; name: string; qty: string }>>([]);
 
   useEffect(() => {
     fetchRecords();
+    fetchDishes();
   }, []);
+
+  const fetchDishes = async () => {
+    try {
+      const res = await apiClient.get('/dishes', { params: { limit: 20 } });
+      const items = res.data?.items || [];
+      if (items.length > 0) {
+        setDishes(items.slice(0, 5).map((d: any) => ({ id: d.id, name: d.name, qty: '150' })));
+      }
+    } catch (err) {
+      console.error('Failed to load dishes for inspection:', err);
+    }
+  };
 
   const fetchRecords = async () => {
     try {

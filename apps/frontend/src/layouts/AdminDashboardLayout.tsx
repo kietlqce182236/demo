@@ -32,9 +32,8 @@ export const AdminDashboardLayout: React.FC = () => {
     { label: 'Quản trị Lớp học', path: '/classes', icon: GraduationCap },
     { label: 'Nhân sự & Bếp', path: '/staff', icon: Users2 },
     { label: 'Dịch vụ bán trú', path: '/services', icon: Coffee },
-
-    { label: 'Phê duyệt thực đơn', path: '/menu-approval', icon: FileCheck2 },
-
+    { label: 'Gói ăn xế chiều', path: '/snack-services', icon: Sparkles },
+    { label: 'Phê duyệt thực đơn', path: '/menus', icon: FileCheck2 },
     { label: 'Kho & Dinh dưỡng', path: '/inventory', icon: PackageOpen },
     { label: 'Sổ kiểm thực 3 bước', path: '/food-safety', icon: ShieldCheck },
     { label: 'Báo cáo tài chính', path: '/finances', icon: CircleDollarSign },
@@ -42,7 +41,8 @@ export const AdminDashboardLayout: React.FC = () => {
   ];
 
   const getBreadcrumbTitle = () => {
-    if (location.pathname.startsWith('/menu-approval')) return 'Phê duyệt & Công bố thực đơn tuần';
+    if (location.pathname.startsWith('/menu-approval') || location.pathname.startsWith('/menus')) return 'Phê duyệt & Công bố thực đơn tuần';
+    if (location.pathname.startsWith('/snack-services')) return 'Gói ăn xế chiều';
     if (location.pathname.startsWith('/classes')) return 'Quản trị Lớp học & Học sinh';
     if (location.pathname.startsWith('/staff')) return 'Quản trị Nhân sự & Tài khoản Bếp';
     if (location.pathname.startsWith('/services')) return 'Dịch vụ Bán trú & Ăn xế';
@@ -88,6 +88,8 @@ export const AdminDashboardLayout: React.FC = () => {
               const isActive =
                 item.path === '/settings'
                   ? location.pathname === '/settings' || location.pathname === '/'
+                  : item.path === '/menus'
+                  ? location.pathname.startsWith('/menus') || location.pathname.startsWith('/menu-approval')
                   : location.pathname.startsWith(item.path);
 
               return (

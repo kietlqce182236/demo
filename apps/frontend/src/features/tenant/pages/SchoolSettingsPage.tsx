@@ -56,38 +56,8 @@ export const SchoolSettingsPage: React.FC = () => {
       if (data.branding?.primaryColor) {
         setSelectedColor(data.branding.primaryColor);
       }
-    } catch {
-      // Mock dữ liệu chuẩn theo thiết kế hình ảnh đính kèm nếu chưa kết nối backend
-      const fallbackData: TenantProfile = {
-        id: 'a0000000-0000-0000-0000-000000000002',
-        code: 'MN_SAOMAI',
-        name: 'Trường Mầm non Sao Mai Kids Garden',
-        contactEmail: 'contact@saomai.edu.vn',
-        phone: '(028) 3829 4999',
-        address: '128 Võ Thị Sáu, Phường Võ Thị Sáu, Quận 3, TP. Hồ Chí Minh',
-        status: 'ACTIVE',
-        subscriptionTier: 'STANDARD',
-        maxChildren: 500,
-        educationDepartmentCode: 'GD-MN-79-03-0042',
-        schoolIdentifierSgd: 'MN-HCM-Q3-0042',
-        isEducationDbSynced: true,
-        syncedAt: new Date().toISOString(),
-        foodSafetyLicense: {
-          number: '458/2023/ATTP-Q3',
-          expiryDate: '2026-11-18',
-        },
-        legalRepresentative: {
-          name: 'Nguyễn Thu Thủy',
-          title: 'Hiệu trưởng',
-        },
-        branding: {
-          logoUrl: '/assets/logo_saomai_kids.svg',
-          logoName: 'logo_saomai_kids.svg',
-          logoSize: '142 KB • 512×512px • Vector RGB',
-          primaryColor: 'TEAL',
-        },
-      };
-      setProfile(fallbackData);
+    } catch (err) {
+      console.error('Lỗi khi tải thông tin trường học từ backend:', err);
     } finally {
       setLoading(false);
     }

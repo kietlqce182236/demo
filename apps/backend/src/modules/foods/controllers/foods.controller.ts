@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query, Req, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -42,17 +42,32 @@ export class FoodsController {
       }),
     }),
   )
-  uploadFile(@UploadedFile() file: Express.Multer.File) {
+  uploadFile(@UploadedFile() file: any) {
     // Assuming backend serves static files from public/
     return {
       imageUrl: `/uploads/foods/${file.filename}`,
     };
   }
 
+  @Post('batch-activate-pantry')
+  async batchActivatePantry(@Body('foodIds') foodIds: string[], @Req() req: Request) {
+    const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
+    const userId = (req as any).user?.id;
+    return this.foodsService.batchActivatePantry(tenantId, foodIds, userId);
+  }
+
+  @Post(':id/toggle-pantry')
+  async togglePantry(@Param('id') id: string, @Req() req: Request) {
+    const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
+    const userId = (req as any).user?.id;
+    return this.foodsService.togglePantry(tenantId, id, userId);
+  }
+
   @Post()
   async createFood(@Body() createFoodDto: CreateFoodDto, @Req() req: Request) {
     const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
-    return this.foodsService.create(tenantId, createFoodDto);
+    const userId = (req as any).user?.id;
+    return this.foodsService.create(tenantId, createFoodDto, userId);
   }
 
   @Put(':id')
@@ -63,5 +78,11 @@ export class FoodsController {
   ) {
     const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
     return this.foodsService.update(id, tenantId, updateFoodDto);
+  }
+
+  @Delete(':id')
+  async deleteFood(@Param('id') id: string, @Req() req: Request) {
+    const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
+    return this.foodsService.remove(id, tenantId);
   }
 }

@@ -19,7 +19,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
   onReject,
 }) => {
   const [actionType, setActionType] = useState<'approve' | 'reject'>('approve');
-  const [notes, setNotes] = useState('Đã đối chiếu chuẩn dinh dưỡng Bộ GD&ĐT, duyệt áp dụng cho tuần này.');
+  const [notes, setNotes] = useState('');
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -15,6 +15,17 @@ export class GetFoodsQueryDto {
   allergen?: string; // 'SAFE' or 'WARNING'
 
   @IsOptional()
+  @IsString()
+  tier?: string; // 'NATIONAL' | 'PANTRY' | 'ALL'
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  isActive?: any;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

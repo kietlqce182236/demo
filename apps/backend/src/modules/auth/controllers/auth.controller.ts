@@ -20,6 +20,7 @@ import { PasswordResetService } from '../services/password-reset.service';
 import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { VerifyResetOtpDto } from '../dto/verify-reset-otp.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
+import { ChangePasswordDto } from '../dto/change-password.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -125,4 +126,66 @@ export class AuthController {
   async getMe(@Req() req: { user: JwtPayload }) {
     return this.authService.getMe(req.user.sub);
   }
+
+  /**
+   * POST /api/v1/auth/change-password
+   * Authenticated — Đổi mật khẩu (lần đầu hoặc định kỳ)
+   */
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đổi mật khẩu người dùng' })
+  async changePassword(
+    @Req() req: { user: JwtPayload },
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(req.user.sub, dto);
+  }
+
+  /**
+   * POST /api/v1/auth/2fa/setup
+   * Authenticated — Khởi tạo mã secret và QR Code cho 2FA
+   */
+  @Post('2fa/setup')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Khởi tạo cấu hình 2FA' })
+  async setup2Fa(@Req() req: { user: JwtPayload }) {
+    return this.authService.setup2Fa(req.user.sub);
+  }
+
+  /**
+   * POST /api/v1/auth/2fa/enable
+   * Authenticated — Xác nhận mã OTP để bật 2FA
+   */
+  @Post('2fa/enable')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Kích hoạt 2FA' })
+  async enable2Fa(
+    @Req() req: { user: JwtPayload },
+    @Body('code') code: string,
+  ) {
+    return this.authService.enable2Fa(req.user.sub, code);
+  }
+
+  /**
+   * POST /api/v1/auth/2fa/disable
+   * Authenticated — Tắt 2FA
+   */
+  @Post('2fa/disable')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Hủy kích hoạt 2FA' })
+  async disable2Fa(
+    @Req() req: { user: JwtPayload },
+    @Body('code') code: string,
+  ) {
+    return this.authService.disable2Fa(req.user.sub, code);
+  }
 }
+

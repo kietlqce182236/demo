@@ -1,5 +1,6 @@
-import React from 'react';
-import { X, Check, Package, Flame, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Package, Sparkles } from 'lucide-react';
+import { apiClient } from '../../../core/api/axios';
 
 interface SpicesModalProps {
   isOpen: boolean;
@@ -12,18 +13,39 @@ export const SpicesModal: React.FC<SpicesModalProps> = ({
   onClose,
   studentCount,
 }) => {
-  if (!isOpen) return null;
+  const [inventory, setInventory] = useState<Array<{ name: string; quota: string; total: string; note: string }>>([]);
+  const [loading, setLoading] = useState(false);
 
-  const fullInventory = [
-    { name: 'Nước mắm cá cơm Phú Quốc 40°N', quota: '3ml / trẻ / ngày', total: '0.98 lít', note: 'Nêm canh & món rim' },
-    { name: 'Muối tinh sấy I-ốt chuẩn y tế', quota: '1g / trẻ / ngày', total: '0.33 kg', note: 'Kho gia vị khô' },
-    { name: 'Hạt nêm thịt thăn xương ống Knorr', quota: '2g / trẻ / ngày', total: '0.66 kg', note: 'Dùng nêm nước dùng' },
-    { name: 'Đường phèn tinh khiết Biên Hòa', quota: '4g / trẻ / ngày', total: '1.31 kg', note: 'Nấu chè xế & sốt ngọt' },
-    { name: 'Gas công nghiệp PetroVietnam 45kg', quota: '0.04 kg / suất', total: '13.1 kg', note: 'Bình gas kho bếp A' },
-    { name: 'Sữa chua Probi & TH True Milk 110ml', quota: '1 hộp / trẻ / cữ', total: '328 hộp', note: 'Kho mát bảo quản 6°C' },
-    { name: 'Hành hoa & ngò rí tươi sạch', quota: '5g / trẻ / ngày', total: '1.64 kg', note: 'Giao sáng sớm 06:15' },
-    { name: 'Gừng sẻ củ & tỏi ta bóc vỏ', quota: '2g / trẻ / ngày', total: '0.66 kg', note: 'Khử tanh gia vị cá & lươn' },
-  ];
+  useEffect(() => {
+    if (isOpen) {
+      const fetchFoods = async () => {
+        setLoading(true);
+        try {
+          const res = await apiClient.get('/foods', { params: { limit: 12 } });
+          const items = res.data?.items || [];
+          setInventory(
+            items.map((item: any) => {
+              const quotaGram = item.energyKcal ? Math.round(item.energyKcal / 20) : 5;
+              const totalKg = ((quotaGram * (studentCount || 1)) / 1000).toFixed(2);
+              return {
+                name: item.name,
+                quota: `${quotaGram}g / trẻ / ngày`,
+                total: `${totalKg} kg`,
+                note: item.category ? `Nhóm: ${item.category}` : 'Kho nguyên liệu trường',
+              };
+            })
+          );
+        } catch (err) {
+          console.error('Lỗi khi tải kho:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchFoods();
+    }
+  }, [isOpen, studentCount]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
@@ -64,19 +86,33 @@ export const SpicesModal: React.FC<SpicesModalProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {fullInventory.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-teal-50/40 transition">
-                    <td className="py-2.5 px-3 font-bold text-slate-800 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0"></span>
-                      {item.name}
+                {loading ? (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-slate-400">
+                      Đang truy xuất danh mục kho từ cơ sở dữ liệu...
                     </td>
-                    <td className="py-2.5 px-3 text-slate-500">{item.quota}</td>
-                    <td className="py-2.5 px-3 text-right font-extrabold text-teal-800">
-                      {item.total}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-500">{item.note}</td>
                   </tr>
-                ))}
+                ) : inventory.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-slate-400">
+                      Chưa có dữ liệu nguyên liệu kho.
+                    </td>
+                  </tr>
+                ) : (
+                  inventory.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-teal-50/40 transition">
+                      <td className="py-2.5 px-3 font-bold text-slate-800 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0"></span>
+                        {item.name}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-500">{item.quota}</td>
+                      <td className="py-2.5 px-3 text-right font-extrabold text-teal-800">
+                        {item.total}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-500">{item.note}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

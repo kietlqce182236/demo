@@ -64,14 +64,14 @@ export const MenuStatsCards: React.FC<MenuStatsCardsProps> = ({ stats, loading }
     },
     {
       title: 'Năng lượng TB / Ngày',
-      value: `${stats?.avgCalories ?? 780} Kcal`,
-      subText: 'P: 14% | L: 28% | G: 58%',
+      value: `${Number(stats?.avgCalories ?? 675.5).toFixed(1)} Kcal`,
+      subText: 'Chuẩn TT 28 (615 - 726 Kcal)',
       icon: Flame,
       badge: 'Chuẩn TT 28',
       badgeColor: 'bg-emerald-100 text-emerald-800 font-bold',
-      bgColor: 'bg-linear-to-br from-emerald-50/60 to-white',
+      bgColor: 'bg-emerald-50/60 bg-gradient-to-br from-emerald-50/60 to-white',
       borderColor: 'border-emerald-200',
-      iconBg: 'bg-linear-to-tr from-emerald-600 to-teal-500 text-white shadow-md',
+      iconBg: 'bg-emerald-600 bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-md',
     },
   ];
 

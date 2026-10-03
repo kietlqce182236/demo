@@ -63,7 +63,7 @@ export const CreateSnackServicePeriodModal: React.FC<Props> = ({ isOpen, onClose
   const [registrationStart, setRegistrationStart] = useState('');
   const [registrationEnd, setRegistrationEnd] = useState('');
   const [serviceMonths, setServiceMonths] = useState<string[]>([]);
-  const [pricePerDay, setPricePerDay] = useState<number>(18000);
+  const [pricePerDay, setPricePerDay] = useState<number>(0);
   const [autoRefund, setAutoRefund] = useState(false);
 
   // Form state - Section 2

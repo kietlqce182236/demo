@@ -11,6 +11,14 @@ export class GetDishesQueryDto {
 
   @IsOptional()
   @IsString()
+  dishCategory?: string;
+
+  @IsOptional()
+  @IsString()
+  approvalStatus?: string;
+
+  @IsOptional()
+  @IsString()
   targetAgeGroup?: string;
 
   @IsOptional()

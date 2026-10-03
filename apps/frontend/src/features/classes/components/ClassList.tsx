@@ -226,7 +226,7 @@ export const ClassList = () => {
                           <div>
                             <h4 className="font-bold text-slate-800 text-base mb-0.5">{item.name}</h4>
                             <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-                              <span>Mã: <strong className="text-slate-700">{item.id.substring(0, 4).toUpperCase()}24</strong></span>
+                              <span>Mã: <strong className="text-slate-700">{item.id ? item.id.substring(0, 4).toUpperCase() : 'LOP'}24</strong></span>
                               <span>• {item.roomNumber || 'Chưa xếp phòng'}</span>
                             </div>
                           </div>

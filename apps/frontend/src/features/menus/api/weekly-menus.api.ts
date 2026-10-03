@@ -12,6 +12,29 @@ export interface DishItem {
   totalCarbG: number;
   photoUrl?: string | null;
   isActive: boolean;
+  recipeItems?: Array<{
+    id: string;
+    foodId: string;
+    netWeightPerPortionG: number;
+    grossWeightPerPortionG?: number;
+    shrinkageRatio?: number;
+    prepNotes?: string;
+    food?: {
+      id: string;
+      code: string;
+      name: string;
+      category: string;
+      energyKcal: number;
+      proteinG: number;
+      fatG: number;
+      carbG: number;
+      calciumMg?: number;
+      ironMg?: number;
+      zincMg?: number;
+      allergens?: string[];
+      defaultUnit?: string;
+    };
+  }>;
 }
 
 export interface MenuDishItem {
@@ -46,6 +69,12 @@ export interface WeeklyMenu {
   approvedAt?: string | null;
   approvalNotes?: string | null;
   rejectionReason?: string | null;
+  editRequestStatus?: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  editRequestReason?: string | null;
+  editRequestAt?: string | null;
+  editRequestBy?: string | null;
+  editRequestResponseNotes?: string | null;
+  editRequestRespondedAt?: string | null;
   version: number;
   parentMenuId?: string | null;
   dailyAverageCalories: number;
@@ -111,6 +140,65 @@ export interface ImportExcelPayload {
     portionSizeG?: number;
     calories?: number;
   }>;
+}
+
+export interface AutoGeneratePayload {
+  title?: string;
+  targetAgeGroup?: string;
+  startDate: string;
+  endDate: string;
+  daysCount?: number;
+  cycleWeekNumber?: number;
+  excludePreviousDays?: number;
+  referenceMenuId?: string;
+  includeBreakfast?: boolean;
+  previewOnly?: boolean;
+}
+
+export interface AutoGeneratePreviewResponse {
+  previewOnly: boolean;
+  title: string;
+  targetAgeGroup: string;
+  startDate: string;
+  endDate: string;
+  daysCount: number;
+  dailySummary: Array<{
+    dayOfWeek: number;
+    dayName: string;
+    totalCalories: number;
+    totalProteinG: number;
+    totalFatG: number;
+    totalCarbG: number;
+    proteinPct: number;
+    lipidPct: number;
+    glucidPct: number;
+    isCompliant: boolean;
+    standardNote: string;
+    dishes: Array<{
+      dishId: string;
+      dishName: string;
+      dishType: string;
+      mealTime: string;
+      servingOrder: number;
+      portionSizeG: number;
+      plannedCalories: number;
+      proteinG: number;
+      fatG: number;
+      carbG: number;
+    }>;
+  }>;
+  averageCalories: number;
+  averageProteinG: number;
+  averageFatG: number;
+  averageCarbG: number;
+  antiFatigueReport: {
+    totalDishesUsed: number;
+    uniqueDishesUsed: number;
+    duplicateWithinMenuCount: number;
+    overlappedWithPrevious14DaysCount: number;
+    cycleCompliance: string;
+    standardEvaluation: string;
+  };
 }
 
 export interface ExportDataResponse {
@@ -269,4 +357,175 @@ export const weeklyMenusApi = {
     link.click();
     link.remove();
   },
+
+  // 20. Tự động sinh thực đơn (Lưu vào DB)
+  async autoGenerateMenu(payload: AutoGeneratePayload): Promise<WeeklyMenu> {
+    const res = await apiClient.post<WeeklyMenu>('/menus/auto-generate', {
+      ...payload,
+      previewOnly: false,
+    });
+    return res.data;
+  },
+
+  // 21. Xem trước ma trận thực đơn tự động sinh
+  async previewAutoGenerateMenu(payload: AutoGeneratePayload): Promise<AutoGeneratePreviewResponse> {
+    const res = await apiClient.post<AutoGeneratePreviewResponse>('/menus/auto-generate', {
+      ...payload,
+      previewOnly: true,
+    });
+    return res.data;
+  },
+
+  // 22. Lấy tư vấn cảnh báo Dị ứng học sinh & Cá nhân hóa Dinh dưỡng theo BMI
+  async getAdvisory(menuId: string): Promise<MenuAdvisoryResponse> {
+    const res = await apiClient.get<MenuAdvisoryResponse>(`/menus/${menuId}/advisory`);
+    return res.data;
+  },
+
+  // 23. Gán hoặc hủy món ăn thay thế an toàn cho ô món ăn trong thực đơn
+  async applySubstitute(
+    menuId: string,
+    menuDishId: string,
+    substituteDishId: string | null,
+    notes?: string,
+  ): Promise<MenuDishItem> {
+    const res = await apiClient.post<MenuDishItem>(
+      `/menus/${menuId}/dishes/${menuDishId}/apply-substitute`,
+      { substituteDishId, notes },
+    );
+    return res.data;
+  },
+
+  // 24. Chuyên viên Dinh dưỡng xin phép Hiệu trưởng chỉnh sửa thực đơn đã duyệt
+  async requestEditMenu(id: string, reason: string): Promise<WeeklyMenu> {
+    const res = await apiClient.post<WeeklyMenu>(`/menus/${id}/request-edit`, { reason });
+    return res.data;
+  },
+
+  // 25. Hiệu trưởng chấp thuận yêu cầu chỉnh sửa (mở khóa về DRAFT)
+  async approveEditRequest(id: string, notes?: string): Promise<WeeklyMenu> {
+    const res = await apiClient.post<WeeklyMenu>(`/menus/${id}/approve-edit-request`, { notes });
+    return res.data;
+  },
+
+  // 26. Hiệu trưởng từ chối yêu cầu chỉnh sửa
+  async rejectEditRequest(id: string, reason: string): Promise<WeeklyMenu> {
+    const res = await apiClient.post<WeeklyMenu>(`/menus/${id}/reject-edit-request`, { reason });
+    return res.data;
+  },
+
+  // 27. Hủy yêu cầu xin phép chỉnh sửa
+  async cancelEditRequest(id: string): Promise<WeeklyMenu> {
+    const res = await apiClient.post<WeeklyMenu>(`/menus/${id}/cancel-edit-request`);
+    return res.data;
+  },
 };
+
+export interface ProblematicIngredient {
+  foodId: string;
+  foodName: string;
+  netWeightPerPortionG: number;
+  allergens?: string[];
+}
+
+export interface SuggestedIngredientSubstitution {
+  originalIngredient: string;
+  substituteIngredient: string;
+  suggestedGram: number;
+  nutritionNote: string;
+  preparationAdvice: string;
+}
+
+export interface SuggestedSubstituteDish {
+  dishId: string;
+  dishName: string;
+  dishType: string;
+  standardServingSizeG: number;
+  totalCalories: number;
+  totalProteinG: number;
+  totalFatG: number;
+  totalCarbG: number;
+  ingredientsSummary: string;
+}
+
+export interface AllergyConflictItem {
+  conflictId: string;
+  childId: string;
+  childName: string;
+  avatarUrl?: string | null;
+  classId: string;
+  className: string;
+  allergenDetected: string;
+  allergenCode?: string;
+  severity: 'MILD' | 'MODERATE' | 'SEVERE' | 'ANAPHYLACTIC';
+  reactionTreatment?: string | null;
+  menuDishId: string;
+  dishId: string;
+  dishName: string;
+  dishType: string;
+  dayOfWeek: number;
+  mealTime: string;
+  portionSizeG: number;
+  plannedCalories: number;
+  substituteDishId?: string | null;
+  currentSubstituteDishName?: string | null;
+  problematicIngredients: ProblematicIngredient[];
+  suggestedIngredientSubstitutions: SuggestedIngredientSubstitution[];
+  suggestedSubstituteDishes: SuggestedSubstituteDish[];
+}
+
+export interface BmiChildItem {
+  childId: string;
+  childName: string;
+  className: string;
+  weightKg: number;
+  heightCm: number;
+  bmi: number;
+  baz: number;
+  classification: string;
+  statusText: string;
+  healthNotes?: string | null;
+}
+
+export interface BmiSubstituteDishRecommendation {
+  dishId: string;
+  dishName: string;
+  totalCalories: number;
+  totalProteinG: number;
+  totalFatG: number;
+  reason: string;
+}
+
+export interface BmiRecommendationGroup {
+  label: string;
+  count: number;
+  severity: 'WARNING' | 'CRITICAL';
+  clinicalStrategy: string;
+  portionAdvice: string;
+  children: BmiChildItem[];
+  recommendedSubstituteDishes: BmiSubstituteDishRecommendation[];
+}
+
+export interface MenuAdvisoryResponse {
+  menuId: string;
+  menuTitle: string;
+  targetAgeGroup: string;
+  allergySummary: {
+    totalConflicts: number;
+    criticalCount: number;
+    warningCount: number;
+    affectedChildrenCount: number;
+    affectedDishesCount: number;
+  };
+  allergyConflicts: AllergyConflictItem[];
+  bmiSummary: {
+    totalEvaluated: number;
+    overweightObeseCount: number;
+    wastedUnderweightCount: number;
+    normalCount: number;
+  };
+  bmiRecommendations: {
+    overweightGroup: BmiRecommendationGroup;
+    wastedGroup: BmiRecommendationGroup;
+  };
+}
