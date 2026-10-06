@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   GraduationCap,
+  ClipboardCheck,
   Users2,
   Coffee,
   FileCheck2,
@@ -17,6 +18,9 @@ import {
   UtensilsCrossed,
   Sparkles,
   Scale,
+  Users,
+  History,
+  ChefHat,
 } from 'lucide-react';
 import { UserProfileModal } from '../features/auth/components/UserProfileModal';
 import { useAuthStore } from '../core/stores/auth.store';
@@ -26,17 +30,25 @@ export const AdminDashboardLayout: React.FC = () => {
   const { user } = useAuthStore();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
+  const roles = user?.roles || [];
+  const isSuperAdmin = roles.includes('SUPER_ADMIN');
+  const isKitchen = roles.includes('KITCHEN_STAFF') || roles.includes('KITCHEN_MANAGER');
+
   // Danh mục menu chuẩn xác theo hình ảnh thiết kế Ban Giám Hiệu
   const navItems = [
     { label: 'Dashboard Tổng quan', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Quản trị Lớp học', path: '/classes', icon: GraduationCap },
+    { label: 'Điểm danh bán trú (GV)', path: '/attendance', icon: ClipboardCheck },
     { label: 'Nhân sự & Bếp', path: '/staff', icon: Users2 },
+    { label: 'Tài khoản Phụ huynh', path: '/parents', icon: Users },
     { label: 'Dịch vụ bán trú', path: '/services', icon: Coffee },
     { label: 'Gói ăn xế chiều', path: '/snack-services', icon: Sparkles },
     { label: 'Phê duyệt thực đơn', path: '/menus', icon: FileCheck2 },
     { label: 'Kho & Dinh dưỡng', path: '/inventory', icon: PackageOpen },
     { label: 'Sổ kiểm thực 3 bước', path: '/food-safety', icon: ShieldCheck },
+    ...(isKitchen || isSuperAdmin ? [{ label: 'Màn hình KDS Bếp', path: '/kitchen', icon: ChefHat }] : []),
     { label: 'Báo cáo tài chính', path: '/finances', icon: CircleDollarSign },
+    { label: 'Nhật ký kiểm toán', path: '/audit-logs', icon: History },
     { label: 'Cài đặt trường học', path: '/settings', icon: Settings },
   ];
 
@@ -44,11 +56,14 @@ export const AdminDashboardLayout: React.FC = () => {
     if (location.pathname.startsWith('/menu-approval') || location.pathname.startsWith('/menus')) return 'Phê duyệt & Công bố thực đơn tuần';
     if (location.pathname.startsWith('/snack-services')) return 'Gói ăn xế chiều';
     if (location.pathname.startsWith('/classes')) return 'Quản trị Lớp học & Học sinh';
+    if (location.pathname.startsWith('/attendance')) return 'Điểm danh suất ăn Bán trú - LiveSync Bếp';
     if (location.pathname.startsWith('/staff')) return 'Quản trị Nhân sự & Tài khoản Bếp';
+    if (location.pathname.startsWith('/parents')) return 'Quản trị Tài khoản Phụ huynh';
     if (location.pathname.startsWith('/services')) return 'Dịch vụ Bán trú & Ăn xế';
     if (location.pathname.startsWith('/inventory')) return 'Kho nguyên liệu & Tiêu chuẩn dinh dưỡng';
     if (location.pathname.startsWith('/food-safety')) return 'Sổ kiểm thực 3 bước & Lưu mẫu';
     if (location.pathname.startsWith('/finances')) return 'Báo cáo Tài chính & Thu chi';
+    if (location.pathname.startsWith('/audit-logs')) return 'Nhật ký kiểm toán & Truy vết hệ thống';
     if (location.pathname.startsWith('/settings')) return 'Cài đặt thông tin Trường mầm non';
     if (location.pathname.startsWith('/dashboard')) return 'Dashboard Tổng quan';
     return 'Cài đặt hệ thống & Quản trị tài khoản';

@@ -98,6 +98,11 @@ export const childrenApi = {
     return res.data;
   },
 
+  getChild: async (childId: string): Promise<ChildItem> => {
+    const res = await apiClient.get<ChildItem>(`/children/${childId}`);
+    return res.data;
+  },
+
   createChild: async (dto: CreateChildDto): Promise<ChildItem> => {
     const res = await apiClient.post<ChildItem>('/children', dto);
     return res.data;
@@ -105,6 +110,21 @@ export const childrenApi = {
 
   declareAllergy: async (childId: string, dto: DeclareAllergyDto): Promise<ChildAllergyItem> => {
     const res = await apiClient.post<ChildAllergyItem>(`/children/${childId}/allergies`, dto);
+    return res.data;
+  },
+
+  updateAllergy: async (allergyId: string, dto: Partial<DeclareAllergyDto>): Promise<ChildAllergyItem> => {
+    const res = await apiClient.put<ChildAllergyItem>(`/children/allergies/${allergyId}`, dto);
+    return res.data;
+  },
+
+  deactivateAllergy: async (allergyId: string): Promise<ChildAllergyItem> => {
+    const res = await apiClient.delete<ChildAllergyItem>(`/children/allergies/${allergyId}`);
+    return res.data;
+  },
+
+  getAllergyHistory: async (childId: string): Promise<any[]> => {
+    const res = await apiClient.get<any[]>(`/children/${childId}/allergy-history`);
     return res.data;
   },
 

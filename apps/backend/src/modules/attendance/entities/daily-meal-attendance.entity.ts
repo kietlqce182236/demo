@@ -1,10 +1,10 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseTenantEntity } from '../../../database/base.entity';
+import { BaseTenantSimpleEntity } from '../../../database/base.entity';
 import { ChildEntity } from './child.entity';
 import { ClassEntity } from './class.entity';
 
 @Entity({ name: 'daily_meal_attendance' })
-export class DailyMealAttendanceEntity extends BaseTenantEntity {
+export class DailyMealAttendanceEntity extends BaseTenantSimpleEntity {
   @Column({ name: 'class_id', type: 'uuid' })
   classId: string;
 

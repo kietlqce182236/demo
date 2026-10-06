@@ -1,9 +1,14 @@
-import { Entity, Column, OneToMany } from 'typeorm';
-import { BaseTenantTimestampedEntity } from '../../../database/base.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { ChildEntity } from './child.entity';
 
 @Entity({ name: 'classes' })
-export class ClassEntity extends BaseTenantTimestampedEntity {
+export class ClassEntity {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ name: 'tenant_id', type: 'uuid' })
+  tenantId: string;
+
   @Column({ type: 'varchar', length: 100 })
   name: string;
 
@@ -21,6 +26,12 @@ export class ClassEntity extends BaseTenantTimestampedEntity {
 
   @Column({ type: 'varchar', length: 50, default: 'ACTIVE' })
   status: string;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  updatedAt: Date;
 
   @OneToMany(() => ChildEntity, (child) => child.class)
   children: ChildEntity[];

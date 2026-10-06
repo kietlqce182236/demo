@@ -82,6 +82,11 @@ export class ChildrenController {
     return this.childrenService.create(this.getTenantId(req), dto);
   }
 
+  @Post('import')
+  async importChildren(@Req() req: Request, @Body('items') items: any[]) {
+    return this.childrenService.importChildren(this.getTenantId(req), items || []);
+  }
+
   @Put(':id')
   async updateChild(
     @Req() req: Request,

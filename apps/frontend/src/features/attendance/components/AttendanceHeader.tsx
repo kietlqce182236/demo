@@ -1,11 +1,12 @@
 import React from 'react';
-import { ChevronRight, FileText, Send, Radio } from 'lucide-react';
+import { ChevronRight, Printer, Rocket, ArrowLeft } from 'lucide-react';
 
 interface AttendanceHeaderProps {
   classNameTitle?: string;
   cutoffTime?: string;
   onExportReport?: () => void;
   onLockAndSendKitchen?: () => void;
+  onBackToClasses?: () => void;
   isLocked?: boolean;
 }
 
@@ -14,6 +15,7 @@ export const AttendanceHeader: React.FC<AttendanceHeaderProps> = ({
   cutoffTime = '08:45',
   onExportReport,
   onLockAndSendKitchen,
+  onBackToClasses,
   isLocked = false,
 }) => {
   return (
@@ -24,15 +26,31 @@ export const AttendanceHeader: React.FC<AttendanceHeaderProps> = ({
           <span>🏠</span> Trang chủ
         </span>
         <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-        <span className="hover:text-teal-700 cursor-pointer">Bán trú mầm non</span>
+        <span
+          onClick={onBackToClasses}
+          className="hover:text-teal-700 cursor-pointer hover:underline text-slate-600"
+          title="Bấm để quay lại danh sách lớp"
+        >
+          Bán trú mầm non
+        </span>
         <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-        <span className="text-teal-700 font-bold">Điểm danh học sinh ăn bán trú</span>
+        <span className="text-teal-700 font-bold">{classNameTitle}</span>
       </div>
 
       {/* Main Title & Action Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2.5">
+            {onBackToClasses && (
+              <button
+                onClick={onBackToClasses}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-xs"
+                title="Quay lại danh sách chọn lớp"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-slate-500" />
+                <span>Đổi lớp khác</span>
+              </button>
+            )}
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
               Điểm danh suất ăn Bán trú - {classNameTitle}
             </h1>
@@ -52,7 +70,7 @@ export const AttendanceHeader: React.FC<AttendanceHeaderProps> = ({
             onClick={onExportReport}
             className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 active:scale-95 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold shadow-sm transition"
           >
-            <FileText className="w-4 h-4 text-slate-500" />
+            <Printer className="w-4 h-4 text-slate-600" />
             <span>Xuất phiếu báo ăn</span>
           </button>
 
@@ -65,7 +83,7 @@ export const AttendanceHeader: React.FC<AttendanceHeaderProps> = ({
                 : 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 ring-2 ring-teal-600/20'
             }`}
           >
-            <Send className="w-4 h-4" />
+            <Rocket className="w-4 h-4" />
             <span>{isLocked ? 'Đã Chốt & Gửi Bếp' : `Chốt sĩ số & Gửi Bếp (${cutoffTime})`}</span>
           </button>
         </div>

@@ -269,4 +269,208 @@ export class GrowthService {
       overweightPercent: records.length ? Math.round((overweight / records.length) * 100) : 0,
     };
   }
+
+  /**
+   * Cập nhật chỉ số thể lực đã ghi nhận (sửa số liệu đo)
+   */
+  async updateRecord(tenantId: string, id: string, dto: Partial<CreateGrowthRecordDto>) {
+    const record = await this.growthRecordRepo.findOne({
+      where: { id, tenantId },
+      relations: ['child'],
+    });
+
+    if (!record) {
+      throw new NotFoundException(`Không tìm thấy bản ghi thể lực với ID: ${id}`);
+    }
+
+    const child = record.child || (await this.childRepo.findOne({ where: { id: record.childId, tenantId } }));
+    if (!child) {
+      throw new NotFoundException(`Không tìm thấy thông tin học sinh`);
+    }
+
+    const measurementDate = dto.measurementDate || record.measurementDate;
+    const weightKg = dto.weightKg !== undefined ? Number(dto.weightKg) : Number(record.weightKg);
+    const heightCm = dto.heightCm !== undefined ? Number(dto.heightCm) : Number(record.heightCm);
+
+    const dobStr = (child.dateOfBirth as any) instanceof Date
+      ? (child.dateOfBirth as any).toISOString().split('T')[0]
+      : String(child.dateOfBirth);
+
+    const ageInMonths = this.calculateAgeInMonths(dobStr, measurementDate);
+    const gender = child.gender === 'FEMALE' ? 'FEMALE' : 'MALE';
+
+    const [wazLms, hazLms, bazLms] = await Promise.all([
+      this.getLms('WAZ', gender, ageInMonths),
+      this.getLms('HAZ', gender, ageInMonths),
+      this.getLms('BAZ', gender, ageInMonths),
+    ]);
+
+    const evalResult = this.whoZScoreService.evaluate(
+      weightKg,
+      heightCm,
+      wazLms,
+      hazLms,
+      bazLms,
+    );
+
+    record.measurementDate = measurementDate;
+    record.weightKg = weightKg;
+    record.heightCm = heightCm;
+    record.ageInMonths = ageInMonths;
+    record.waz = evalResult.waz;
+    record.haz = evalResult.haz;
+    record.baz = evalResult.baz;
+    record.weightClassification = evalResult.weightClassification;
+    record.heightClassification = evalResult.heightClassification;
+    record.bmiClassification = evalResult.bmiClassification;
+    record.overallNutritionalStatus = evalResult.overallNutritionalStatus;
+    if (dto.healthNotes !== undefined) record.healthNotes = dto.healthNotes;
+
+    const saved = await this.growthRecordRepo.save(record);
+    return {
+      success: true,
+      message: 'Cập nhật chỉ số phát triển thành công!',
+      data: saved,
+    };
+  }
+
+  /**
+   * Xóa bản ghi thể lực không chính xác
+   */
+  async deleteRecord(tenantId: string, id: string) {
+    const record = await this.growthRecordRepo.findOne({ where: { id, tenantId } });
+    if (!record) {
+      throw new NotFoundException(`Không tìm thấy bản ghi thể lực với ID: ${id}`);
+    }
+
+    await this.growthRecordRepo.remove(record);
+    return {
+      success: true,
+      message: 'Đã xóa bản ghi thể lực thành công.',
+    };
+  }
+
+  /**
+   * Nhập hàng loạt số liệu cân đo (Import Excel/CSV)
+   */
+  async importRecords(tenantId: string, userId: string, items: any[]) {
+    const results = {
+      importedCount: 0,
+      errors: [] as string[],
+    };
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      try {
+        let child: Child | null = null;
+        if (item.childId) {
+          child = await this.childRepo.findOne({ where: { id: item.childId, tenantId } });
+        } else if (item.studentCode) {
+          child = await this.childRepo.findOne({ where: { studentCode: item.studentCode.trim(), tenantId } });
+        }
+
+        if (!child) {
+          results.errors.push(`Dòng ${i + 1}: Không tìm thấy học sinh với mã ${item.studentCode || item.childId}`);
+          continue;
+        }
+
+        const measurementDate = item.measurementDate || new Date().toISOString().split('T')[0];
+        const weightKg = Number(item.weightKg);
+        const heightCm = Number(item.heightCm);
+
+        if (!weightKg || !heightCm) {
+          results.errors.push(`Dòng ${i + 1}: Cân nặng hoặc chiều cao không hợp lệ.`);
+          continue;
+        }
+
+        const dobStr = (child.dateOfBirth as any) instanceof Date
+          ? (child.dateOfBirth as any).toISOString().split('T')[0]
+          : String(child.dateOfBirth);
+
+        const ageInMonths = this.calculateAgeInMonths(dobStr, measurementDate);
+        const gender = child.gender === 'FEMALE' ? 'FEMALE' : 'MALE';
+
+        const [wazLms, hazLms, bazLms] = await Promise.all([
+          this.getLms('WAZ', gender, ageInMonths),
+          this.getLms('HAZ', gender, ageInMonths),
+          this.getLms('BAZ', gender, ageInMonths),
+        ]);
+
+        const evalResult = this.whoZScoreService.evaluate(weightKg, heightCm, wazLms, hazLms, bazLms);
+
+        const rec = this.growthRecordRepo.create({
+          tenantId,
+          childId: child.id,
+          measuredBy: userId,
+          measurementDate,
+          ageInMonths,
+          weightKg,
+          heightCm,
+          waz: evalResult.waz,
+          haz: evalResult.haz,
+          baz: evalResult.baz,
+          weightClassification: evalResult.weightClassification,
+          heightClassification: evalResult.heightClassification,
+          bmiClassification: evalResult.bmiClassification,
+          overallNutritionalStatus: evalResult.overallNutritionalStatus,
+          healthNotes: item.healthNotes || 'Nhập từ file dữ liệu đo',
+        });
+
+        await this.growthRecordRepo.save(rec);
+        results.importedCount++;
+      } catch (err: any) {
+        results.errors.push(`Dòng ${i + 1}: ${err.message}`);
+      }
+    }
+
+    return {
+      success: true,
+      message: `Đã nhập thành công ${results.importedCount}/${items.length} bản ghi cân đo thể lực.`,
+      ...results,
+    };
+  }
+
+  /**
+   * Xuất báo cáo phát triển thể lực học sinh
+   */
+  async exportReport(tenantId: string, classId?: string) {
+    const qb = this.growthRecordRepo
+      .createQueryBuilder('gr')
+      .leftJoinAndSelect('gr.child', 'c')
+      .leftJoinAndSelect('c.class', 'cls')
+      .where('gr.tenant_id = :tenantId', { tenantId })
+      .orderBy('gr.measurement_date', 'DESC');
+
+    if (classId && classId !== 'ALL') {
+      qb.andWhere('c.class_id = :classId', { classId });
+    }
+
+    const records = await qb.getMany();
+
+    const reportItems = records.map((r) => ({
+      id: r.id,
+      studentCode: r.child?.studentCode,
+      childName: r.child?.fullName,
+      gender: r.child?.gender === 'MALE' ? 'Nam' : 'Nữ',
+      className: r.child?.class?.name || 'Chưa xếp lớp',
+      measurementDate: r.measurementDate,
+      ageInMonths: r.ageInMonths,
+      weightKg: r.weightKg,
+      heightCm: r.heightCm,
+      waz: r.waz,
+      haz: r.haz,
+      baz: r.baz,
+      weightStatus: r.weightClassification,
+      heightStatus: r.heightClassification,
+      bmiStatus: r.bmiClassification,
+      overallStatus: r.overallNutritionalStatus,
+      notes: r.healthNotes || '',
+    }));
+
+    return {
+      totalRecords: reportItems.length,
+      generatedAt: new Date().toISOString(),
+      items: reportItems,
+    };
+  }
 }

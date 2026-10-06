@@ -15,10 +15,11 @@ export const LoginPage: React.FC = () => {
 
   const getPortalPath = (roles?: string[]): string => {
     if (!roles || roles.length === 0) return '/';
+    if (roles.includes('KITCHEN_STAFF') || roles.includes('KITCHEN_MANAGER')) return '/kitchen';
     if (roles.includes('NUTRITIONIST')) return '/nutritionist/menus';
     if (roles.includes('TEACHER')) return '/tablet';
-    if (roles.includes('KITCHEN_STAFF')) return '/kds';
     if (roles.includes('PRINCIPAL') || roles.includes('SUPER_ADMIN')) return '/dashboard';
+    if (roles.includes('PARENT')) return '/child-menu-consumption';
     return '/';
   };
 
@@ -44,6 +45,7 @@ export const LoginPage: React.FC = () => {
 
   // Tự động gán tenant ngầm khi mount (Mặc định: Trường MN Sao Mai)
   useEffect(() => {
+    if (isAuthenticated) return;
     let cancelled = false;
     fetchTenants()
       .then((data) => {
@@ -57,7 +59,7 @@ export const LoginPage: React.FC = () => {
         setTenantId('a0000000-0000-0000-0000-000000000002');
       });
     return () => { cancelled = true; };
-  }, [setTenantId]);
+  }, [setTenantId, isAuthenticated]);
 
   // Xử lý đăng nhập
   const handleLogin = useCallback(async (e: React.FormEvent) => {
@@ -260,6 +262,75 @@ export const LoginPage: React.FC = () => {
                 )}
               </button>
             </form>
+
+            {/* Quick Demo Role Logins */}
+            <div className="mt-6 pt-5 border-t border-slate-100">
+              <p className="text-xs font-bold text-slate-500 mb-2.5 text-center flex items-center justify-center gap-1.5">
+                <span>⚡</span> Đăng nhập nhanh kiểm tra phân quyền (Demo):
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => { setEmail('bep@hoamai.edu.vn'); setPassword('123456'); }}
+                  className="p-2.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100/80 text-amber-900 font-semibold text-left transition flex flex-col gap-0.5 group"
+                >
+                  <span className="font-bold flex items-center gap-1 text-amber-800 group-hover:text-amber-900">
+                    👨‍🍳 Cán bộ Bếp
+                  </span>
+                  <span className="text-[10px] text-amber-600 font-mono truncate">bep@hoamai.edu.vn</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmail('cogaomam1@hoamai.edu.vn'); setPassword('123456'); }}
+                  className="p-2.5 rounded-xl border border-teal-200 bg-teal-50 hover:bg-teal-100/80 text-teal-900 font-semibold text-left transition flex flex-col gap-0.5 group"
+                >
+                  <span className="font-bold flex items-center gap-1 text-teal-800 group-hover:text-teal-900">
+                    👩‍🏫 Giáo viên
+                  </span>
+                  <span className="text-[10px] text-teal-600 font-mono truncate">cogaomam1@hoamai...</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmail('dinhduong@hoamai.edu.vn'); setPassword('123456'); }}
+                  className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-900 font-semibold text-left transition flex flex-col gap-0.5 group"
+                >
+                  <span className="font-bold flex items-center gap-1 text-emerald-800 group-hover:text-emerald-900">
+                    🥗 Dinh dưỡng
+                  </span>
+                  <span className="text-[10px] text-emerald-600 font-mono truncate">dinhduong@hoamai...</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmail('hieutruong@hoamai.edu.vn'); setPassword('123456'); }}
+                  className="p-2.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100/80 text-blue-900 font-semibold text-left transition flex flex-col gap-0.5 group"
+                >
+                  <span className="font-bold flex items-center gap-1 text-blue-800 group-hover:text-blue-900">
+                    🏫 Hiệu trưởng
+                  </span>
+                  <span className="text-[10px] text-blue-600 font-mono truncate">hieutruong@hoamai...</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmail('phuhuynh.phong@gmail.com'); setPassword('123456'); }}
+                  className="p-2.5 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100/80 text-purple-900 font-semibold text-left transition flex flex-col gap-0.5 group"
+                >
+                  <span className="font-bold flex items-center gap-1 text-purple-800 group-hover:text-purple-900">
+                    👨‍👩‍👧 Phụ huynh
+                  </span>
+                  <span className="text-[10px] text-purple-600 font-mono truncate">phuhuynh.phong...</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmail('superadmin@nutribud.vn'); setPassword('123456'); }}
+                  className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/80 text-slate-900 font-semibold text-left transition flex flex-col gap-0.5 group"
+                >
+                  <span className="font-bold flex items-center gap-1 text-slate-800 group-hover:text-slate-900">
+                    👑 Super Admin
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono truncate">superadmin@nutri...</span>
+                </button>
+              </div>
+            </div>
 
             {/* Security badge */}
             <div className="mt-8 text-center">

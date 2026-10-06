@@ -1,50 +1,60 @@
 import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { ClipboardCheck, UtensilsCrossed, AlertTriangle } from 'lucide-react';
+import { Outlet, Link } from 'react-router-dom';
+import { UtensilsCrossed, Calendar, ArrowLeft } from 'lucide-react';
+import { useAuthStore } from '../core/stores/auth.store';
 
 export const TeacherTabletLayout: React.FC = () => {
-  const location = useLocation();
+  const { user } = useAuthStore();
+  const isPrincipal = user?.roles?.includes('PRINCIPAL') || user?.roles?.includes('SUPER_ADMIN');
+
+  const todayFormatted = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date());
 
   return (
-    <div className="flex flex-col h-screen bg-slate-100 touch-pan-y select-none">
-      {/* Tablet Topbar - Cỡ chữ to, nút bấm tối thiểu 48px */}
-      <header className="h-18 bg-emerald-700 text-white px-6 flex items-center justify-between shadow-md">
+    <div className="flex flex-col min-h-screen bg-slate-100 touch-pan-y select-none">
+      {/* Tablet Topbar */}
+      <header className="h-16 md:h-18 bg-emerald-700 text-white px-4 md:px-6 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-3">
           <div className="bg-white/20 p-2 rounded-xl">
-            <UtensilsCrossed className="w-7 h-7 text-white" />
+            <UtensilsCrossed className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">Lớp Chồi 1 – Ghi nhận Bữa ăn</h1>
-            <p className="text-xs text-emerald-200">Cô Nguyễn Lan Anh phụ trách</p>
+            <h1 className="text-base md:text-lg font-black tracking-tight">
+              Cổng Tablet Giáo Viên – Sĩ Số & Bán Trú
+            </h1>
+            <p className="text-xs text-emerald-200 font-medium">
+              {user?.fullName ? `Giáo viên: ${user.fullName}` : 'Giáo viên phụ trách'}
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
-            to="/attendance"
-            className={`px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition ${
-              location.pathname === '/attendance' ? 'bg-white text-emerald-800' : 'bg-emerald-800/60 text-white'
-            }`}
-          >
-            <ClipboardCheck className="w-5 h-5" />
-            Điểm danh suất ăn
-          </Link>
-          <Link
-            to="/attendance/record"
-            className={`px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition ${
-              location.pathname === '/attendance/record' ? 'bg-white text-emerald-800' : 'bg-emerald-800/60 text-white'
-            }`}
-          >
-            <AlertTriangle className="w-5 h-5 text-amber-300" />
-            Trạng thái ăn & Dị ứng
-          </Link>
+          <div className="hidden sm:flex items-center gap-1.5 bg-emerald-800/80 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-100 border border-emerald-600/50">
+            <Calendar className="w-4 h-4 text-emerald-300" />
+            <span className="capitalize">{todayFormatted}</span>
+          </div>
+
+          {isPrincipal && (
+            <Link
+              to="/dashboard"
+              className="px-3.5 py-1.5 rounded-xl font-bold text-xs bg-emerald-800 hover:bg-emerald-900 text-white flex items-center gap-1.5 border border-emerald-600/60 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Về Cổng BGH</span>
+            </Link>
+          )}
         </div>
       </header>
 
       {/* Main Tablet Touch Content Area */}
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full">
         <Outlet />
       </main>
     </div>
   );
 };
+

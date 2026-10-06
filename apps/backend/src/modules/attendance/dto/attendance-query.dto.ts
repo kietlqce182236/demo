@@ -11,7 +11,7 @@ export class AttendanceQueryDto {
 
   @IsOptional()
   @IsString()
-  mealFilter?: 'ALL' | 'LUNCH' | 'SNACK' | 'ABSENT';
+  mealFilter?: 'ALL' | 'LUNCH' | 'SNACK' | 'ABSENT' | 'PRESENT';
 
   @IsOptional()
   @IsString()

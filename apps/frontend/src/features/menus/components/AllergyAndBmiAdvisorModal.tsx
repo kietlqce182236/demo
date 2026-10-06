@@ -18,6 +18,9 @@ import {
   TrendingDown,
   TrendingUp,
   Baby,
+  FileText,
+  ClipboardList,
+  CheckSquare,
 } from 'lucide-react';
 import {
   weeklyMenusApi,
@@ -59,6 +62,7 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
   const [error, setError] = useState<string | null>(null);
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [customNoteText, setCustomNoteText] = useState<string>('');
 
   // Filters for allergy conflicts
   const [severityFilter, setSeverityFilter] = useState<'ALL' | 'CRITICAL' | 'WARNING'>('ALL');
@@ -98,37 +102,19 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
     setTimeout(() => setFeedback(null), 4000);
   };
 
-  const handleApplySubstitute = async (
-    menuDishId: string,
-    substituteDishId: string | null,
-    targetCategory?: 'STUNTED' | 'OBESE' | 'ALLERGIES',
-    detailInfo?: string,
-  ) => {
+  const handleSaveStaffNote = async (dishIdToApply: string, noteToSave: string | null) => {
     try {
-      setApplyingId(menuDishId);
-      let note: string | undefined = undefined;
-      if (substituteDishId) {
-        if (targetCategory === 'ALLERGIES') {
-          note = `[LOẠI 3: DỊ ỨNG] Thay thế an toàn cho học sinh dị ứng${detailInfo ? `: ${detailInfo}` : ''}`;
-        } else if (targetCategory === 'OBESE') {
-          note = `[LOẠI 2: THỪA CÂN / BÉO PHÌ] Giảm calo và chất béo theo TT 28 cho học sinh béo phì`;
-        } else if (targetCategory === 'STUNTED') {
-          note = `[LOẠI 1: CÒI XƯƠNG / SDD] Tăng calo và protein theo QĐ 1246 cho học sinh còi xương`;
-        } else {
-          note = `[MÓN THAY THẾ] Thay thế món theo chế độ riêng`;
-        }
-      }
-
+      setApplyingId(dishIdToApply);
       await weeklyMenusApi.applySubstitute(
         menuId,
-        menuDishId,
-        substituteDishId,
-        note,
+        dishIdToApply,
+        null,
+        noteToSave || undefined,
       );
       showToast(
-        substituteDishId
-          ? 'Đã áp dụng thành công món thay thế an toàn cho thực đơn!'
-          : 'Đã hủy món thay thế, quay về món gốc.',
+        noteToSave
+          ? 'Đã lưu ghi chú cho Nhân viên (Bếp & GV) thành công!'
+          : 'Đã xóa ghi chú của món ăn.',
         'success',
       );
       await fetchAdvisory();
@@ -136,7 +122,52 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
         onSubstituteApplied();
       }
     } catch (err: any) {
-      showToast(err?.response?.data?.message || 'Không thể cập nhật món thay thế.', 'error');
+      showToast(err?.response?.data?.message || 'Không thể lưu ghi chú.', 'error');
+    } finally {
+      setApplyingId(null);
+    }
+  };
+
+  const handleApplyAllWeekNotes = async () => {
+    if (!menu?.menuDishes || !advisory) return;
+    try {
+      setApplyingId('ALL_WEEK');
+      let updatedCount = 0;
+
+      for (const md of menu.menuDishes) {
+        const conflicts = advisory.allergyConflicts?.filter((c) => c.menuDishId === md.id || c.dishId === md.dishId) || [];
+        const isLunchMain = md.mealTime === 'LUNCH' && Number(md.portionSizeG || 0) >= 50;
+
+        let noteToAdd: string | null = null;
+        if (conflicts.length > 0) {
+          const allergens = Array.from(new Set(conflicts.map((c) => c.allergenDetected).filter(Boolean)));
+          const names = Array.from(new Set(conflicts.map((c) => c.childName)));
+          noteToAdd = `[LƯU Ý DỊ ỨNG]: Bé ${names.slice(0, 3).join(', ')} dị ứng ${allergens.join(', ')}. Nhân viên không chia phần có ${allergens.join(', ')} cho bé.`;
+        } else if (isLunchMain) {
+          const hasStunted = (advisory.bmiSummary?.wastedUnderweightCount || 0) > 0;
+          const hasObese = (advisory.bmiSummary?.overweightObeseCount || 0) > 0;
+          if (hasStunted && hasObese) {
+            noteToAdd = `[GHI CHÚ KHẨU PHẦN]: Bé thấp còi: Thêm khối lượng thức ăn (+15-20% cơm/thịt). Bé béo phì: Giảm lượng calo (bớt 20% cơm, tăng canh rau).`;
+          } else if (hasStunted) {
+            noteToAdd = `[BÉ THẤP CÒI / SDD]: Nhân viên thêm khối lượng thức ăn (+15-20% khẩu phần) để bé tăng cân.`;
+          } else if (hasObese) {
+            noteToAdd = `[BÉ THỪA CÂN / BÉO PHÌ]: Nhân viên giảm lượng calo (bớt cơm/tinh bột, tăng rau củ tươi).`;
+          }
+        }
+
+        if (noteToAdd && !md.specialDietNotes) {
+          await weeklyMenusApi.applySubstitute(menuId, md.id, null, noteToAdd);
+          updatedCount++;
+        }
+      }
+
+      showToast(`Đã tự động áp dụng ghi chú phân loại dinh dưỡng cho ${updatedCount} món trong tuần!`, 'success');
+      await fetchAdvisory();
+      if (onSubstituteApplied) {
+        onSubstituteApplied();
+      }
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Lỗi khi cập nhật ghi chú tuần.', 'error');
     } finally {
       setApplyingId(null);
     }
@@ -210,10 +241,10 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
         badgeIcon: ShieldAlert,
         badgeText: 'LOẠI 3: DỊ ỨNG THỰC PHẨM',
         badgeColor: 'bg-purple-500/20 border-purple-400/40 text-purple-200',
-        title: 'Thực đơn Thay thế: Nhóm Trẻ Dị ứng Thực phẩm',
+        title: 'Phân loại Dinh dưỡng: Nhóm Trẻ Dị ứng Thực phẩm',
         desc: focusedDish
-          ? `Danh sách học sinh dị ứng với món "${focusedDish.dish?.name}". Gợi ý nguyên liệu an toàn cho Bếp và đề xuất món thay thế an toàn 100% không chứa dị nguyên.`
-          : 'Học sinh có tiền sử dị ứng với các nguyên liệu trong thực đơn tuần. Đề xuất món ăn an toàn 100% từ kho món của trường để thay thế.',
+          ? `Bé dị ứng không cần món thay thế mà chỉ cần note lại cho nhân viên hiểu là bé đang bị dị ứng gì (Món "${focusedDish.dish?.name}").`
+          : 'Bé dị ứng không cần món thay thế riêng, chỉ cần ghi chú cụ thể dị nguyên từng bé để nhân viên không chia phần có dị nguyên đó.',
       };
     }
     if (activeTab === 'OBESE') {
@@ -221,22 +252,46 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
         badgeIcon: Flame,
         badgeText: 'LOẠI 2: THỪA CÂN / BÉO PHÌ',
         badgeColor: 'bg-rose-500/20 border-rose-400/40 text-rose-200',
-        title: 'Thực đơn Thay thế: Nhóm Trẻ Béo phì / Thừa cân',
+        title: 'Phân loại Dinh dưỡng: Nhóm Trẻ Béo phì / Thừa cân',
         desc: focusedDish
-          ? `Điều chỉnh giảm calo và chất béo cho món "${focusedDish.dish?.name}" (${focusedDish.plannedCalories || focusedDish.dish?.totalCalories} Kcal). Đề xuất món thanh đạm, hấp luộc theo Thông tư 28/2016/TT-BGDĐT.`
-          : 'Học sinh có chỉ số BMI vượt chuẩn WHO (thừa cân / béo phì). Đề xuất thực đơn thanh đạm, giảm 15-20% calo và hạn chế đồ chiên rán.',
+          ? `Bé béo phì không cần món thay thế mà note cho nhân viên giảm lượng calo lại (bớt 20% cơm/tinh bột, tăng rau củ) cho món "${focusedDish.dish?.name}".`
+          : 'Bé béo phì không cần món thay thế riêng, chỉ cần ghi chú cho nhân viên giảm lượng calo (bớt cơm/tinh bột, tăng rau tươi, hạn chế dầu mỡ).',
       };
     }
     return {
       badgeIcon: Heart,
-      badgeText: 'LOẠI 1: CÒI XƯƠNG / SUY DINH DƯỠNG',
+      badgeText: 'LOẠI 1: THẤP CÒI / SUY DINH DƯỠNG',
       badgeColor: 'bg-amber-500/20 border-amber-400/40 text-amber-200',
-      title: 'Thực đơn Thay thế: Nhóm Trẻ Còi xương / Suy dinh dưỡng',
+      title: 'Phân loại Dinh dưỡng: Nhóm Trẻ Thấp còi / Suy dinh dưỡng',
       desc: focusedDish
-        ? `Tăng cường năng lượng và đạm cho món "${focusedDish.dish?.name}". Đề xuất món giàu dinh dưỡng, vi chất theo Quyết định 1246/QĐ-BYT.`
-        : 'Học sinh bị gầy còm, thấp còi hoặc nhẹ cân theo chỉ số Z-score WHO. Đề xuất tăng cường 15-20% calo và bổ sung đạm sinh học cao.',
+        ? `Bé thấp còi không cần món thay thế mà note cho nhân viên thêm khối lượng thức ăn (+15-20% khẩu phần) cho món "${focusedDish.dish?.name}".`
+        : 'Bé thấp còi không cần món thay thế riêng, chỉ cần ghi chú cho nhân viên thêm khối lượng thức ăn (+15-20% khẩu phần) để bé tăng cân.',
     };
   }, [activeTab, focusedDish]);
+
+  // Default suggested note text for current tab
+  const defaultNoteForCurrent = useMemo(() => {
+    if (activeTab === 'ALLERGIES') {
+      const allergens = Array.from(new Set(filteredConflicts.map((c) => c.allergenDetected).filter(Boolean)));
+      const childNames = Array.from(new Set(filteredConflicts.map((c) => c.childName)));
+      if (childNames.length > 0) {
+        return `[LƯU Ý DỊ ỨNG]: Bé ${childNames.join(', ')} dị ứng ${allergens.join(', ')}. Nhân viên không chia phần có ${allergens.join(', ')} cho bé.`;
+      }
+      return `[LƯU Ý DỊ ỨNG]: Học sinh có cơ địa dị ứng thực phẩm. Nhân viên chú ý kiểm tra nhãn suất ăn khi chia phần.`;
+    }
+    if (activeTab === 'STUNTED') {
+      return `[BÉ THẤP CÒI / SDD]: Nhân viên thêm khối lượng thức ăn (+15-20% khẩu phần cơm/thịt/canh) để hỗ trợ phục hồi cân nặng và thể chất cho bé.`;
+    }
+    return `[BÉ THỪA CÂN / BÉO PHÌ]: Nhân viên giảm lượng calo (bớt 20% cơm/tinh bột, tăng rau củ tươi và canh thanh đạm, không ăn thêm dầu mỡ/ngọt).`;
+  }, [activeTab, filteredConflicts]);
+
+  useEffect(() => {
+    if (focusedDish?.specialDietNotes) {
+      setCustomNoteText(focusedDish.specialDietNotes);
+    } else {
+      setCustomNoteText(defaultNoteForCurrent);
+    }
+  }, [focusedDish, defaultNoteForCurrent]);
 
   if (!isOpen) return null;
 
@@ -272,7 +327,7 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
               {group.count}
             </div>
             <span className={isObese ? 'text-[11px] text-rose-600/80 mt-1 font-medium' : 'text-[11px] text-amber-600/80 mt-1 font-medium'}>
-              Cần thực đơn thay thế riêng
+              {isObese ? 'Cần ghi chú giảm calo' : 'Cần ghi chú thêm lượng ăn'}
             </span>
           </div>
 
@@ -289,16 +344,16 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
             </span>
           </div>
 
-          <div className={isObese ? 'bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 flex flex-col justify-between' : 'bg-teal-50/70 border border-teal-200/80 rounded-2xl p-4 flex flex-col justify-between'}>
-            <div className={isObese ? 'flex items-center justify-between text-emerald-700' : 'flex items-center justify-between text-teal-700'}>
-              <span className="text-[11px] font-bold uppercase tracking-wider">Món đề xuất thay thế</span>
-              <UtensilsCrossed className="w-4 h-4" />
+          <div className={isObese ? 'bg-rose-50/70 border border-rose-200/80 rounded-2xl p-4 flex flex-col justify-between' : 'bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 flex flex-col justify-between'}>
+            <div className={isObese ? 'flex items-center justify-between text-rose-700' : 'flex items-center justify-between text-amber-700'}>
+              <span className="text-[11px] font-bold uppercase tracking-wider">Nguyên tắc định lượng</span>
+              <FileText className="w-4 h-4" />
             </div>
-            <div className={isObese ? 'mt-2 text-2xl sm:text-3xl font-black text-emerald-950' : 'mt-2 text-2xl sm:text-3xl font-black text-teal-950'}>
-              {group.recommendedSubstituteDishes.length}
+            <div className={isObese ? 'mt-2 text-xl sm:text-2xl font-black text-rose-950' : 'mt-2 text-xl sm:text-2xl font-black text-amber-950'}>
+              {isObese ? 'Giảm calo' : 'Tăng khối lượng'}
             </div>
-            <span className={isObese ? 'text-[11px] text-emerald-600/80 mt-1 font-medium' : 'text-[11px] text-teal-600/80 mt-1 font-medium'}>
-              Phù hợp thể trạng từ kho món
+            <span className={isObese ? 'text-[11px] text-rose-600/80 mt-1 font-medium' : 'text-[11px] text-amber-600/80 mt-1 font-medium'}>
+              {isObese ? 'Bớt 20% cơm, tăng rau' : 'Thêm +15-20% khẩu phần'}
             </span>
           </div>
 
@@ -391,95 +446,34 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
           </div>
         </div>
 
-        {/* ĐỀ XUẤT MÓN ĂN THAY THẾ */}
-        <div className={`p-6 rounded-3xl border space-y-4 ${
-          isObese ? 'bg-emerald-50/30 border-emerald-200' : 'bg-teal-50/30 border-teal-200'
+        {/* LƯU Ý QUY TRÌNH CHIA PHẦN - KHÔNG BẮT BUỘC MÓN THAY THẾ */}
+        <div className={`p-4 rounded-2xl border flex items-start gap-3 shadow-2xs ${
+          isObese ? 'bg-rose-50/70 border-rose-200 text-rose-950' : 'bg-amber-50/70 border-amber-200 text-amber-950'
         }`}>
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h5 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              {isObese ? (
-                <Apple className="w-5 h-5 text-emerald-600" />
-              ) : (
-                <Sparkles className="w-5 h-5 text-teal-600" />
-              )}
-              <span>{sectionTitle}</span>
-            </h5>
-            <span className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
-              isObese ? 'bg-emerald-100 text-emerald-800' : 'bg-teal-100 text-teal-800'
-            }`}>
-              {group.recommendedSubstituteDishes.length} món
-            </span>
+          <div className={`p-2 rounded-xl text-white font-bold shrink-0 shadow-xs ${isObese ? 'bg-rose-600' : 'bg-amber-600'}`}>
+            <FileText className="w-4 h-4" />
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {group.recommendedSubstituteDishes.map((dish) => (
-              <div
-                key={dish.dishId}
-                className={`p-4 rounded-2xl border shadow-2xs hover:shadow-xs transition space-y-2 ${
-                  isObese ? 'bg-white border-emerald-200' : 'bg-white border-teal-200'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-black text-xs text-slate-900">{dish.dishName}</span>
-                  <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${
-                    isObese ? 'text-emerald-800 bg-emerald-100' : 'text-teal-800 bg-teal-100'
-                  }`}>
-                    {dish.totalCalories} Kcal
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-[11px] font-medium text-slate-500">
-                  <span className="text-blue-700">P: {dish.totalProteinG}g</span>
-                  <span className="text-amber-700">L: {dish.totalFatG}g</span>
-                </div>
-                <p className="text-[11px] text-slate-600 leading-relaxed">{dish.reason}</p>
-
-                {focusMenuDishId && (
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                    {focusedDish?.substituteDishId === dish.dishId ? (
-                      <div className="flex items-center justify-between w-full">
-                        <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Đang được gán cho món này</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleApplySubstitute(focusMenuDishId, null)}
-                          disabled={applyingId === focusMenuDishId}
-                          className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition border border-rose-200 cursor-pointer"
-                        >
-                          Hủy gán
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleApplySubstitute(focusMenuDishId, dish.dishId, activeTab as 'STUNTED' | 'OBESE')}
-                        disabled={applyingId === focusMenuDishId}
-                        className={`w-full py-1.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer ${
-                          isObese
-                            ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/20'
-                            : 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20'
-                        }`}
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>
-                          {applyingId === focusMenuDishId
-                            ? 'Đang áp dụng...'
-                            : `Gán món này thay thế cho [${focusedDish?.dish?.name || 'món đang chọn'}]`}
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {group.recommendedSubstituteDishes.length === 0 && (
-            <div className="py-8 text-center text-slate-400 text-xs italic">
-              Hiện chưa có món ăn thay thế nào phù hợp trong kho món của trường.
+          <div className="space-y-1 text-xs">
+            <div className="font-black text-sm flex items-center gap-2">
+              <span>{isObese ? 'Quy chuẩn chia phần: Giảm lượng Calo' : 'Quy chuẩn chia phần: Thêm khối lượng thức ăn'}</span>
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                isObese ? 'bg-rose-200/80 text-rose-900' : 'bg-amber-200/80 text-amber-900'
+              }`}>
+                Không bắt buộc món thay thế
+              </span>
             </div>
-          )}
+            <p className="leading-relaxed text-slate-700">
+              {isObese ? (
+                <>
+                  Bé béo phì <strong>không cần tạo món thay thế</strong> mà chỉ cần ghi chú cho nhân viên bếp và giáo viên <strong>giảm lượng calo lại</strong>: Bớt 20% lượng cơm/tinh bột, bổ sung thêm rau xanh luộc và canh thanh đạm, tránh chan nước sốt dầu mỡ.
+                </>
+              ) : (
+                <>
+                  Bé thấp còi/suy dinh dưỡng <strong>không cần tạo món thay thế</strong> mà chỉ cần ghi chú cho nhân viên <strong>thêm khối lượng thức ăn</strong>: Tăng +15-20% khẩu phần cơm mềm, thịt/cá và canh giàu dinh dưỡng để hỗ trợ bé phục hồi thể trạng.
+                </>
+              )}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -646,15 +640,27 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
             </div>
           )}
 
-          <button
-            onClick={fetchAdvisory}
-            disabled={loading}
-            className="p-2 rounded-xl text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            title="Tải lại phân tích"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Làm mới</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleApplyAllWeekNotes}
+              disabled={applyingId === 'ALL_WEEK'}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white transition text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+              title="Tự động áp dụng ghi chú phân loại cho 3 nhóm học sinh (Dị ứng • Thấp còi • Béo phì) trên các món ăn trong tuần"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{applyingId === 'ALL_WEEK' ? 'Đang gán...' : '⚡ Gán Note 3 nhóm cả tuần'}</span>
+            </button>
+
+            <button
+              onClick={fetchAdvisory}
+              disabled={loading}
+              className="p-2 rounded-xl text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Tải lại phân tích"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Làm mới</span>
+            </button>
+          </div>
         </div>
 
         {/* MODAL BODY */}
@@ -672,7 +678,7 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-emerald-300 font-black uppercase tracking-wider bg-emerald-950/90 px-2.5 py-0.5 rounded-full border border-emerald-700/80">
-                      Mục tiêu đề xuất món thay thế
+                      Món đang chọn ghi chú phân loại
                     </span>
                     <span className="text-xs text-slate-200 font-bold">
                       {dayNames[focusedDish.dayOfWeek]} • {mealTimeNames[focusedDish.mealTime] || focusedDish.mealTime}
@@ -691,24 +697,115 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
                     {focusedDish.plannedCalories || focusedDish.dish?.totalCalories} Kcal • {focusedDish.portionSizeG || 100}g
                   </span>
                 </div>
-                {focusedDish.substituteDish && (() => {
-                  const subNotes = (focusedDish.specialDietNotes || '').toUpperCase();
-                  const isAllergy = subNotes.includes('LOẠI 3') || subNotes.includes('DỊ ỨNG') || subNotes.includes('ALLERG');
-                  const isObese = subNotes.includes('LOẠI 2') || subNotes.includes('BÉO PHÌ') || subNotes.includes('THỪA CÂN');
-                  const isStunted = subNotes.includes('LOẠI 1') || subNotes.includes('CÒI XƯƠNG') || subNotes.includes('SUY DINH DƯỠNG');
-                  const catLabel = isAllergy ? 'Loại 3: Dị ứng' : isObese ? 'Loại 2: Béo phì' : isStunted ? 'Loại 1: Còi xương' : 'Chế độ riêng';
-                  return (
-                    <div className="bg-emerald-950/80 border border-emerald-700/80 px-3 py-1.5 rounded-xl text-right">
-                      <span className="text-[10px] text-emerald-400 block font-bold flex items-center justify-end gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                        Đã gán cho {catLabel}
-                      </span>
-                      <span className="text-xs font-black text-emerald-300">
-                        {focusedDish.substituteDish.name}
-                      </span>
-                    </div>
-                  );
-                })()}
+                {focusedDish.specialDietNotes && (
+                  <div className="bg-amber-950/80 border border-amber-700/80 px-3 py-1.5 rounded-xl text-right max-w-xs">
+                    <span className="text-[10px] text-amber-300 block font-bold flex items-center justify-end gap-1">
+                      <FileText className="w-3 h-3 text-amber-400" />
+                      Ghi chú Bếp & GV
+                    </span>
+                    <span className="text-xs font-bold text-amber-200 truncate block">
+                      {focusedDish.specialDietNotes}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* HƯỚNG DẪN & GHI CHÚ CHIA KHẨU PHẦN CHO NHÂN VIÊN KHI CHỌN MÓN */}
+          {focusedDish && (
+            <div className={`p-4 sm:p-5 rounded-2xl border-2 shadow-xs space-y-3 ${
+              activeTab === 'ALLERGIES'
+                ? 'bg-purple-50/90 border-purple-300'
+                : activeTab === 'OBESE'
+                ? 'bg-rose-50/90 border-rose-300'
+                : 'bg-amber-50/90 border-amber-300'
+            }`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 font-black text-xs sm:text-sm text-slate-900">
+                  <ClipboardList className={`w-4 h-4 ${
+                    activeTab === 'ALLERGIES' ? 'text-purple-700' : activeTab === 'OBESE' ? 'text-rose-700' : 'text-amber-700'
+                  }`} />
+                  <span>
+                    {activeTab === 'ALLERGIES'
+                      ? 'GHI CHÚ DỊ ỨNG CHO NHÂN VIÊN (BẾP & GV)'
+                      : activeTab === 'OBESE'
+                      ? 'GHI CHÚ GIẢM CALO CHO NHÂN VIÊN (BẾP & GV)'
+                      : 'GHI CHÚ THÊM KHỐI LƯỢNG THỨC ĂN CHO NHÂN VIÊN (BẾP & GV)'}
+                  </span>
+                </div>
+                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                  activeTab === 'ALLERGIES' ? 'bg-purple-200 text-purple-900' : activeTab === 'OBESE' ? 'bg-rose-200 text-rose-900' : 'bg-amber-200 text-amber-900'
+                }`}>
+                  Không cần món thay thế
+                </span>
+              </div>
+
+              <p className="text-[11.5px] text-slate-700 leading-relaxed font-medium">
+                {activeTab === 'ALLERGIES' && (
+                  <>
+                    💡 <strong>Nguyên tắc:</strong> Bé dị ứng <strong>không cần tạo món thay thế</strong> mà chỉ cần ghi chú cụ thể dị nguyên bé đang bị dị ứng để nhân viên hiểu và không chia phần ăn chứa dị nguyên đó cho bé.
+                  </>
+                )}
+                {activeTab === 'OBESE' && (
+                  <>
+                    💡 <strong>Nguyên tắc:</strong> Bé béo phì <strong>không cần tạo món thay thế</strong> mà chỉ cần ghi chú cho nhân viên <strong>giảm lượng calo lại</strong> (bớt 20% cơm/tinh bột, tăng rau củ tươi và canh thanh đạm).
+                  </>
+                )}
+                {activeTab === 'STUNTED' && (
+                  <>
+                    💡 <strong>Nguyên tắc:</strong> Bé thấp còi <strong>không cần tạo món thay thế</strong> mà chỉ cần ghi chú cho nhân viên <strong>thêm khối lượng thức ăn</strong> (+15-20% khẩu phần cơm/thịt/canh) để hỗ trợ bé tăng cân phục hồi thể trạng.
+                  </>
+                )}
+              </p>
+
+              <div className="space-y-1.5 pt-1">
+                <label className="text-[11px] font-bold text-slate-800 flex items-center justify-between">
+                  <span>Nội dung ghi chú cho Nhân viên chia phần:</span>
+                  <button
+                    type="button"
+                    onClick={() => setCustomNoteText(defaultNoteForCurrent)}
+                    className="text-[10px] text-emerald-700 hover:text-emerald-900 underline font-semibold cursor-pointer"
+                  >
+                    Dùng mẫu chuẩn
+                  </button>
+                </label>
+                <textarea
+                  value={customNoteText}
+                  onChange={(e) => setCustomNoteText(e.target.value)}
+                  rows={2}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-inner"
+                  placeholder="Nhập nội dung ghi chú cho nhân viên khi chia phần..."
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleSaveStaffNote(focusedDish.id, customNoteText)}
+                  disabled={applyingId === focusedDish.id}
+                  className={`py-2 px-4 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition shadow-sm cursor-pointer ${
+                    activeTab === 'ALLERGIES'
+                      ? 'bg-purple-700 hover:bg-purple-800 shadow-purple-700/20'
+                      : activeTab === 'OBESE'
+                      ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
+                      : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>{applyingId === focusedDish.id ? 'Đang lưu...' : '📝 Áp dụng Ghi chú cho Nhân viên'}</span>
+                </button>
+
+                {focusedDish.specialDietNotes && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveStaffNote(focusedDish.id, null)}
+                    disabled={applyingId === focusedDish.id}
+                    className="py-1.5 px-3 rounded-xl text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition border border-slate-200 cursor-pointer"
+                  >
+                    Xóa ghi chú
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -738,11 +835,11 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
                 <div className="space-y-1">
                   <h3 className="text-base font-black text-amber-950">
                     {focusedDish
-                      ? `Loại 1: Điều chỉnh Dinh dưỡng Món "${focusedDish.dish?.name}" cho Trẻ Còi xương`
-                      : 'Loại 1: Thực đơn Thay thế cho Trẻ Còi xương / Suy dinh dưỡng'}
+                      ? `Loại 1: Ghi chú Thêm Khối lượng Món "${focusedDish.dish?.name}" cho Trẻ Thấp còi`
+                      : 'Loại 1: Phân loại & Ghi chú cho Trẻ Thấp còi / Suy dinh dưỡng'}
                   </h3>
                   <p className="text-xs text-amber-900/80 leading-relaxed">
-                    Trẻ bị <strong>gầy còm (wasted)</strong>, <strong>thấp còi (stunted)</strong>, hoặc <strong>nhẹ cân (underweight)</strong> theo chỉ số Z-score WHO cần được tăng cường 15-20% mật độ năng lượng khẩu phần, ưu tiên đạm sinh học cao (thịt đỏ, cá, trứng), bổ sung Canxi, Sắt, Kẽm và Vitamin nhóm B theo Quyết định 1246/QĐ-BYT.
+                    Trẻ bị <strong>gầy còm (wasted)</strong>, <strong>thấp còi (stunted)</strong>, hoặc <strong>nhẹ cân (underweight)</strong> theo chỉ số Z-score WHO: <strong>Không cần đổi món ăn khác</strong>, chỉ cần ghi chú cho nhân viên bếp và giáo viên tăng cường 15-20% khối lượng thức ăn (thêm cơm, thịt, cá, canh) để bé nạp đủ năng lượng và phục hồi thể trạng.
                   </p>
                 </div>
               </div>
@@ -772,11 +869,11 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
                 <div className="space-y-1">
                   <h3 className="text-base font-black text-rose-950">
                     {focusedDish
-                      ? `Loại 2: Điều chỉnh Giảm Calo/Béo Món "${focusedDish.dish?.name}" cho Trẻ Béo phì`
-                      : 'Loại 2: Thực đơn Thay thế cho Trẻ Béo phì / Thừa cân'}
+                      ? `Loại 2: Ghi chú Giảm Calo Món "${focusedDish.dish?.name}" cho Trẻ Béo phì`
+                      : 'Loại 2: Phân loại & Ghi chú cho Trẻ Béo phì / Thừa cân'}
                   </h3>
                   <p className="text-xs text-rose-900/80 leading-relaxed">
-                    Trẻ bị <strong>thừa cân (overweight)</strong> hoặc <strong>béo phì (obese)</strong> cần kiểm soát giảm 15-20% tổng calo, hạn chế đồ rán, mỡ và tinh bột nhanh, tăng cường chất xơ từ rau củ tươi, ưu tiên các món hấp, luộc, thanh đạm theo Thông tư 28/2016/TT-BGDĐT.
+                    Trẻ bị <strong>thừa cân (overweight)</strong> hoặc <strong>béo phì (obese)</strong>: <strong>Không cần đổi món ăn khác</strong>, chỉ cần ghi chú cho nhân viên giảm bớt 20% lượng cơm/tinh bột, bổ sung thêm rau xanh luộc và canh thanh đạm, tránh chan dầu mỡ theo Thông tư 28/2016/TT-BGDĐT.
                   </p>
                 </div>
               </div>
@@ -807,16 +904,16 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
                   <h3 className="text-base font-black text-purple-950">
                     {focusedDish
                       ? `Loại 3: Danh sách Học sinh Dị ứng Món "${focusedDish.dish?.name}"`
-                      : 'Loại 3: Thực đơn Thay thế cho Trẻ bị Dị ứng Thực phẩm'}
+                      : 'Loại 3: Phân loại & Ghi chú cho Trẻ bị Dị ứng Thực phẩm'}
                   </h3>
                   <p className="text-xs text-purple-900/80 leading-relaxed">
                     {focusedDish ? (
                       <>
-                        Phát hiện <strong>{dishAllergyKidsCount} học sinh</strong> trong trường bị dị ứng với thành phần món này (<strong>{Array.from(new Set(filteredConflicts.map((c) => c.allergenDetected))).join(', ') || 'Dị nguyên'}</strong>). Dưới đây là thông tin chi tiết từng bé và danh sách món ăn thay thế an toàn 100% không chứa dị nguyên từ kho món.
+                        Phát hiện <strong>{dishAllergyKidsCount} học sinh</strong> trong trường bị dị ứng với thành phần món này (<strong>{Array.from(new Set(filteredConflicts.map((c) => c.allergenDetected))).join(', ') || 'Dị nguyên'}</strong>). Hãy lưu ghi chú cảnh báo để nhân viên tuyệt đối không chia phần có chứa dị nguyên cho bé.
                       </>
                     ) : (
                       <>
-                        Dựa trên hồ sơ dị ứng do <strong>phụ huynh khai báo</strong>, hệ thống tự động quét toàn bộ nguyên liệu trong thực đơn tuần, phát hiện xung đột, gợi ý <strong>nguyên liệu thay thế an toàn</strong> cho nhà bếp và đề xuất <strong>món ăn an toàn 100%</strong> từ kho món của trường để gán thay thế 1-click.
+                        Dựa trên hồ sơ dị ứng do <strong>phụ huynh khai báo</strong>, hệ thống tự động quét toàn bộ nguyên liệu trong thực đơn tuần và phát hiện xung đột để bạn ghi chú trực tiếp cho nhân viên bếp và giáo viên chủ nhiệm khi chia phần ăn.
                       </>
                     )}
                   </p>
@@ -1081,153 +1178,29 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
                           </div>
                         </div>
 
-                        {/* Trạng thái đã gán món thay thế */}
-                        {item.substituteDishId ? (
-                          <div className="flex items-center gap-2">
-                            <span className="px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                              <span>Đã gán: {item.currentSubstituteDishName}</span>
-                            </span>
-                            <button
-                              onClick={() => handleApplySubstitute(item.menuDishId, null)}
-                              disabled={applyingId === item.menuDishId}
-                              className="px-2 py-1 rounded-xl text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                            >
-                              Hủy gán
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-xl border border-amber-200">
-                            Chưa gán món thay thế
+                        {/* Ghi chú dặn dò nhân viên chia phần */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-xl border border-purple-200">
+                            Chỉ cần ghi chú dị ứng cho Bếp & GV
                           </span>
-                        )}
-                      </div>
-
-                      {/* CARD ROW 3: 2 ACTION COLUMNS (INGREDIENTS & DISHES) */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* CỘT 1: GỢI Ý NGUYÊN LIỆU THAY THẾ (DÀNH CHO BẾP CHẾ BIẾN RIÊNG) */}
-                        <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-3 shadow-2xs">
-                          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
-                              <ChefHat className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <h5 className="text-xs font-black text-slate-900 uppercase tracking-wide">
-                                Gợi ý nguyên liệu thay thế cho Bếp
-                              </h5>
-                              <p className="text-[10px] text-slate-500">
-                                Giữ trọn vẹn cấu trúc món, đổi thành phần dị nguyên
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2.5">
-                            {item.suggestedIngredientSubstitutions.map((sub, sIdx) => (
-                              <div
-                                key={sIdx}
-                                className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/90 text-xs space-y-1.5"
-                              >
-                                <div className="flex items-center justify-between font-bold text-slate-800">
-                                  <span className="text-rose-600 line-through">
-                                    {sub.originalIngredient}
-                                  </span>
-                                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                  <span className="text-emerald-700 font-black">
-                                    {sub.substituteIngredient} ({sub.suggestedGram}g)
-                                  </span>
-                                </div>
-                                <div className="text-[11px] text-slate-600 leading-relaxed">
-                                  <strong>Dinh dưỡng:</strong> {sub.nutritionNote}
-                                </div>
-                                <div className="text-[10px] text-amber-800 bg-amber-50/80 p-1.5 rounded-lg border border-amber-200/60">
-                                  <strong>Lưu ý bếp:</strong> {sub.preparationAdvice}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* CỘT 2: GỢI Ý MÓN ĂN THAY THẾ AN TOÀN TRONG KHO (DÀNH CHO THỰC ĐƠN) */}
-                        <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-3 shadow-2xs">
-                          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
-                              <UtensilsCrossed className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <h5 className="text-xs font-black text-slate-900 uppercase tracking-wide">
-                                Món ăn an toàn thay thế từ Kho món
-                              </h5>
-                              <p className="text-[10px] text-slate-500">
-                                100% không chứa chất dị ứng của bé, calo tương đương
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            {item.suggestedSubstituteDishes.length === 0 ? (
-                              <p className="text-xs text-slate-400 italic py-2">
-                                Không tìm thấy món thay thế phù hợp trong kho món của trường.
-                              </p>
-                            ) : (
-                              item.suggestedSubstituteDishes.map((subDish) => {
-                                const isCurrent = item.substituteDishId === subDish.dishId;
-                                return (
-                                  <div
-                                    key={subDish.dishId}
-                                    className={`p-3 rounded-xl border transition flex items-center justify-between gap-3 ${
-                                      isCurrent
-                                        ? 'bg-emerald-50/70 border-emerald-300 ring-2 ring-emerald-500/20'
-                                        : 'bg-slate-50/50 border-slate-200/80 hover:bg-slate-100/70'
-                                    }`}
-                                  >
-                                    <div className="space-y-0.5">
-                                      <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
-                                        <span>{subDish.dishName}</span>
-                                        {isCurrent && (
-                                          <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-600 text-white">
-                                            Đang áp dụng
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="text-[11px] text-slate-500 font-medium">
-                                        {subDish.totalCalories} Kcal • {subDish.totalProteinG}g Đạm • {subDish.totalFatG}g Béo
-                                      </div>
-                                      <div className="text-[10px] text-slate-400 truncate max-w-xs">
-                                        Thành phần: {subDish.ingredientsSummary}
-                                      </div>
-                                    </div>
-
-                                    <button
-                                      onClick={() =>
-                                        handleApplySubstitute(
-                                          item.menuDishId,
-                                          isCurrent ? null : subDish.dishId,
-                                          'ALLERGIES',
-                                          `${item.childName} (${item.allergenDetected})`,
-                                        )
-                                      }
-                                      disabled={applyingId === item.menuDishId}
-                                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
-                                        isCurrent
-                                          ? 'bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-700'
-                                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
-                                      }`}
-                                    >
-                                      {applyingId === item.menuDishId ? (
-                                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                      ) : isCurrent ? (
-                                        'Hủy gán'
-                                      ) : (
-                                        'Gán món này'
-                                      )}
-                                    </button>
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleSaveStaffNote(
+                                item.menuDishId,
+                                `[LƯU Ý DỊ ỨNG]: Bé ${item.childName} (${item.className}) dị ứng ${item.allergenDetected}. KHÔNG chia phần có ${item.allergenDetected} cho bé.`,
+                              )
+                            }
+                            disabled={applyingId === item.menuDishId}
+                            className="px-3 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-[11px] font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                            title="Gán ghi chú trực tiếp cho nhân viên bếp và GV mà không cần tạo món thay thế"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>{applyingId === item.menuDishId ? 'Đang lưu...' : 'Gán Ghi chú cho Món này'}</span>
+                          </button>
                         </div>
                       </div>
+
                     </div>
                   ))}
                 </div>
@@ -1239,7 +1212,7 @@ export const AllergyAndBmiAdvisorModal: React.FC<AllergyAndBmiAdvisorModalProps>
         {/* MODAL FOOTER */}
         <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
           <div className="text-xs text-slate-500 font-medium hidden sm:block">
-            Mọi thay đổi món ăn thay thế sẽ tự động đồng bộ sang bảng điều phối nhà bếp và nhật ký ăn bán trú của trẻ.
+            Ghi chú phân loại dinh dưỡng cho 3 nhóm học sinh sẽ tự động hiển thị trên thực đơn tuần và bảng điều phối chia phần.
           </div>
           <button
             onClick={onClose}

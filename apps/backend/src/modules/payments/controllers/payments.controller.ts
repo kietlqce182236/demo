@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, Req, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Query, Req, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { VnpayService, CreateInvoiceDto } from '../services/vnpay.service';
 
@@ -56,5 +56,15 @@ export class PaymentsController {
     }
 
     return this.vnpayService.confirmIpnPayment(query);
+  }
+
+  @Post('invoices/:id/remind')
+  async remindInvoice(@Param('id') id: string) {
+    return this.vnpayService.remindPayment(id);
+  }
+
+  @Post('invoices/batch-remind')
+  async batchRemindInvoices(@Req() req: Request) {
+    return this.vnpayService.batchRemindPending(this.resolveTenantId(req));
   }
 }

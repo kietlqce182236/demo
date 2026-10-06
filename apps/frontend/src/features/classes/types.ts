@@ -21,7 +21,12 @@ export interface ClassData {
   mainTeacher?: {
     id: string;
     fullName: string;
+    phone?: string;
+    email?: string;
   };
+  studentCount?: number;
+  allergicCount?: number;
+  maxCapacity?: number;
 }
 
 export interface ClassFilters {

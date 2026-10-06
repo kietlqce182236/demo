@@ -21,6 +21,10 @@ import { DishesModule } from './modules/dishes/dishes.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
 import { ChildrenModule } from './modules/children/children.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { ParentEvaluationsModule } from './modules/parent-evaluations/parent-evaluations.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
+import { FinancesModule } from './modules/finances/finances.module';
 
 @Module({
   imports: [
@@ -45,6 +49,10 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     InspectionsModule,
     ChildrenModule,
     DashboardModule,
+    ParentEvaluationsModule,
+    AttendanceModule,
+    AuditLogsModule,
+    FinancesModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Delete,
   Body,
   Param,
   Query,
@@ -72,5 +74,47 @@ export class GrowthController {
     @Param('classId') classId: string,
   ) {
     return this.growthService.getClassOverview(this.resolveTenantId(req, tenantId), classId);
+  }
+
+  @Get('export')
+  @Roles('NUTRITIONIST', 'MEDICAL_STAFF', 'PRINCIPAL', 'SUPER_ADMIN')
+  async exportReport(
+    @Req() req: Request,
+    @CurrentUser('tenantId') tenantId: string,
+    @Query('classId') classId?: string,
+  ) {
+    return this.growthService.exportReport(this.resolveTenantId(req, tenantId), classId);
+  }
+
+  @Post('import')
+  @Roles('NUTRITIONIST', 'MEDICAL_STAFF', 'PRINCIPAL', 'SUPER_ADMIN', 'TEACHER')
+  async importRecords(
+    @Req() req: Request,
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('id') userId: string,
+    @Body('items') items: any[],
+  ) {
+    return this.growthService.importRecords(this.resolveTenantId(req, tenantId), userId, items || []);
+  }
+
+  @Put(':id')
+  @Roles('NUTRITIONIST', 'MEDICAL_STAFF', 'PRINCIPAL', 'SUPER_ADMIN', 'TEACHER')
+  async updateRecord(
+    @Req() req: Request,
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateGrowthRecordDto>,
+  ) {
+    return this.growthService.updateRecord(this.resolveTenantId(req, tenantId), id, dto);
+  }
+
+  @Delete(':id')
+  @Roles('NUTRITIONIST', 'SUPER_ADMIN')
+  async deleteRecord(
+    @Req() req: Request,
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.growthService.deleteRecord(this.resolveTenantId(req, tenantId), id);
   }
 }

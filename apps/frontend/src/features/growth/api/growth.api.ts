@@ -84,4 +84,24 @@ export const growthApi = {
     const res = await apiClient.post<GrowthRecordItem>('/growth', dto);
     return res.data;
   },
+
+  updateRecord: async (id: string, dto: Partial<CreateGrowthDto>): Promise<{ success: boolean; message: string; data: GrowthRecordItem }> => {
+    const res = await apiClient.put(`/growth/${id}`, dto);
+    return res.data;
+  },
+
+  deleteRecord: async (id: string): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.delete(`/growth/${id}`);
+    return res.data;
+  },
+
+  importRecords: async (items: any[]): Promise<{ success: boolean; importedCount: number; errors: string[] }> => {
+    const res = await apiClient.post('/growth/import', { items });
+    return res.data;
+  },
+
+  exportReport: async (classId?: string): Promise<{ totalRecords: number; items: any[] }> => {
+    const res = await apiClient.get('/growth/export', { params: { classId } });
+    return res.data;
+  },
 };

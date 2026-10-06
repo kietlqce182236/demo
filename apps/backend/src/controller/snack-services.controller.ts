@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Put, Body, Query, Headers, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Query, Headers, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { SnackServicesService } from '../modules/snack-services/snack-services.service';
 import { CreateSnackServicePeriodDto } from '../modules/snack-services/dto/create-snack-service-period.dto';
 import { UpdateSnackServiceDto } from '../modules/snack-services/dto/update-snack-service.dto';
+import { CreateSnackServiceDto } from '../modules/snack-services/dto/create-snack-service.dto';
+import { UpdateStudentEnrollmentDto } from '../modules/snack-services/dto/update-student-enrollment.dto';
 
 @ApiTags('Snack Services')
 @Controller('snack-services')
@@ -22,10 +24,27 @@ export class SnackServicesController {
     return this.snackServicesService.findAll(search, status, grade);
   }
 
+  @Get('dayboarding')
+  @ApiOperation({ summary: 'Lấy dữ liệu trung tâm quản lý Dịch vụ Bán Trú (KPIs, Danh mục dịch vụ, Bán trú theo lớp, Sổ học sinh)' })
+  async getDayboardingHub(@Headers('x-tenant-id') tenantId?: string) {
+    const resolvedTenantId = tenantId || 'a0000000-0000-0000-0000-000000000001';
+    return this.snackServicesService.getDayboardingHub(resolvedTenantId);
+  }
+
   @Get('list')
   @ApiOperation({ summary: 'UC56: Lấy danh sách gói ăn xế đang hoạt động (cho dropdown tạo đợt)' })
   async getServicesList() {
     return this.snackServicesService.getServicesList();
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Tạo mới gói dịch vụ bán trú / ăn xế' })
+  async createService(
+    @Body() dto: CreateSnackServiceDto,
+    @Headers('x-tenant-id') tenantId?: string,
+  ) {
+    const resolvedTenantId = tenantId || 'a0000000-0000-0000-0000-000000000001';
+    return this.snackServicesService.createService(dto, resolvedTenantId);
   }
 
   @Post('periods')
@@ -37,6 +56,23 @@ export class SnackServicesController {
     // Fallback to default tenant if no header provided
     const resolvedTenantId = tenantId || 'a0000000-0000-0000-0000-000000000001';
     return this.snackServicesService.createPeriod(dto, resolvedTenantId);
+  }
+
+  @Post('enrollment')
+  @ApiOperation({ summary: 'Cập nhật dịch vụ bán trú cho từng học sinh' })
+  async updateStudentEnrollment(
+    @Body() dto: UpdateStudentEnrollmentDto,
+    @Headers('x-tenant-id') tenantId?: string,
+  ) {
+    const resolvedTenantId = tenantId || 'a0000000-0000-0000-0000-000000000001';
+    return this.snackServicesService.updateStudentEnrollment(dto, resolvedTenantId);
+  }
+
+  @Put('periods/:id/close')
+  @ApiOperation({ summary: 'UC58: Đóng đợt đăng ký ăn xế chiều' })
+  @ApiParam({ name: 'id', description: 'ID đợt đăng ký' })
+  async closePeriod(@Param('id') id: string) {
+    return this.snackServicesService.closePeriod(id);
   }
 
   @Get(':id')
@@ -54,6 +90,13 @@ export class SnackServicesController {
     @Body() dto: UpdateSnackServiceDto,
   ) {
     return this.snackServicesService.updateService(id, dto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Xóa gói dịch vụ' })
+  @ApiParam({ name: 'id', description: 'ID gói dịch vụ' })
+  async deleteService(@Param('id') id: string) {
+    return this.snackServicesService.deleteService(id);
   }
 }
 

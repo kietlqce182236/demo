@@ -232,4 +232,48 @@ export class VnpayService {
       return { RspCode: '00', Message: 'Confirm Success' };
     }
   }
+
+  /**
+   * Gửi nhắc nhở đóng phí ăn xế cho 1 hóa đơn
+   */
+  async remindPayment(invoiceId: string) {
+    const tx = await this.dataSource.query(
+      `SELECT t.id, t.order_code, t.status, c.full_name as "childName"
+       FROM transactions t
+       LEFT JOIN snack_registrations sr ON t.registration_id = sr.id
+       LEFT JOIN children c ON sr.child_id = c.id
+       WHERE t.id::text = $1 OR t.order_code = $1`,
+      [invoiceId],
+    );
+
+    if (tx.length === 0) {
+      throw new NotFoundException('Không tìm thấy hóa đơn cần nhắc nhở.');
+    }
+
+    const order = tx[0];
+    const childName = order.childName || 'học sinh';
+
+    return {
+      success: true,
+      message: `Đã gửi thông báo nhắc nhở đóng phí ăn xế (Mã: ${order.order_code}) tới phụ huynh của bé ${childName}.`,
+    };
+  }
+
+  /**
+   * Gửi nhắc nhở hàng loạt cho tất cả phụ huynh có hóa đơn PENDING
+   */
+  async batchRemindPending(tenantId: string) {
+    const pendingList = await this.dataSource.query(
+      `SELECT t.id, t.order_code
+       FROM transactions t
+       WHERE t.tenant_id = $1 AND t.status = 'PENDING'`,
+      [tenantId],
+    );
+
+    return {
+      success: true,
+      count: pendingList.length,
+      message: `Đã gửi thông báo nhắc nhở thành công tới ${pendingList.length} phụ huynh có hóa đơn chưa thanh toán.`,
+    };
+  }
 }

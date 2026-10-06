@@ -16,6 +16,8 @@ import {
   User,
   ArrowRight,
   RefreshCw,
+  BellRing,
+  Send,
 } from 'lucide-react';
 import { apiClient } from '../../../core/api/axios';
 import { VnpayCheckoutButton } from '../components/VnpayCheckoutButton';
@@ -43,9 +45,10 @@ export const SnackBillingPaymentPage: React.FC = () => {
   // New registration modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [classesList, setClassesList] = useState<any[]>([]);
   const [newReg, setNewReg] = useState({
     childName: '',
-    className: 'Lớp Mầm 1',
+    className: '',
     packageName: 'Gói Năng Lượng Chiều 17h',
     amount: 550000,
   });
@@ -64,6 +67,13 @@ export const SnackBillingPaymentPage: React.FC = () => {
 
   useEffect(() => {
     fetchInvoices();
+    apiClient.get('/classes').then((res) => {
+      const cls = res.data?.items || (Array.isArray(res.data) ? res.data : []);
+      setClassesList(cls);
+      if (cls.length > 0) {
+        setNewReg((prev) => ({ ...prev, className: cls[0].name }));
+      }
+    }).catch(() => {});
   }, []);
 
   const handleCreateInvoice = async (e: React.FormEvent) => {
@@ -76,7 +86,7 @@ export const SnackBillingPaymentPage: React.FC = () => {
       setIsModalOpen(false);
       setNewReg({
         childName: '',
-        className: 'Lớp Mầm 1',
+        className: classesList[0]?.name || '',
         packageName: 'Gói Năng Lượng Chiều 17h',
         amount: 550000,
       });
@@ -106,6 +116,30 @@ export const SnackBillingPaymentPage: React.FC = () => {
     .filter((i) => i.status === 'PENDING')
     .reduce((sum, i) => sum + Number(i.amount), 0);
 
+  const handleRemindSingle = async (invoiceId: string) => {
+    try {
+      const res = await apiClient.post(`/payments/invoices/${invoiceId}/remind`);
+      alert(res.data?.message || 'Đã gửi thông báo nhắc nhở đóng phí thành công!');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Có lỗi khi gửi nhắc nhở.');
+    }
+  };
+
+  const handleBatchRemind = async () => {
+    const pendingCount = invoices.filter((i) => i.status === 'PENDING').length;
+    if (pendingCount === 0) {
+      alert('Hiện không có phụ huynh nào chưa thanh toán phí ăn xế.');
+      return;
+    }
+    if (!window.confirm(`Gửi thông báo nhắc nhở đóng phí tự động tới toàn bộ ${pendingCount} phụ huynh chưa thanh toán?`)) return;
+    try {
+      const res = await apiClient.post('/payments/invoices/batch-remind');
+      alert(res.data?.message || 'Đã gửi nhắc nhở thành công!');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Có lỗi khi gửi nhắc nhở.');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* ─── 1. TOP HEADER BANNER ─── */}
@@ -132,6 +166,14 @@ export const SnackBillingPaymentPage: React.FC = () => {
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Làm mới</span>
+            </button>
+            <button
+              onClick={handleBatchRemind}
+              className="px-4 py-2.5 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/30 transition flex items-center gap-2 text-xs font-bold"
+              title="Gửi nhắc nhở tự động đến tất cả phụ huynh có hóa đơn chưa thanh toán"
+            >
+              <BellRing className="w-4 h-4 text-amber-400" />
+              <span>Nhắc Phí Toàn Bộ ({invoices.filter((i) => i.status === 'PENDING').length})</span>
             </button>
             <button
               onClick={() => setIsModalOpen(true)}
@@ -291,11 +333,21 @@ export const SnackBillingPaymentPage: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         {!isPaid ? (
-                          <VnpayCheckoutButton
-                            invoiceId={inv.orderCode || inv.id}
-                            amount={Number(inv.amount)}
-                            orderInfo={`Thanh toán ăn xế ${inv.childName} ${inv.periodText}`}
-                          />
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleRemindSingle(inv.id)}
+                              title="Gửi thông báo nhắc phụ huynh đóng phí"
+                              className="px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-xs font-bold transition flex items-center gap-1"
+                            >
+                              <BellRing className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Nhắc nợ</span>
+                            </button>
+                            <VnpayCheckoutButton
+                              invoiceId={inv.orderCode || inv.id}
+                              amount={Number(inv.amount)}
+                              orderInfo={`Thanh toán ăn xế ${inv.childName} ${inv.periodText}`}
+                            />
+                          </div>
                         ) : (
                           <span className="text-slate-400 font-semibold text-[11px]">
                             Hoàn tất {inv.paidAt ? `(${inv.paidAt})` : ''}
@@ -354,9 +406,15 @@ export const SnackBillingPaymentPage: React.FC = () => {
                   onChange={(e) => setNewReg({ ...newReg, className: e.target.value })}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold"
                 >
-                  <option value="Lớp Mầm 1">Lớp Mầm 1 (3-4 tuổi)</option>
-                  <option value="Lớp Chồi 2">Lớp Chồi 2 (4-5 tuổi)</option>
-                  <option value="Lớp Lá 1">Lớp Lá 1 (5-6 tuổi)</option>
+                  {classesList.length > 0 ? (
+                    classesList.map((c) => (
+                      <option key={c.id} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">Đang tải danh sách lớp...</option>
+                  )}
                 </select>
               </div>
 

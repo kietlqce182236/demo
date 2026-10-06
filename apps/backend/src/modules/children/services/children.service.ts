@@ -120,6 +120,67 @@ export class ChildrenService {
     return this.childRepository.save(child);
   }
 
+  async importChildren(tenantId: string, items: any[]) {
+    const results = {
+      importedCount: 0,
+      errors: [] as string[],
+    };
+
+    const year = new Date().getFullYear();
+    let count = await this.childRepository.count({ where: { tenantId } });
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      try {
+        if (!item.firstName || !item.lastName) {
+          results.errors.push(`Dòng ${i + 1}: Thiếu họ hoặc tên học sinh.`);
+          continue;
+        }
+
+        let studentCode = item.studentCode?.trim();
+        if (!studentCode) {
+          count++;
+          studentCode = `HS-${year}-${String(count).padStart(4, '0')}`;
+        } else {
+          const exist = await this.childRepository.findOne({
+            where: { tenantId, studentCode },
+          });
+          if (exist) {
+            results.errors.push(`Dòng ${i + 1}: Mã học sinh ${studentCode} đã tồn tại.`);
+            continue;
+          }
+        }
+
+        const fullName = `${item.lastName.trim()} ${item.firstName.trim()}`;
+        const child = this.childRepository.create({
+          tenantId,
+          studentCode,
+          firstName: item.firstName.trim(),
+          lastName: item.lastName.trim(),
+          fullName,
+          dateOfBirth: item.dateOfBirth || '2021-01-01',
+          gender: (item.gender || 'MALE').toUpperCase(),
+          classId: item.classId || null,
+          emergencyContactName: item.emergencyContactName?.trim() || 'Phụ huynh',
+          emergencyContactPhone: item.emergencyContactPhone?.trim() || '0900000000',
+          medicalNotes: item.medicalNotes || null,
+          status: 'ACTIVE',
+        });
+
+        await this.childRepository.save(child);
+        results.importedCount++;
+      } catch (err: any) {
+        results.errors.push(`Dòng ${i + 1}: ${err.message}`);
+      }
+    }
+
+    return {
+      success: true,
+      message: `Đã nhập thành công ${results.importedCount}/${items.length} học sinh.`,
+      ...results,
+    };
+  }
+
   async update(id: string, tenantId: string, dto: UpdateChildDto) {
     const child = await this.findOne(id, tenantId);
 

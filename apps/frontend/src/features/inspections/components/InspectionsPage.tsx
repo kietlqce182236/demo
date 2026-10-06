@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, CheckCircle, Clock, AlertTriangle, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Plus, FileText, CheckCircle, Clock, AlertTriangle, ShieldCheck, ArrowRight, Search, Filter, X } from 'lucide-react';
 import { apiClient } from '@/core/api/axios';
 
 export const InspectionsPage = () => {
@@ -9,6 +9,12 @@ export const InspectionsPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  // Search and Filter states
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [mealFilter, setMealFilter] = useState('ALL');
+  const [dateFilter, setDateFilter] = useState('');
 
   const [form, setForm] = useState({
     mealDate: new Date().toISOString().split('T')[0],
@@ -37,7 +43,7 @@ export const InspectionsPage = () => {
       const res = await apiClient.get('/dishes', { params: { limit: 20 } });
       const items = res.data?.items || [];
       if (items.length > 0) {
-        setDishes(items.slice(0, 5).map((d: any) => ({ id: d.id, name: d.name, qty: '150' })));
+        setDishes(items.slice(0, 5).map((d: any) => ({ id: d.id, name: d.name, qty: '' })));
       }
     } catch (err) {
       console.error('Failed to load dishes for inspection:', err);
@@ -186,6 +192,66 @@ export const InspectionsPage = () => {
         </div>
       </div>
 
+      {/* ─── SEARCH & FILTER TOOLBAR ─── */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 flex flex-col md:flex-row gap-3 items-center justify-between">
+        <div className="relative w-full md:w-80">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Tìm theo mã biên bản, người làm, ca ăn..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:border-emerald-500 font-medium"
+          >
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="Hoàn tất">Hoàn tất</option>
+            <option value="Chưa hoàn tất">Chưa hoàn tất</option>
+            <option value="Có cảnh báo">Có cảnh báo</option>
+          </select>
+
+          <select
+            value={mealFilter}
+            onChange={(e) => setMealFilter(e.target.value)}
+            className="px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:border-emerald-500 font-medium"
+          >
+            <option value="ALL">Tất cả ca ăn</option>
+            <option value="Trưa">Bữa trưa</option>
+            <option value="Sáng">Bữa sáng</option>
+            <option value="Xế">Bữa xế</option>
+          </select>
+
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:border-emerald-500"
+          />
+
+          {(search || statusFilter !== 'ALL' || mealFilter !== 'ALL' || dateFilter) && (
+            <button
+              onClick={() => {
+                setSearch('');
+                setStatusFilter('ALL');
+                setMealFilter('ALL');
+                setDateFilter('');
+              }}
+              className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
+              title="Xóa bộ lọc"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
@@ -200,7 +266,17 @@ export const InspectionsPage = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {records.map((record: any) => (
+            {records.filter((r: any) => {
+              const matchesSearch =
+                !search ||
+                r.code?.toLowerCase().includes(search.toLowerCase()) ||
+                r.performerName?.toLowerCase().includes(search.toLowerCase()) ||
+                r.mealTime?.toLowerCase().includes(search.toLowerCase());
+              const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter;
+              const matchesMeal = mealFilter === 'ALL' || r.mealTime?.toLowerCase().includes(mealFilter.toLowerCase());
+              const matchesDate = !dateFilter || r.mealDate === dateFilter;
+              return matchesSearch && matchesStatus && matchesMeal && matchesDate;
+            }).map((record: any) => (
               <tr key={record.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium text-slate-800">{record.code}</td>
                 <td className="px-4 py-3">{record.mealDate}</td>

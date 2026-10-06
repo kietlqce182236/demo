@@ -30,13 +30,16 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
       if (user.roles.includes('TEACHER')) {
         return <Navigate to="/tablet" replace />;
       }
-      if (user.roles.includes('KITCHEN_STAFF')) {
-        return <Navigate to="/kds" replace />;
+      if (user.roles.includes('KITCHEN_STAFF') || user.roles.includes('KITCHEN_MANAGER')) {
+        return <Navigate to="/kitchen" replace />;
       }
       if (user.roles.includes('PRINCIPAL') || user.roles.includes('SUPER_ADMIN')) {
         return <Navigate to="/dashboard" replace />;
       }
-      return <Navigate to="/login" replace />;
+      if (user.roles.includes('PARENT')) {
+        return <Navigate to="/child-menu-consumption" replace />;
+      }
+      return <Navigate to="/dashboard" replace />;
     }
   }
 

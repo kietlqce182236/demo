@@ -16,6 +16,8 @@ import {
   UserCheck,
   ChevronRight,
   ShieldCheck,
+  UploadCloud,
+  Download,
 } from 'lucide-react';
 import {
   childrenApi,
@@ -67,6 +69,62 @@ export const ChildrenManagementPage: React.FC = () => {
     symptoms: 'Nổi mề đay, mẩn ngứa',
     reactionTreatment: 'Báo y tế trường học, cho uống thuốc kháng histamine',
   });
+
+  // Modal Import Student List
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ count: number; errors: string[] } | null>(null);
+
+  const sampleCsv = `Mã học sinh, Họ, Tên, Ngày sinh, Giới tính, Ghi chú y tế
+HS-2026-0091, Nguyễn, Minh Khang, 2021-06-15, MALE, Tiền sử dị ứng tôm
+HS-2026-0092, Trần, Bảo Anh, 2021-08-20, FEMALE,
+HS-2026-0093, Lê, Tuấn Kiệt, 2022-03-10, MALE, Dị ứng sữa tươi`;
+
+  const handleImportSubmit = async () => {
+    if (!importText.trim()) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const lines = importText.trim().split('\n');
+      const items = [];
+      const startIdx =
+        lines[0].toLowerCase().includes('mã') ||
+        lines[0].toLowerCase().includes('student') ||
+        lines[0].toLowerCase().includes('họ')
+          ? 1
+          : 0;
+
+      for (let i = startIdx; i < lines.length; i++) {
+        const parts = lines[i].split(',').map((s) => s.trim());
+        if (parts.length >= 3) {
+          items.push({
+            studentCode: parts[0] || undefined,
+            lastName: parts[1] || '',
+            firstName: parts[2] || '',
+            dateOfBirth: parts[3] || '2021-01-01',
+            gender: (parts[4] || 'MALE').toUpperCase(),
+            medicalNotes: parts[5] || undefined,
+            classId: selectedClass !== 'ALL' ? selectedClass : undefined,
+          });
+        }
+      }
+
+      if (items.length === 0) {
+        alert('Không tìm thấy dòng dữ liệu học sinh hợp lệ.');
+        setImporting(false);
+        return;
+      }
+
+      const res = await apiClient.post('/children/import', { items });
+      setImportResult({ count: res.data.importedCount, errors: res.data.errors || [] });
+      fetchData();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Có lỗi xảy ra khi nhập dữ liệu.');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -169,6 +227,17 @@ export const ChildrenManagementPage: React.FC = () => {
             >
               <RefreshCw className={`w-4 h-4 ${rescanning ? 'animate-spin' : ''}`} />
               <span>{rescanning ? 'Đang quét...' : 'Quét Thực Đơn Dị Ứng'}</span>
+            </button>
+            <button
+              onClick={() => {
+                setImportText('');
+                setImportResult(null);
+                setIsImportModalOpen(true);
+              }}
+              className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 transition flex items-center gap-2"
+            >
+              <UploadCloud className="w-4 h-4" />
+              <span>Nhập Excel / CSV</span>
             </button>
             <button
               onClick={() => setIsChildModalOpen(true)}
@@ -621,6 +690,106 @@ export const ChildrenManagementPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL NHẬP DANH SÁCH HỌC SINH TỪ FILE / CSV ─── */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <UploadCloud className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Nhập Danh Sách Học Sinh Hàng Loạt</h3>
+                  <p className="text-[11px] text-slate-500">Định dạng CSV hoặc dán trực tiếp từ bảng tính Excel</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsImportModalOpen(false)}
+                className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-xs">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-emerald-900">Cấu trúc cột dữ liệu mẫu:</span>
+                  <button
+                    onClick={() => setImportText(sampleCsv)}
+                    className="text-emerald-700 font-bold hover:underline flex items-center gap-1"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Dán dữ liệu mẫu
+                  </button>
+                </div>
+                <code className="block bg-white p-2.5 rounded-xl border border-emerald-200/80 text-[11px] text-slate-700 font-mono overflow-x-auto whitespace-pre">
+                  Mã học sinh, Họ, Tên, Ngày sinh (YYYY-MM-DD), Giới tính (MALE/FEMALE), Ghi chú
+                </code>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Dán nội dung bảng tính hoặc CSV vào đây:
+                </label>
+                <textarea
+                  rows={8}
+                  placeholder={`Ví dụ:\nHS-2026-0091, Nguyễn, Minh Khang, 2021-06-15, MALE, Tiền sử dị ứng tôm\nHS-2026-0092, Trần, Bảo Anh, 2021-08-20, FEMALE, `}
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  className="w-full p-3 font-mono text-xs text-slate-800 bg-slate-50 focus:bg-white rounded-2xl border border-slate-200 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              {importResult && (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-700 font-bold">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Đã nhập thành công {importResult.count} học sinh vào hệ thống!</span>
+                  </div>
+                  {importResult.errors.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="font-bold text-rose-600">Các lỗi cần lưu ý ({importResult.errors.length}):</span>
+                      <ul className="list-disc pl-5 text-[11px] text-rose-600 max-h-32 overflow-y-auto">
+                        {importResult.errors.map((err, idx) => (
+                          <li key={idx}>{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-medium">
+                {selectedClass !== 'ALL'
+                  ? `Học sinh sẽ được gán tự động vào lớp đang chọn.`
+                  : 'Học sinh chưa được xếp lớp.'}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold rounded-xl text-slate-600 hover:bg-slate-200 transition"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  disabled={importing || !importText.trim()}
+                  onClick={handleImportSubmit}
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition disabled:opacity-50 flex items-center gap-2"
+                >
+                  <UploadCloud className="w-4 h-4" />
+                  <span>{importing ? 'Đang nhập dữ liệu...' : 'Bắt đầu nhập học sinh'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

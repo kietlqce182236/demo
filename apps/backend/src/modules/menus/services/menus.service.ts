@@ -170,9 +170,80 @@ export class MenusService {
   }
 
   /**
+   * Kiểm tra trùng lặp khoảng thời gian thực đơn
+   * Hai khoảng thời gian [start1, end1] và [start2, end2] giao nhau khi:
+   * start1 <= end2 AND end1 >= start2
+   */
+  async checkDateOverlap(
+    tenantId: string,
+    startDate: string | Date,
+    endDate: string | Date,
+    targetAgeGroup?: string,
+    excludeMenuId?: string,
+  ): Promise<Menu | null> {
+    if (!startDate || !endDate) return null;
+
+    const startStr =
+      typeof startDate === 'string'
+        ? startDate.split('T')[0]
+        : (startDate as Date).toISOString().split('T')[0];
+    const endStr =
+      typeof endDate === 'string'
+        ? endDate.split('T')[0]
+        : (endDate as Date).toISOString().split('T')[0];
+
+    const qb = this.menuRepo
+      .createQueryBuilder('m')
+      .where('m.tenantId = :tenantId', { tenantId })
+      .andWhere('m.deletedAt IS NULL')
+      .andWhere('m.status NOT IN (:...ignoredStatuses)', {
+        ignoredStatuses: ['REJECTED', 'ARCHIVED'],
+      })
+      .andWhere('m.startDate <= :endStr AND m.endDate >= :startStr', {
+        startStr,
+        endStr,
+      });
+
+    if (excludeMenuId) {
+      qb.andWhere('m.id != :excludeMenuId', { excludeMenuId });
+    }
+
+    const isToddler = targetAgeGroup === 'TODDLER_18_36M';
+    if (targetAgeGroup && targetAgeGroup !== 'ALL_AGES') {
+      if (isToddler) {
+        qb.andWhere('(m.targetAgeGroup = :toddler OR m.targetAgeGroup = :allAges)', {
+          toddler: 'TODDLER_18_36M',
+          allAges: 'ALL_AGES',
+        });
+      } else {
+        qb.andWhere('(m.targetAgeGroup != :toddler OR m.targetAgeGroup = :allAges)', {
+          toddler: 'TODDLER_18_36M',
+          allAges: 'ALL_AGES',
+        });
+      }
+    }
+
+    return qb.orderBy('m.createdAt', 'DESC').getOne();
+  }
+
+  /**
    * 5. Tạo thực đơn tuần thủ công
    */
   async create(tenantId: string, userId: string, dto: CreateMenuDto): Promise<Menu> {
+    const overlapping = await this.checkDateOverlap(
+      tenantId,
+      dto.startDate,
+      dto.endDate,
+      dto.targetAgeGroup,
+    );
+    if (overlapping) {
+      const existingStart = typeof overlapping.startDate === 'string' ? overlapping.startDate.split('T')[0] : overlapping.startDate;
+      const existingEnd = typeof overlapping.endDate === 'string' ? overlapping.endDate.split('T')[0] : overlapping.endDate;
+      throw new BadRequestException(
+        `Không thể tạo thực đơn! Khoảng thời gian từ ${dto.startDate} đến ${dto.endDate} đã có thực đơn "${overlapping.title}" (từ ${existingStart} đến ${existingEnd}, trạng thái: ${overlapping.status}). Vui lòng chọn tuần khác hoặc chỉnh sửa thực đơn đã có.`,
+      );
+    }
+
     const menu = this.menuRepo.create({
       tenantId,
       createdBy: userId,
@@ -292,6 +363,26 @@ export class MenusService {
     if (dto.endDate) menu.endDate = dto.endDate;
     if (dto.cycleWeekNumber) menu.cycleWeekNumber = dto.cycleWeekNumber;
 
+    if (dto.startDate || dto.endDate || dto.targetAgeGroup) {
+      const targetStart = dto.startDate || menu.startDate;
+      const targetEnd = dto.endDate || menu.endDate;
+      const targetAge = dto.targetAgeGroup || menu.targetAgeGroup;
+      const overlapping = await this.checkDateOverlap(
+        tenantId,
+        targetStart,
+        targetEnd,
+        targetAge,
+        id,
+      );
+      if (overlapping) {
+        const existingStart = typeof overlapping.startDate === 'string' ? overlapping.startDate.split('T')[0] : overlapping.startDate;
+        const existingEnd = typeof overlapping.endDate === 'string' ? overlapping.endDate.split('T')[0] : overlapping.endDate;
+        throw new BadRequestException(
+          `Không thể cập nhật thực đơn! Khoảng thời gian từ ${targetStart} đến ${targetEnd} đã có thực đơn "${overlapping.title}" (từ ${existingStart} đến ${existingEnd}, trạng thái: ${overlapping.status}). Không được trùng khoảng thời gian với thực đơn khác.`,
+        );
+      }
+    }
+
     await this.menuRepo.save(menu);
     return this.findOne(tenantId, id);
   }
@@ -386,6 +477,20 @@ export class MenusService {
    * 10. Import thực đơn tuần từ file Excel / dữ liệu bảng
    */
   async importExcel(tenantId: string, userId: string, dto: ImportExcelMenuDto): Promise<Menu> {
+    const overlapping = await this.checkDateOverlap(
+      tenantId,
+      dto.startDate,
+      dto.endDate,
+      dto.targetAgeGroup,
+    );
+    if (overlapping) {
+      const existingStart = typeof overlapping.startDate === 'string' ? overlapping.startDate.split('T')[0] : overlapping.startDate;
+      const existingEnd = typeof overlapping.endDate === 'string' ? overlapping.endDate.split('T')[0] : overlapping.endDate;
+      throw new BadRequestException(
+        `Không thể import thực đơn! Khoảng thời gian từ ${dto.startDate} đến ${dto.endDate} đã có thực đơn "${overlapping.title}" (từ ${existingStart} đến ${existingEnd}, trạng thái: ${overlapping.status}). Vui lòng chọn tuần khác.`,
+      );
+    }
+
     // Tạo menu mới
     const menu = this.menuRepo.create({
       tenantId,
@@ -821,6 +926,21 @@ export class MenusService {
     userId: string,
     dto: AutoGenerateMenuDto,
   ): Promise<any> {
+    // Kiểm tra trùng lặp khoảng thời gian thực đơn
+    const overlapping = await this.checkDateOverlap(
+      tenantId,
+      dto.startDate,
+      dto.endDate,
+      dto.targetAgeGroup,
+    );
+    if (overlapping) {
+      const existingStart = typeof overlapping.startDate === 'string' ? overlapping.startDate.split('T')[0] : overlapping.startDate;
+      const existingEnd = typeof overlapping.endDate === 'string' ? overlapping.endDate.split('T')[0] : overlapping.endDate;
+      throw new BadRequestException(
+        `Không thể tạo thực đơn! Khoảng thời gian từ ${dto.startDate} đến ${dto.endDate} đã có thực đơn "${overlapping.title}" (từ ${existingStart} đến ${existingEnd}, trạng thái: ${overlapping.status}). Vui lòng chọn tuần khác hoặc chỉnh sửa thực đơn hiện tại.`,
+      );
+    }
+
     const daysCount = dto.daysCount || 5;
     const isKindergarten = dto.targetAgeGroup !== 'TODDLER_18_36M';
     const targetKcal = isKindergarten ? 665 : 580;
@@ -1751,7 +1871,7 @@ export class MenusService {
     if (!substituteDishId) {
       menuDish.substituteDish = null;
       menuDish.substituteDishId = null;
-      menuDish.specialDietNotes = null;
+      menuDish.specialDietNotes = notes || null;
       return this.menuDishRepo.save(menuDish);
     }
 

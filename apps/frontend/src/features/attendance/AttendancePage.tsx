@@ -7,10 +7,11 @@ import { AttendanceControls } from './components/AttendanceControls';
 import { AttendanceSummaryCards } from './components/AttendanceSummaryCards';
 import { AttendanceTable } from './components/AttendanceTable';
 import { AttendanceBottomSections } from './components/AttendanceBottomSections';
+import { ClassSelectionHub } from './components/ClassSelectionHub';
 import { EditNoteModal } from './components/EditNoteModal';
 import { ExportReportModal } from './components/ExportReportModal';
 import { attendanceApi } from './api/attendanceApi';
-import { AttendanceResponse, ClassItem, ChildAttendanceItem, MealOption } from './types';
+import { AttendanceResponse, ClassItem, ChildAttendanceItem, MealOption, SchoolHeadcountSummaryResponse } from './types';
 import { Loader2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 import { getKitchenSocket } from '../../core/socket';
 
@@ -26,9 +27,14 @@ export const AttendancePage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [activeTab, setActiveTab] = useState<string>('attendance');
 
-  // Attendance Data from Real Database
+  // School Overview & Class Summary Data
+  const [summaryData, setSummaryData] = useState<SchoolHeadcountSummaryResponse | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
+  // Attendance Data for Selected Class
   const [attendanceData, setAttendanceData] = useState<AttendanceResponse | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isLocking, setIsLocking] = useState<boolean>(false);
   const [isLocked, setIsLocked] = useState<boolean>(false);
@@ -48,6 +54,7 @@ export const AttendancePage: React.FC = () => {
 
   // Listen to Real-time WebSocket events from Kitchen
   useEffect(() => {
+    if (!selectedClassId) return;
     const socket = getKitchenSocket();
 
     const handleKitchenStatus = (payload: any) => {
@@ -64,22 +71,29 @@ export const AttendancePage: React.FC = () => {
     };
   }, [selectedClassId]);
 
+  // Load Classes and School Headcount Summary (Do not auto-select class)
+  const loadClassesAndSummary = useCallback(async () => {
+    setIsLoadingSummary(true);
+    setSummaryError(null);
+    try {
+      const [classList, summary] = await Promise.all([
+        attendanceApi.getClasses(),
+        attendanceApi.getSchoolHeadcountSummary(selectedDate),
+      ]);
+      setClasses(classList);
+      setSummaryData(summary);
+    } catch (err) {
+      console.error('Lỗi khi tải danh sách lớp học:', err);
+      setSummaryError('Không thể kết nối đến máy chủ backend (ERR_CONNECTION_REFUSED hoặc lỗi mạng).');
+      showToast('Không thể kết nối máy chủ dữ liệu điểm danh', 'error');
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  }, [selectedDate]);
 
-  // Load Classes
   useEffect(() => {
-    const loadClasses = async () => {
-      try {
-        const classList = await attendanceApi.getClasses();
-        setClasses(classList);
-        if (classList.length > 0 && !selectedClassId) {
-          setSelectedClassId(classList[0].id);
-        }
-      } catch (err) {
-        console.error('Lỗi khi tải danh sách lớp học:', err);
-      }
-    };
-    loadClasses();
-  }, []);
+    loadClassesAndSummary();
+  }, [loadClassesAndSummary]);
 
   // Fetch Attendance Data from Backend
   const fetchAttendance = useCallback(async () => {
@@ -206,6 +220,7 @@ export const AttendancePage: React.FC = () => {
       });
       setIsLocked(true);
       showToast(res.message || 'Đã khóa sổ và gửi số lượng suất ăn tới Bếp Trung Tâm');
+      loadClassesAndSummary();
     } catch (err) {
       console.error('Lỗi khi khóa danh sách gửi bếp:', err);
       showToast('Lỗi khi gửi dữ liệu tới bếp', 'error');
@@ -294,80 +309,101 @@ export const AttendancePage: React.FC = () => {
 
       {/* 3. Main Content Container */}
       <main className="flex-1 max-w-[1440px] w-full mx-auto px-6 py-6 space-y-6">
-        {/* Header & Title */}
-        <AttendanceHeader
-          classNameTitle={attendanceData?.classInfo.name || 'Lớp Mầm 1 (3-4 tuổi)'}
-          cutoffTime={attendanceData?.kitchenConnection.cutoffTime || '08:45'}
-          onExportReport={() => setIsExportOpen(true)}
-          onLockAndSendKitchen={handleLockKitchen}
-          isLocked={isLocked}
-        />
-
-        {/* Controls & Filter Toolbar */}
-        <AttendanceControls
-          selectedDate={selectedDate}
-          onDateChange={(d) => {
-            setSelectedDate(d);
-            setCurrentPage(1);
-          }}
-          mealFilter={mealFilter}
-          onMealFilterChange={(f) => {
-            setMealFilter(f);
-            setCurrentPage(1);
-          }}
-          classes={classes}
-          selectedClassId={selectedClassId}
-          onClassChange={(cId) => {
-            setSelectedClassId(cId);
-            setCurrentPage(1);
-          }}
-          searchQuery={searchQuery}
-          onSearchChange={(q) => {
-            setSearchQuery(q);
-            setCurrentPage(1);
-          }}
-          onMarkAllPresent={handleMarkAllPresent}
-          onSyncMorning={handleSyncMorning}
-          isSyncing={isSyncing}
-        />
-
-        {/* 4 Summary KPI Cards */}
-        {attendanceData && <AttendanceSummaryCards summary={attendanceData.summary} />}
-
-        {/* Loading State or Main Data Table */}
-        {isLoading && !attendanceData ? (
-          <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center space-y-3">
-            <Loader2 className="w-8 h-8 animate-spin text-teal-600 mx-auto" />
-            <p className="text-xs font-bold text-slate-500">Đang truy vấn cơ sở dữ liệu bán trú...</p>
-          </div>
-        ) : attendanceData ? (
-          <AttendanceTable
-            childrenList={attendanceData.children}
-            totalStudents={attendanceData.summary.totalClassStudents}
-            lastSyncTime={attendanceData.kitchenConnection.lastSyncTime}
-            recordedBy={attendanceData.kitchenConnection.recordedBy}
-            currentPage={attendanceData.pagination.currentPage}
-            totalPages={attendanceData.pagination.totalPages}
-            onPageChange={(p) => setCurrentPage(p)}
-            onUpdateStatus={handleUpdateMealStatus}
-            onOpenEditNote={(child) => setEditingChild(child)}
-            selectedChildIds={selectedChildIds}
-            onToggleSelectAll={handleToggleSelectAll}
-            onToggleSelectChild={handleToggleSelectChild}
-          />
-        ) : null}
-
-        {/* Bottom 2 Cards: K-Kitchen Live Sync & Today's Menu */}
-        {attendanceData && (
-          <AttendanceBottomSections
-            kitchen={{
-              ...attendanceData.kitchenConnection,
-              isLocked,
+        {!selectedClassId ? (
+          <ClassSelectionHub
+            summaryData={summaryData}
+            selectedDate={selectedDate}
+            onDateChange={(d) => {
+              setSelectedDate(d);
+              setCurrentPage(1);
             }}
-            todayMenu={attendanceData.todayMenu}
-            onLockKitchen={handleLockKitchen}
-            isLocking={isLocking}
+            onSelectClass={(cId) => {
+              setSelectedClassId(cId);
+              setCurrentPage(1);
+            }}
+            isLoading={isLoadingSummary}
+            error={summaryError}
+            onRetry={loadClassesAndSummary}
           />
+        ) : (
+          <>
+            {/* Header & Title */}
+            <AttendanceHeader
+              classNameTitle={attendanceData?.classInfo.name || 'Lớp Mầm 1 (3-4 tuổi)'}
+              cutoffTime={attendanceData?.kitchenConnection.cutoffTime || '08:45'}
+              onExportReport={() => setIsExportOpen(true)}
+              onLockAndSendKitchen={handleLockKitchen}
+              onBackToClasses={() => setSelectedClassId('')}
+              isLocked={isLocked}
+            />
+
+            {/* Controls & Filter Toolbar */}
+            <AttendanceControls
+              selectedDate={selectedDate}
+              onDateChange={(d) => {
+                setSelectedDate(d);
+                setCurrentPage(1);
+              }}
+              mealFilter={mealFilter}
+              onMealFilterChange={(f) => {
+                setMealFilter(f);
+                setCurrentPage(1);
+              }}
+              classes={classes}
+              selectedClassId={selectedClassId}
+              onClassChange={(cId) => {
+                setSelectedClassId(cId);
+                setCurrentPage(1);
+              }}
+              searchQuery={searchQuery}
+              onSearchChange={(q) => {
+                setSearchQuery(q);
+                setCurrentPage(1);
+              }}
+              onMarkAllPresent={handleMarkAllPresent}
+              onSyncMorning={handleSyncMorning}
+              isSyncing={isSyncing}
+            />
+
+            {/* 4 Summary KPI Cards */}
+            {attendanceData && <AttendanceSummaryCards summary={attendanceData.summary} />}
+
+            {/* Loading State or Main Data Table */}
+            {isLoading && !attendanceData ? (
+              <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center space-y-3">
+                <Loader2 className="w-8 h-8 animate-spin text-teal-600 mx-auto" />
+                <p className="text-xs font-bold text-slate-500">Đang truy vấn cơ sở dữ liệu bán trú...</p>
+              </div>
+            ) : attendanceData ? (
+              <AttendanceTable
+                childrenList={attendanceData.children}
+                totalStudents={attendanceData.summary.totalClassStudents}
+                lastSyncTime={attendanceData.kitchenConnection.lastSyncTime}
+                recordedBy={attendanceData.kitchenConnection.recordedBy}
+                currentPage={attendanceData.pagination.currentPage}
+                totalPages={attendanceData.pagination.totalPages}
+                onPageChange={(p) => setCurrentPage(p)}
+                onUpdateStatus={handleUpdateMealStatus}
+                onOpenEditNote={(child) => setEditingChild(child)}
+                selectedChildIds={selectedChildIds}
+                onToggleSelectAll={handleToggleSelectAll}
+                onToggleSelectChild={handleToggleSelectChild}
+              />
+            ) : null}
+
+            {/* Bottom 2 Cards: K-Kitchen Live Sync & Today's Menu */}
+            {attendanceData && (
+              <AttendanceBottomSections
+                kitchen={{
+                  ...attendanceData.kitchenConnection,
+                  isLocked,
+                }}
+                todayMenu={attendanceData.todayMenu}
+                onLockKitchen={handleLockKitchen}
+                isLocking={isLocking}
+              />
+            )}
+          </>
         )}
       </main>
 

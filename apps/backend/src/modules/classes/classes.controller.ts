@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Query, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Headers } from '@nestjs/common';
 import { ClassesService } from './classes.service';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
@@ -13,8 +13,6 @@ export class ClassesController {
     @Body() createClassDto: CreateClassDto,
     @Headers('x-tenant-id') tenantId: string,
   ) {
-    // Note: For now we use the header to simulate the tenant context
-    // In a fully guarded endpoint, you'd extract it from the authenticated user.
     return this.classesService.create(createClassDto, tenantId);
   }
 
@@ -34,6 +32,15 @@ export class ClassesController {
     return this.classesService.findOne(id, tenantId);
   }
 
+  @Put(':id')
+  updatePut(
+    @Param('id') id: string,
+    @Body() updateClassDto: UpdateClassDto,
+    @Headers('x-tenant-id') tenantId: string,
+  ) {
+    return this.classesService.update(id, updateClassDto, tenantId);
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -41,5 +48,39 @@ export class ClassesController {
     @Headers('x-tenant-id') tenantId: string,
   ) {
     return this.classesService.update(id, updateClassDto, tenantId);
+  }
+
+  @Delete(':id')
+  remove(
+    @Param('id') id: string,
+    @Headers('x-tenant-id') tenantId: string,
+  ) {
+    return this.classesService.remove(id, tenantId);
+  }
+
+  @Get(':id/students')
+  getStudents(
+    @Param('id') id: string,
+    @Headers('x-tenant-id') tenantId: string,
+  ) {
+    return this.classesService.getClassStudents(id, tenantId);
+  }
+
+  @Post(':id/students')
+  addStudents(
+    @Param('id') id: string,
+    @Body() body: { childIds: string[] },
+    @Headers('x-tenant-id') tenantId: string,
+  ) {
+    return this.classesService.addStudentsToClass(id, body.childIds, tenantId);
+  }
+
+  @Delete(':id/students/:childId')
+  removeStudent(
+    @Param('id') id: string,
+    @Param('childId') childId: string,
+    @Headers('x-tenant-id') tenantId: string,
+  ) {
+    return this.classesService.removeStudentFromClass(id, childId, tenantId);
   }
 }

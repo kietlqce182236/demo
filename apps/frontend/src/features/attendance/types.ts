@@ -431,5 +431,68 @@ export interface UpdateCoordinationNotePayload {
   photos?: string[];
 }
 
+export interface SchoolHeadcountClassItem {
+  id: string;
+  name: string;
+  gradeLevel: string;
+  gradeName: string;
+  roomNumber: string;
+  academicYear: string;
+  homeroomTeacher: string;
+  enrolled: number;
+  boys: number;
+  girls: number;
+  maxCapacity: number;
+  occupancyPercent: number;
+  presentToday: number;
+  absentToday: number;
+  absentPermitted: number;
+  absentUnpermitted: number;
+  attendanceRate: number;
+  lunchCount: number;
+  snackCount: number;
+  allergicCount: number;
+  isKitchenLocked: boolean;
+  kitchenLockedAt?: string | null;
+}
+
+export interface SchoolHeadcountGradeItem {
+  gradeLevel: string;
+  gradeName: string;
+  classCount: number;
+  enrolled: number;
+  maxCapacity: number;
+  presentToday: number;
+  absentToday: number;
+  lunchCount: number;
+  allergicCount: number;
+  occupancyPercent: number;
+  attendanceRate: number;
+}
+
+export interface SchoolHeadcountSummaryResponse {
+  date: string;
+  overview: {
+    totalStudents: number;
+    totalCapacity: number;
+    occupancyPercent: number;
+    boysCount: number;
+    girlsCount: number;
+    presentToday: number;
+    absentToday: number;
+    absentPermitted: number;
+    absentUnpermitted: number;
+    attendanceRate: number;
+    lunchPortions: number;
+    snackPortions: number;
+    allergicCount: number;
+    totalClasses: number;
+    classesLockedCount: number;
+  };
+  grades: SchoolHeadcountGradeItem[];
+  classes: SchoolHeadcountClassItem[];
+}
+
+
 
 

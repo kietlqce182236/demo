@@ -46,6 +46,7 @@ The following specialized skills are installed in `.agents/skills/`:
 - **`kitchen-realtime-safety`**: WebSocket portion management, 3-step food inspection, and food sample retention.
 - **`kidmeal-monorepo-ops`**: Docker Compose, database migration, verification scripts, and dev server commands.
 - **`ai-menu-advisor`**: Prompts, constraints, and schemas for LLM-driven menu planning and allergen substitution.
+- **`kidmeal-uiux-promax`**: Definitive design system — color tokens, typography, component patterns (modals, cards, tables, forms, badges), micro-animations, responsive rules, and Vietnamese localization standards.
 
 ---
 

@@ -50,12 +50,18 @@ export const ParentPortalTopNav: React.FC<ParentPortalTopNavProps> = ({ child, a
               <span>Thực đơn & Sức ăn</span>
             </Link>
 
-            <button
-              type="button"
-              className="px-3 py-2 text-slate-600 hover:text-teal-700 rounded-lg transition hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
+            {/* Tab 2: Khai báo Dị ứng & Kiêng cữ */}
+            <Link
+              to="/declare-allergy"
+              className={`px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 ${
+                activeTab === 'allergies'
+                  ? 'bg-teal-600 hover:bg-teal-700 text-white font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-teal-700 hover:bg-slate-50 font-semibold'
+              }`}
             >
+              <ShieldAlert className="w-3.5 h-3.5" />
               <span>Khai báo Dị ứng</span>
-            </button>
+            </Link>
             <button
               type="button"
               className="px-3 py-2 text-slate-600 hover:text-teal-700 rounded-lg transition hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"

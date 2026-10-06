@@ -48,8 +48,22 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
 }) => {
   const isAllSelected = childrenList.length > 0 && childrenList.every((c) => selectedChildIds.includes(c.id));
 
-  // Helper avatar generator with initials and pleasant colors
+  // Helper avatar generator with image or initials with pleasant colors
   const getAvatarBadge = (child: ChildAttendanceItem) => {
+    if (child.avatarUrl) {
+      return (
+        <img
+          src={child.avatarUrl}
+          alt={child.fullName}
+          className="w-10 h-10 rounded-full border-2 border-teal-200/90 object-cover shrink-0 shadow-xs"
+          onError={(e) => {
+            // Fallback: hide broken image and display initials
+            (e.currentTarget as HTMLElement).style.display = 'none';
+          }}
+        />
+      );
+    }
+
     const initials = child.fullName
       .split(' ')
       .slice(-2)
@@ -115,7 +129,7 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
                 />
               </th>
               <th className="py-3.5 px-4 min-w-[200px]">Học Sinh</th>
-              <th className="py-3.5 px-4 min-w-[260px] text-center">Trạng Thái Suất Ăn</th>
+              <th className="py-3.5 px-4 min-w-[200px] text-center">Điểm Danh (Có mặt / Vắng)</th>
               <th className="py-3.5 px-4 min-w-[240px]">Chế Độ Dinh Dưỡng & Dị Ứng</th>
               <th className="py-3.5 px-4 min-w-[280px]">Ghi Chú Dặn Dò Của Phụ Huynh</th>
               <th className="py-3.5 px-4 min-w-[140px] text-center">Bếp Tiếp Nhận</th>
@@ -162,58 +176,35 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Meal Status Segmented Buttons */}
+                  {/* Điểm danh: Có mặt / Vắng */}
                   <td className="py-3.5 px-4 text-center">
-                    <div className="inline-flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold gap-1 shadow-inner">
-                      {/* Cả ngày */}
+                    <div className="inline-flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold gap-1.5 shadow-inner">
+                      {/* Có mặt */}
                       <button
                         onClick={() => onUpdateStatus(child.id, 'ALL_DAY')}
-                        className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1 ${
-                          child.mealOption === 'ALL_DAY'
-                            ? 'bg-teal-600 text-white shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
+                        className={`px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 font-bold ${
+                          !isAbsent
+                            ? 'bg-teal-600 text-white shadow-sm ring-1 ring-teal-600/30'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                         }`}
+                        title="Bé có mặt ăn bán trú hôm nay"
                       >
-                        {child.mealOption === 'ALL_DAY' && <Check className="w-3.5 h-3.5" />}
-                        <span>Cả ngày</span>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Có mặt</span>
                       </button>
 
-                      {/* Trưa */}
-                      <button
-                        onClick={() => onUpdateStatus(child.id, 'LUNCH_ONLY')}
-                        className={`px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 ${
-                          child.mealOption === 'LUNCH_ONLY'
-                            ? 'bg-sky-700 text-white shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        {child.mealOption === 'LUNCH_ONLY' && <Check className="w-3.5 h-3.5" />}
-                        <span>Trưa</span>
-                      </button>
-
-                      {/* Xế */}
-                      <button
-                        onClick={() => onUpdateStatus(child.id, 'SNACK_ONLY')}
-                        className={`px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 ${
-                          child.mealOption === 'SNACK_ONLY'
-                            ? 'bg-sky-700 text-white shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        {child.mealOption === 'SNACK_ONLY' && <Check className="w-3.5 h-3.5" />}
-                        <span>Xế</span>
-                      </button>
-
-                      {/* Nghỉ */}
+                      {/* Vắng */}
                       <button
                         onClick={() => onUpdateStatus(child.id, 'ABSENT')}
-                        className={`px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 ${
-                          child.mealOption === 'ABSENT'
-                            ? 'bg-rose-700 text-white shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
+                        className={`px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 font-bold ${
+                          isAbsent
+                            ? 'bg-rose-700 text-white shadow-sm ring-1 ring-rose-700/30'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                         }`}
+                        title="Bé vắng mặt (cắt suất ăn)"
                       >
-                        <span>Nghỉ</span>
+                        <Ban className="w-3.5 h-3.5" />
+                        <span>Vắng</span>
                       </button>
                     </div>
                   </td>
@@ -320,7 +311,7 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
       <div className="p-4 bg-slate-50/70 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
         <div className="text-amber-700 flex items-center gap-1.5 font-medium">
           <span>💡</span>
-          <span><strong>Mẹo thao tác:</strong> Bấm nút "Cả ngày", "Trưa", "Xế" hoặc "Nghỉ" để cập nhật trạng thái tức thì.</span>
+          <span><strong>Mẹo thao tác:</strong> Bấm nút "Có mặt" hoặc "Vắng" để cập nhật trạng thái báo ăn của bé tức thì.</span>
         </div>
 
         {/* Pagination */}

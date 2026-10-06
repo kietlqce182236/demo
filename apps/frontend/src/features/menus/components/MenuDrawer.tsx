@@ -8,6 +8,7 @@ interface MenuDrawerProps {
   onSubmit: (payload: CreateMenuPayload) => Promise<void>;
   initialData?: WeeklyMenu | null;
   mode?: 'create' | 'edit';
+  existingMenus?: WeeklyMenu[];
 }
 
 export const MenuDrawer: React.FC<MenuDrawerProps> = ({
@@ -16,6 +17,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
   onSubmit,
   initialData,
   mode = 'create',
+  existingMenus = [],
 }) => {
   const [title, setTitle] = useState('');
   const [targetAgeGroup, setTargetAgeGroup] = useState('ALL_AGES');
@@ -25,6 +27,32 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
   const [menuCycleType, setMenuCycleType] = useState('WEEKLY');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Kiểm tra trùng lặp khoảng thời gian với thực đơn đã có
+  const findOverlappingMenu = (start: string, end: string, ageGroup: string): WeeklyMenu | null => {
+    if (!start || !end || !existingMenus || existingMenus.length === 0) return null;
+    const s = start.split('T')[0];
+    const e = end.split('T')[0];
+    return (
+      existingMenus.find((m) => {
+        // Bỏ qua chính menu đang sửa
+        if (mode === 'edit' && initialData && m.id === initialData.id) return false;
+        if (m.status === 'REJECTED' || m.status === 'ARCHIVED') return false;
+        const mS = m.startDate?.split('T')[0];
+        const mE = m.endDate?.split('T')[0];
+        if (!mS || !mE) return false;
+        const isOverlapDates = s <= mE && e >= mS;
+        if (!isOverlapDates) return false;
+
+        if (ageGroup === 'ALL_AGES' || m.targetAgeGroup === 'ALL_AGES') return true;
+        const isToddler1 = ageGroup === 'TODDLER_18_36M';
+        const isToddler2 = m.targetAgeGroup === 'TODDLER_18_36M';
+        return isToddler1 === isToddler2;
+      }) || null
+    );
+  };
+
+  const conflictingMenu = findOverlappingMenu(startDate, endDate, targetAgeGroup);
 
   useEffect(() => {
     if (initialData && mode === 'edit') {
@@ -75,6 +103,10 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
     }
     if (new Date(startDate) > new Date(endDate)) {
       setError('Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.');
+      return;
+    }
+    if (conflictingMenu) {
+      setError(`Không thể lưu thực đơn! Khoảng thời gian từ ${startDate} đến ${endDate} đã có thực đơn "${conflictingMenu.title}" (${conflictingMenu.status}). Vui lòng chọn tuần khác.`);
       return;
     }
 
@@ -202,6 +234,19 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 />
               </div>
             </div>
+
+            {/* Cảnh báo trùng lặp khoảng thời gian thực đơn */}
+            {conflictingMenu && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-start gap-2.5 shadow-xs">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block text-rose-900">Trùng lặp thời gian thực đơn</span>
+                  <span>
+                    Khoảng thời gian từ <strong>{startDate}</strong> đến <strong>{endDate}</strong> đã có thực đơn "<strong>{conflictingMenu.title}</strong>" (Trạng thái: {conflictingMenu.status}). Vui lòng chọn tuần khác.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Tuần chu kỳ & Loại chu kỳ */}
             <div className="grid grid-cols-2 gap-4">

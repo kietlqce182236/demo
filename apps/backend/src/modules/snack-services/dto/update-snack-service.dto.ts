@@ -13,19 +13,19 @@ export class UpdateSnackServiceDto {
   description?: string;
 
   @ApiPropertyOptional({
-    description: 'Loại dịch vụ ăn xế',
-    enum: ['AFTER_SCHOOL_SNACK', 'PREMIUM_MILK', 'ORGANIC_FRUIT', 'CUSTOM_NUTRITION'],
+    description: 'Loại dịch vụ',
+    enum: ['AFTER_SCHOOL_SNACK', 'PREMIUM_MILK', 'ORGANIC_FRUIT', 'CUSTOM_NUTRITION', 'DAYBOARDING_STANDARD', 'BREAKFAST', 'LATE_PICKUP', 'FACILITIES_CARE'],
   })
   @IsOptional()
-  @IsIn(['AFTER_SCHOOL_SNACK', 'PREMIUM_MILK', 'ORGANIC_FRUIT', 'CUSTOM_NUTRITION'])
+  @IsIn(['AFTER_SCHOOL_SNACK', 'PREMIUM_MILK', 'ORGANIC_FRUIT', 'CUSTOM_NUTRITION', 'DAYBOARDING_STANDARD', 'BREAKFAST', 'LATE_PICKUP', 'FACILITIES_CARE'])
   serviceType?: string;
 
   @ApiPropertyOptional({
     description: 'Chu kỳ tính phí',
-    enum: ['PER_MEAL', 'WEEKLY', 'MONTHLY', 'SEMESTER'],
+    enum: ['DAILY', 'PER_MEAL', 'WEEKLY', 'MONTHLY', 'SEMESTER', 'YEARLY'],
   })
   @IsOptional()
-  @IsIn(['PER_MEAL', 'WEEKLY', 'MONTHLY', 'SEMESTER'])
+  @IsIn(['DAILY', 'PER_MEAL', 'WEEKLY', 'MONTHLY', 'SEMESTER', 'YEARLY'])
   billingCycle?: string;
 
   @ApiPropertyOptional({ description: 'Đơn giá 1 suất / 1 ngày (VNĐ)' })

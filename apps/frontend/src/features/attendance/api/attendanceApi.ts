@@ -1,9 +1,21 @@
 import { apiClient } from '../../../core/api/axios';
-import { AttendanceResponse, ClassItem, MealOption, MealEvaluationResponse, PortionType } from '../types';
+import { 
+  AttendanceResponse, 
+  ClassItem, 
+  MealOption, 
+  MealEvaluationResponse, 
+  PortionType,
+  SchoolHeadcountSummaryResponse
+} from '../types';
 
 export const attendanceApi = {
   getClasses: async (): Promise<ClassItem[]> => {
     const res = await apiClient.get('/attendance/classes');
+    return res.data;
+  },
+
+  getSchoolHeadcountSummary: async (date?: string): Promise<SchoolHeadcountSummaryResponse> => {
+    const res = await apiClient.get('/attendance/school-summary', { params: { date } });
     return res.data;
   },
 
@@ -171,12 +183,42 @@ export const attendanceApi = {
 
   updateKitchenStatus: async (data: {
     classId: string;
-    status: 'SYNCED' | 'PREPARING' | 'COMPLETED';
+    status: 'WAITING' | 'PREPARING' | 'PORTIONING' | 'READY_DELIVERY' | 'DELIVERED' | 'COMPLETED';
     actorName?: string;
   }) => {
     const res = await apiClient.post('/attendance/kitchen/status', data);
     return res.data;
   },
+
+  // =========================================================================
+  // FOOD SAFETY 3-STEP INSPECTION & 24H SAMPLE RETENTION APIS
+  // =========================================================================
+
+  getFoodSafetyLogs: async () => {
+    const res = await apiClient.get('/attendance/food-safety-logs');
+    return res.data;
+  },
+
+  createFoodSafetyLog: async (data: any) => {
+    const res = await apiClient.post('/attendance/food-safety-logs', data);
+    return res.data;
+  },
+
+  getSampleRetentionRecords: async () => {
+    const res = await apiClient.get('/attendance/sample-retention-records');
+    return res.data;
+  },
+
+  createSampleRetentionRecord: async (data: any) => {
+    const res = await apiClient.post('/attendance/sample-retention-records', data);
+    return res.data;
+  },
+
+  disposeSampleRetentionRecord: async (id: string) => {
+    const res = await apiClient.post(`/attendance/sample-retention-records/${id}/dispose`);
+    return res.data;
+  },
 };
+
 
 

@@ -93,7 +93,7 @@ export const AttendanceControls: React.FC<AttendanceControlsProps> = ({
           </button>
         </div>
 
-        {/* Meal Scope Toggle Buttons */}
+        {/* Scope Toggle: Tất cả / Có mặt / Vắng */}
         <div className="flex items-center bg-slate-100/90 p-1 rounded-2xl border border-slate-200 text-xs font-bold">
           <button
             onClick={() => onMealFilterChange('ALL')}
@@ -103,27 +103,27 @@ export const AttendanceControls: React.FC<AttendanceControlsProps> = ({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Cả ngày (Trưa + Xế)
+            Tất cả
           </button>
           <button
-            onClick={() => onMealFilterChange('LUNCH')}
+            onClick={() => onMealFilterChange('PRESENT')}
             className={`px-3.5 py-1.5 rounded-xl transition ${
-              mealFilter === 'LUNCH'
+              mealFilter === 'PRESENT'
                 ? 'bg-teal-600 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Chỉ ăn trưa
+            Có mặt
           </button>
           <button
-            onClick={() => onMealFilterChange('SNACK')}
+            onClick={() => onMealFilterChange('ABSENT')}
             className={`px-3.5 py-1.5 rounded-xl transition ${
-              mealFilter === 'SNACK'
-                ? 'bg-teal-600 text-white shadow-sm'
+              mealFilter === 'ABSENT'
+                ? 'bg-rose-700 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Chỉ ăn xế
+            Vắng
           </button>
         </div>
 
@@ -136,6 +136,9 @@ export const AttendanceControls: React.FC<AttendanceControlsProps> = ({
               onChange={(e) => onClassChange(e.target.value)}
               className="bg-transparent focus:outline-none cursor-pointer pr-4 font-bold text-slate-800"
             >
+              <option value="" className="text-slate-400">
+                ← Đổi lớp khác (Danh sách lớp)
+              </option>
               {classes.map((cls) => (
                 <option key={cls.id} value={cls.id}>
                   {cls.name} ({cls.totalStudents} bé)
@@ -167,7 +170,7 @@ export const AttendanceControls: React.FC<AttendanceControlsProps> = ({
             className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 active:scale-95 text-white rounded-2xl text-xs font-bold shadow-sm transition"
           >
             <Sparkles className="w-4 h-4 text-amber-200" />
-            <span>Điểm danh CÓ ĂN tất cả</span>
+            <span>Điểm danh CÓ MẶT tất cả</span>
           </button>
 
           <button

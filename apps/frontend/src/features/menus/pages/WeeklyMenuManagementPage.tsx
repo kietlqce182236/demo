@@ -428,162 +428,181 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
         {/* 2. CÁC Ô THỐNG KÊ Ở ĐẦU GIAO DIỆN (5 KPI CARDS) */}
         <MenuStatsCards stats={stats} loading={loading} />
 
-        {/* 3. THANH CÔNG CỤ & BỘ LỌC PHIÊN BẢN */}
-        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-xs flex flex-wrap items-center justify-between gap-4">
-          {/* Nhóm Bộ Lọc Bên Trái */}
-          <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
-            {/* Chọn Thực đơn đang xem */}
-            <div className="relative min-w-[220px]">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                Chọn Thực đơn tuần
-              </label>
-              <select
-                value={selectedMenu?.id || ''}
-                onChange={(e) => handleSelectMenu(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold text-slate-800 bg-white hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              >
-                {menus.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.title} (v{m.version}.0) - {m.status}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Lọc Phiên bản (Version History) */}
-            {menuVersions.length > 1 && (
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                  Phiên bản
+        {/* 3. THANH ĐIỀU HƯỚNG & CÔNG CỤ QUẢN LÝ THỰC ĐƠN (BỐ CỤC CÂN ĐỐI 2 HÀNG) */}
+        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-xs space-y-4">
+          {/* HÀNG 1: BỘ CHỌN THỰC ĐƠN, BỘ LỌC & CÁC NÚT TẠO MỚI */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            {/* Cụm trái: Chọn thực đơn + Lọc trạng thái + Thùng rác + Phiên bản */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Chọn Thực đơn đang xem */}
+              <div className="min-w-[260px] sm:min-w-[320px]">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Chọn Thực đơn tuần
                 </label>
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-                  {menuVersions.map((v) => (
-                    <button
-                      key={v.id}
-                      onClick={() => handleSelectMenu(v.id)}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition ${
-                        selectedMenu?.id === v.id
-                          ? 'bg-white text-emerald-800 shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      v{v.version}.0
-                    </button>
+                <select
+                  value={selectedMenu?.id || ''}
+                  onChange={(e) => handleSelectMenu(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-800 bg-white hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer"
+                >
+                  {menus.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.title} (v{m.version}.0) - {m.status}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
-            )}
 
-            {/* Lọc Trạng thái */}
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                Trạng thái
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              >
-                <option value="ALL">Tất cả trạng thái</option>
-                <option value="DRAFT">Bản dự thảo</option>
-                <option value="SUBMITTED_FOR_REVIEW">Chờ BGH duyệt</option>
-                <option value="APPROVED">Đã duyệt</option>
-                <option value="ACTIVE">Đang áp dụng (Khóa)</option>
-                <option value="REJECTED">Bị từ chối</option>
-              </select>
+              {/* Lọc Trạng thái */}
+              <div className="w-[160px]">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Trạng thái
+                </label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 bg-white hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer"
+                >
+                  <option value="ALL">Tất cả trạng thái</option>
+                  <option value="DRAFT">Bản dự thảo</option>
+                  <option value="SUBMITTED_FOR_REVIEW">Chờ BGH duyệt</option>
+                  <option value="APPROVED">Đã duyệt</option>
+                  <option value="ACTIVE">Đang áp dụng (Khóa)</option>
+                  <option value="REJECTED">Bị từ chối</option>
+                </select>
+              </div>
+
+              {/* Thùng rác */}
+              <div>
+                <label className="text-[11px] font-bold text-transparent block mb-1 select-none">
+                  Thao tác
+                </label>
+                <button
+                  onClick={() => setShowDeleted(!showDeleted)}
+                  className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                    showDeleted
+                      ? 'bg-rose-50 border-rose-300 text-rose-700'
+                      : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                  }`}
+                  title="Xem các thực đơn đã xóa mềm trong thùng rác"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{showDeleted ? 'Thùng rác (Đang xem)' : 'Thùng rác'}</span>
+                </button>
+              </div>
+
+              {/* Lọc Phiên bản nếu có nhiều version */}
+              {menuVersions.length > 1 && (
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    Phiên bản
+                  </label>
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                    {menuVersions.map((v) => (
+                      <button
+                        key={v.id}
+                        onClick={() => handleSelectMenu(v.id)}
+                        className={`px-2.5 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
+                          selectedMenu?.id === v.id
+                            ? 'bg-white text-emerald-800 shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        v{v.version}.0
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Thùng rác (Xóa mềm) */}
-            <div className="pt-4">
+            {/* Cụm phải: Các nút tạo mới thực đơn */}
+            <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-end">
+              {/* Nút Tạo Thực Đơn Tự Động (AI / Smart Menu) */}
               <button
-                onClick={() => setShowDeleted(!showDeleted)}
-                className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
-                  showDeleted
-                    ? 'bg-rose-50 border-rose-300 text-rose-700'
-                    : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                }`}
+                onClick={() => setIsAutoGenerateModalOpen(true)}
+                className="px-4 py-2.5 rounded-2xl bg-emerald-600 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30 flex items-center gap-2 transition hover:scale-102 active:scale-98 cursor-pointer"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>{showDeleted ? 'Thùng rác (Đang xem)' : 'Thùng rác'}</span>
+                <Sparkles className="w-4 h-4 text-emerald-200 animate-pulse" />
+                <span>Tự động tạo thực đơn</span>
+                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-white/20 text-white">
+                  AI Smart
+                </span>
+              </button>
+
+              {/* Nút Tạo Thực Đơn Mới Thủ Công */}
+              <button
+                onClick={() => {
+                  setMenuDrawerMode('create');
+                  setIsMenuDrawerOpen(true);
+                }}
+                className="px-3.5 py-2.5 rounded-2xl border border-slate-200 hover:border-emerald-300 bg-white text-slate-700 hover:text-emerald-700 text-xs font-bold flex items-center gap-1.5 transition shadow-2xs hover:bg-emerald-50/50 cursor-pointer"
+              >
+                <Plus className="w-4 h-4 text-emerald-600" />
+                <span>Tạo thủ công</span>
+              </button>
+
+              {/* Nút Import Excel */}
+              <button
+                onClick={() => setIsExcelModalOpen(true)}
+                className="px-3.5 py-2.5 rounded-2xl border border-slate-200 hover:border-emerald-300 bg-white text-slate-700 hover:text-emerald-700 text-xs font-bold flex items-center gap-1.5 transition shadow-2xs hover:bg-emerald-50/50 cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>Import Excel</span>
               </button>
             </div>
           </div>
 
-          {/* Nhóm Nút Hành Động Bên Phải */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Nút Tư Vấn Dị Ứng Học Sinh & Cá Nhân Hóa BMI */}
+          {/* HÀNG 2: THAO TÁC TRÊN THỰC ĐƠN ĐANG CHỌN (CONTEXTUAL ACTIONS) */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            {/* Bên Trái: Nút Phân Loại Dinh Dưỡng & Khẩu Phần (Dị ứng, BMI) */}
             {selectedMenu && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAdvisorFocusDishId(null);
-                  setIsAdvisorModalOpen(true);
-                }}
-                className={`px-3.5 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 transition shadow-xs cursor-pointer ${
-                  advisory && (advisory.allergySummary.totalConflicts > 0 || (advisory.bmiSummary.overweightObeseCount + advisory.bmiSummary.wastedUnderweightCount > 0))
-                    ? 'bg-rose-50/90 border-rose-300 text-rose-900 hover:bg-rose-100 hover:border-rose-400'
-                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-                title="Tạo thực đơn thay thế cho 3 nhóm học sinh: Loại 1 Còi xương/SDD, Loại 2 Béo phì, Loại 3 Dị ứng"
-              >
-                <div className="relative">
-                  <AlertCircle className={`w-4 h-4 ${
-                    advisory && advisory.allergySummary.totalConflicts > 0 ? 'text-rose-600 animate-pulse' : 'text-amber-500'
-                  }`} />
-                  {advisory && advisory.allergySummary.criticalCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-600 rounded-full animate-ping" />
-                  )}
-                </div>
-                <span>Thực đơn Thay thế (3 loại học sinh)</span>
-                {advisory && (
-                  <div className="flex items-center gap-1 font-black">
-                    {advisory.allergySummary.totalConflicts > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-rose-600 text-white shadow-2xs">
-                        {advisory.allergySummary.totalConflicts} Dị ứng
-                      </span>
-                    )}
-                    {(advisory.bmiSummary.overweightObeseCount + advisory.bmiSummary.wastedUnderweightCount) > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-amber-500 text-white shadow-2xs">
-                        {advisory.bmiSummary.overweightObeseCount + advisory.bmiSummary.wastedUnderweightCount} BMI
-                      </span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdvisorFocusDishId(null);
+                    setIsAdvisorModalOpen(true);
+                  }}
+                  className={`px-4 py-2 rounded-2xl border text-xs font-bold flex items-center gap-2.5 transition shadow-xs cursor-pointer ${
+                    advisory && (advisory.allergySummary.totalConflicts > 0 || (advisory.bmiSummary.overweightObeseCount + advisory.bmiSummary.wastedUnderweightCount > 0))
+                      ? 'bg-rose-50/90 border-rose-300 text-rose-900 hover:bg-rose-100 hover:border-rose-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                  title="Phân loại dinh dưỡng 3 nhóm học sinh: Dị ứng, Thấp còi (thêm lượng ăn), Béo phì (giảm calo)"
+                >
+                  <div className="relative">
+                    <AlertCircle className={`w-4 h-4 ${
+                      advisory && advisory.allergySummary.totalConflicts > 0 ? 'text-rose-600 animate-pulse' : 'text-amber-500'
+                    }`} />
+                    {advisory && advisory.allergySummary.criticalCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-600 rounded-full animate-ping" />
                     )}
                   </div>
-                )}
-              </button>
+                  <span>Phân loại Dinh dưỡng (3 nhóm học sinh)</span>
+                  {advisory && (
+                    <div className="flex items-center gap-1.5 font-black">
+                      {advisory.allergySummary.totalConflicts > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] bg-rose-600 text-white shadow-2xs">
+                          {advisory.allergySummary.totalConflicts} Dị ứng
+                        </span>
+                      )}
+                      {(advisory.bmiSummary.overweightObeseCount + advisory.bmiSummary.wastedUnderweightCount) > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500 text-white shadow-2xs">
+                          {advisory.bmiSummary.overweightObeseCount + advisory.bmiSummary.wastedUnderweightCount} BMI
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </button>
+
+                <span className="text-xs text-slate-400 font-medium hidden md:inline">
+                  • Tuần {selectedMenu.cycleWeekNumber || 1} ({selectedMenu.startDate?.split('T')[0]} - {selectedMenu.endDate?.split('T')[0]})
+                </span>
+              </div>
             )}
 
-            {/* Nút Tạo Thực Đơn Tự Động (AI / Smart Menu) */}
-            <button
-              onClick={() => setIsAutoGenerateModalOpen(true)}
-              className="px-4 py-2.5 rounded-2xl bg-emerald-600 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30 flex items-center gap-2 transition hover:scale-102 active:scale-98 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-emerald-200 animate-pulse" />
-              <span>Tự động tạo thực đơn</span>
-              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-white/20 text-white">
-                AI Smart
-              </span>
-            </button>
-
-            {/* Nút Tạo Thực Đơn Mới Thủ Công -> Mở MenuDrawer */}
-            <button
-              onClick={() => {
-                setMenuDrawerMode('create');
-                setIsMenuDrawerOpen(true);
-              }}
-              className="px-3.5 py-2.5 rounded-2xl border border-slate-200 hover:border-emerald-300 bg-white text-slate-700 hover:text-emerald-700 text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
-            >
-              <Plus className="w-4 h-4 text-emerald-600" />
-              <span>Tạo thủ công</span>
-            </button>
-
-            {/* Nút Import Excel */}
-            <button
-              onClick={() => setIsExcelModalOpen(true)}
-              className="px-3.5 py-2.5 rounded-2xl border border-slate-200 hover:border-emerald-300 bg-white text-slate-700 hover:text-emerald-700 text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              <span>Import Excel</span>
-            </button>
+            {/* Bên Phải: Workflow & Tiện ích của Thực đơn đang chọn */}
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
 
             {/* Nút Tạo Phiên Bản Mới (Clone Version) */}
             {selectedMenu && (
@@ -728,11 +747,13 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
               </div>
             )}
 
+            <div className="h-5 w-[1px] bg-slate-200 mx-1 hidden sm:block" />
+
             {/* Nút In / Xuất PDF */}
             {selectedMenu && (
               <button
                 onClick={handleOpenPrintPreview}
-                className="p-2.5 rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-700 transition"
+                className="p-2.5 rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-700 transition cursor-pointer"
                 title="Xem trước và In thực đơn (PDF A4)"
               >
                 <Printer className="w-4 h-4" />
@@ -743,7 +764,7 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
             {selectedMenu && !showDeleted && selectedMenu.status !== 'ACTIVE' && (
               <button
                 onClick={handleSoftDelete}
-                className="p-2.5 rounded-2xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition"
+                className="p-2.5 rounded-2xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition cursor-pointer"
                 title="Xóa mềm thực đơn vào thùng rác"
               >
                 <Trash2 className="w-4 h-4" />
@@ -754,7 +775,7 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
             {selectedMenu && showDeleted && (
               <button
                 onClick={() => handleRestore(selectedMenu.id)}
-                className="px-3 py-2 rounded-2xl bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5"
+                className="px-3 py-2 rounded-2xl bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" />
                 <span>Khôi phục bản này</span>
@@ -762,6 +783,7 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
             )}
           </div>
         </div>
+      </div>
 
         {/* 4. MA TRẬN THỰC ĐƠN TUẦN 5 NGÀY x 5 BỮA ĂN */}
         <WeeklyGridTable
@@ -802,6 +824,7 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
         onSubmit={handleSaveMenu}
         initialData={selectedMenu}
         mode={menuDrawerMode}
+        existingMenus={menus}
       />
 
       {/* Drawer 2: Tinh chỉnh món ăn, định lượng, món thay thế */}
@@ -847,6 +870,7 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
           await handleSelectMenu(newMenu.id);
         }}
         currentMenu={selectedMenu}
+        existingMenus={menus}
       />
 
       {/* Modal 7: Tư vấn Cảnh báo Dị ứng & Đề xuất Cá nhân hóa BMI */}

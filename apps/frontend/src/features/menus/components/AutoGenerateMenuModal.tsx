@@ -27,6 +27,7 @@ interface AutoGenerateMenuModalProps {
   onClose: () => void;
   onSuccess: (newMenu: WeeklyMenu) => void;
   currentMenu?: WeeklyMenu | null;
+  existingMenus?: WeeklyMenu[];
 }
 
 export const AutoGenerateMenuModal: React.FC<AutoGenerateMenuModalProps> = ({
@@ -34,6 +35,7 @@ export const AutoGenerateMenuModal: React.FC<AutoGenerateMenuModalProps> = ({
   onClose,
   onSuccess,
   currentMenu,
+  existingMenus = [],
 }) => {
   // Form State
   const [targetAgeGroup, setTargetAgeGroup] = useState<'KINDERGARTEN_3_5Y' | 'TODDLER_18_36M'>('KINDERGARTEN_3_5Y');
@@ -53,27 +55,100 @@ export const AutoGenerateMenuModal: React.FC<AutoGenerateMenuModalProps> = ({
   const [saving, setSaving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Initialize dates: default to next Monday
+  // Hàm kiểm tra xem khoảng ngày [start, end] có trùng với thực đơn đã có hay không
+  const findOverlappingMenu = (start: string, end: string, ageGroup: string): WeeklyMenu | null => {
+    if (!start || !end || !existingMenus || existingMenus.length === 0) return null;
+    const s = start.split('T')[0];
+    const e = end.split('T')[0];
+    return (
+      existingMenus.find((m) => {
+        if (m.status === 'REJECTED' || m.status === 'ARCHIVED') return false;
+        const mS = m.startDate?.split('T')[0];
+        const mE = m.endDate?.split('T')[0];
+        if (!mS || !mE) return false;
+        // Kiểm tra giao khoảng thời gian: s <= mE && e >= mS
+        const isOverlapDates = s <= mE && e >= mS;
+        if (!isOverlapDates) return false;
+
+        // Kiểm tra nhóm tuổi
+        if (ageGroup === 'ALL_AGES' || m.targetAgeGroup === 'ALL_AGES') return true;
+        const isToddler1 = ageGroup === 'TODDLER_18_36M';
+        const isToddler2 = m.targetAgeGroup === 'TODDLER_18_36M';
+        return isToddler1 === isToddler2;
+      }) || null
+    );
+  };
+
+  const conflictingMenu = findOverlappingMenu(startDate, endDate, targetAgeGroup);
+
+  // Chuyển sang tuần tiếp theo (+7 ngày)
+  const handleJumpToNextWeek = () => {
+    const baseDate = startDate ? new Date(startDate) : new Date();
+    baseDate.setDate(baseDate.getDate() + 7);
+    const newMonStr = baseDate.toISOString().split('T')[0];
+
+    const fri = new Date(baseDate);
+    fri.setDate(baseDate.getDate() + (daysCount === 6 ? 5 : 4));
+    const newFriStr = fri.toISOString().split('T')[0];
+
+    const nextWeek = (cycleWeekNumber % 52) + 1;
+    setStartDate(newMonStr);
+    setEndDate(newFriStr);
+    setCycleWeekNumber(nextWeek);
+    setTitle(`Thực đơn Bán trú Thông minh Tuần ${nextWeek} (${targetAgeGroup === 'KINDERGARTEN_3_5Y' ? 'Mẫu giáo' : 'Nhà trẻ'})`);
+    setPreviewData(null);
+    setErrorMsg(null);
+  };
+
+  // Khởi tạo ngày: Tự động tìm tuần trống đầu tiên gần nhất
   useEffect(() => {
     if (isOpen) {
       const now = new Date();
       const day = now.getDay();
       const diffToMonday = day === 0 ? 1 : (8 - day) % 7 || 7;
-      const nextMon = new Date(now);
-      nextMon.setDate(now.getDate() + diffToMonday);
+      const initialMon = new Date(now);
+      initialMon.setDate(now.getDate() + diffToMonday);
 
-      const monStr = nextMon.toISOString().split('T')[0];
-      const fri = new Date(nextMon);
-      fri.setDate(nextMon.getDate() + (daysCount === 6 ? 5 : 4));
-      const friStr = fri.toISOString().split('T')[0];
+      // Thử tìm tuần trống trong 12 tuần kế tiếp
+      let chosenMonStr = '';
+      let chosenFriStr = '';
+      let weekOffset = 0;
 
-      setStartDate(monStr);
-      setEndDate(friStr);
-      setTitle(`Thực đơn Bán trú Thông minh Tuần ${cycleWeekNumber} (${targetAgeGroup === 'KINDERGARTEN_3_5Y' ? 'Mẫu giáo' : 'Nhà trẻ'})`);
+      for (let i = 0; i < 12; i++) {
+        const testMon = new Date(initialMon);
+        testMon.setDate(initialMon.getDate() + i * 7);
+        const testFri = new Date(testMon);
+        testFri.setDate(testMon.getDate() + (daysCount === 6 ? 5 : 4));
+
+        const mStr = testMon.toISOString().split('T')[0];
+        const fStr = testFri.toISOString().split('T')[0];
+
+        const conflict = findOverlappingMenu(mStr, fStr, targetAgeGroup);
+        if (!conflict) {
+          chosenMonStr = mStr;
+          chosenFriStr = fStr;
+          weekOffset = i;
+          break;
+        }
+      }
+
+      if (!chosenMonStr) {
+        chosenMonStr = initialMon.toISOString().split('T')[0];
+        const f = new Date(initialMon);
+        f.setDate(initialMon.getDate() + (daysCount === 6 ? 5 : 4));
+        chosenFriStr = f.toISOString().split('T')[0];
+      }
+
+      const initialWeekNum = currentMenu?.cycleWeekNumber ? ((currentMenu.cycleWeekNumber + weekOffset) % 52) || 1 : 1 + weekOffset;
+
+      setStartDate(chosenMonStr);
+      setEndDate(chosenFriStr);
+      setCycleWeekNumber(initialWeekNum);
+      setTitle(`Thực đơn Bán trú Thông minh Tuần ${initialWeekNum} (${targetAgeGroup === 'KINDERGARTEN_3_5Y' ? 'Mẫu giáo' : 'Nhà trẻ'})`);
       setPreviewData(null);
       setErrorMsg(null);
     }
-  }, [isOpen, daysCount, targetAgeGroup, cycleWeekNumber]);
+  }, [isOpen, daysCount, targetAgeGroup]);
 
   // Handle DaysCount change -> update endDate
   const handleDaysCountChange = (count: number) => {
@@ -87,6 +162,11 @@ export const AutoGenerateMenuModal: React.FC<AutoGenerateMenuModalProps> = ({
 
   // Generate / Preview Menu
   const handleGeneratePreview = async () => {
+    if (conflictingMenu) {
+      setErrorMsg(`Không thể tạo thực đơn! Khoảng thời gian từ ${startDate} đến ${endDate} đã có thực đơn "${conflictingMenu.title}" (${conflictingMenu.status}). Vui lòng bấm 'Chuyển sang Tuần kế tiếp' để chọn tuần trống.`);
+      return;
+    }
+
     try {
       setLoadingPreview(true);
       setErrorMsg(null);
@@ -114,6 +194,11 @@ export const AutoGenerateMenuModal: React.FC<AutoGenerateMenuModalProps> = ({
 
   // Save to Database
   const handleSaveMenu = async () => {
+    if (conflictingMenu) {
+      setErrorMsg(`Không thể lưu thực đơn trùng thời gian với "${conflictingMenu.title}"! Vui lòng chọn tuần khác.`);
+      return;
+    }
+
     try {
       setSaving(true);
       setErrorMsg(null);
@@ -339,15 +424,52 @@ export const AutoGenerateMenuModal: React.FC<AutoGenerateMenuModalProps> = ({
                   <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
                 </label>
               </div>
+
+              {/* Cảnh báo nếu trùng lặp thời gian với thực đơn đã có */}
+              {conflictingMenu && (
+                <div className="sm:col-span-2 lg:col-span-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
+                  <div className="flex items-start sm:items-center gap-2.5">
+                    <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5 sm:mt-0" />
+                    <div>
+                      <span className="font-black text-rose-800 uppercase tracking-wider text-[11px] block">
+                        Trùng lặp thời gian thực đơn
+                      </span>
+                      <span className="text-rose-700 font-medium text-xs">
+                        Khoảng thời gian từ <strong>{startDate}</strong> đến <strong>{endDate}</strong> đã có thực đơn: <strong className="underline">{conflictingMenu.title}</strong> (Trạng thái: {conflictingMenu.status}).
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleJumpToNextWeek}
+                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shrink-0 shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>Chuyển sang Tuần kế tiếp (+7 ngày)</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Nút Kích hoạt Sinh Thực đơn & Xem Trước */}
-            <div className="pt-2 flex justify-end">
+            <div className="pt-2 flex items-center justify-between">
+              {conflictingMenu ? (
+                <div className="text-xs font-bold text-rose-600 flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>Không thể tạo do trùng khoảng thời gian với thực đơn đã có</span>
+                </div>
+              ) : (
+                <div />
+              )}
               <button
                 type="button"
                 onClick={handleGeneratePreview}
-                disabled={loadingPreview}
-                className="px-5 py-2.5 rounded-2xl bg-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-md shadow-emerald-600/25 flex items-center gap-2 transition disabled:opacity-50 cursor-pointer"
+                disabled={loadingPreview || Boolean(conflictingMenu)}
+                className={`px-5 py-2.5 rounded-2xl text-white text-xs font-bold shadow-md flex items-center gap-2 transition cursor-pointer ${
+                  conflictingMenu
+                    ? 'bg-slate-400 opacity-60 cursor-not-allowed'
+                    : 'bg-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-600/25'
+                }`}
               >
                 {loadingPreview ? (
                   <>

@@ -14,6 +14,8 @@ import {
   TrendingUp,
   Eye,
   Heart,
+  FileText,
+  ClipboardList,
 } from 'lucide-react';
 import { WeeklyMenu, MenuDishItem, MenuAdvisoryResponse } from '../api/weekly-menus.api';
 import { RecipeInspectionModal } from './RecipeInspectionModal';
@@ -401,7 +403,7 @@ export const WeeklyGridTable: React.FC<WeeklyGridTableProps> = ({
               className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 flex items-center gap-1.5 transition shrink-0 cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-rose-200" />
-              <span>Tạo thực đơn thay thế (Còi xương • Béo phì • Dị ứng)</span>
+              <span>Phân loại Dinh dưỡng & Ghi chú (Dị ứng • Thấp còi • Béo phì)</span>
             </button>
           )}
         </div>
@@ -501,19 +503,22 @@ export const WeeklyGridTable: React.FC<WeeklyGridTableProps> = ({
 
       {/* Lưới Ma trận Thực đơn tuần (Hiển thị 7 ngày đầy đủ) */}
       <div className="overflow-x-auto w-full">
-        <table className="w-full border-collapse min-w-[980px]">
+        <table className="w-full border-collapse min-w-[980px] table-fixed">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/80">
-              <th className="py-2.5 px-2.5 w-24 sm:w-28 text-left text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">
+              <th 
+                className="py-2.5 px-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0"
+                style={{ width: '105px' }}
+              >
                 Bữa ăn
               </th>
               {days.map((day) => (
                 <th
                   key={day.dayOfWeek}
-                  className={`py-2 px-1 text-center border-l border-slate-100 min-w-[125px] xl:min-w-0 ${
+                  className={`py-2 px-1 text-center border-l border-slate-100 min-w-[130px] ${
                     day.isWeekend ? 'bg-amber-50/30' : ''
                   }`}
-                  style={{ width: 'calc((100% - 100px) / 7)' }}
+                  style={{ width: `calc((100% - 105px) / ${days.length})` }}
                 >
                   <div className="flex flex-col items-center">
                     <div className="flex items-center gap-1 justify-center">
@@ -654,135 +659,51 @@ export const WeeklyGridTable: React.FC<WeeklyGridTableProps> = ({
                               {/* KHUYẾN NGHỊ THAY THẾ CHO CÁC MÓN CẦN ĐIỀU CHỈNH HOẶC DỊ ỨNG    */}
                               {/* (Chỉ hiển thị ở những món cần thiết, không phải món nào cũng hiện) */}
                               {/* ════════════════════════════════════════════════════════════════ */}
-                              {(() => {
-                                // 1. Loại 3: Món nào bị dị ứng thì mới hiện lên!
-                                const conflictsForDish = advisory?.allergyConflicts?.filter((c) => c.menuDishId === md.id) || [];
-                                const hasAllergyConflict = conflictsForDish.length > 0;
+                                {/* CẢNH BÁO DỊ ỨNG HOẶC GHI CHÚ CHIA PHẦN CHO NHÂN VIÊN */}
+                                {(() => {
+                                  const conflictsForDish = advisory?.allergyConflicts?.filter((c) => c.menuDishId === md.id) || [];
+                                  const hasAllergyConflict = conflictsForDish.length > 0;
 
-                                // Thông số calo, béo, đạm của món hiện tại
-                                const dishCalo = Number(md.plannedCalories || md.dish?.totalCalories || 0);
-                                const dishFat = Number(lVal) || Number(md.dish?.totalFatG) || 0;
-                                const dishProtein = Number(pVal) || Number(md.dish?.totalProteinG) || 0;
+                                  if (!hasAllergyConflict && !md.specialDietNotes) return null;
 
-                                // 2. Loại 2 (Béo phì): Chỉ hiện ở một vài món có năng lượng/chất béo cao cần điều chỉnh giảm
-                                const hasObeseKids = (advisory?.bmiSummary?.overweightObeseCount || 0) > 0;
-                                const isHighCalorieOrFat = dishCalo >= 95 || dishFat >= 4.5;
-                                const isFriedOrHeavy = /chiên|rán|mỡ|xào mặn|nướng|kho mặn|đậu phộng/i.test(md.dish?.name || '');
-                                const needsObeseAdjustment = hasObeseKids && (isHighCalorieOrFat || isFriedOrHeavy);
-
-                                // 3. Loại 1 (Còi xương): Chỉ hiện ở một vài món cần tăng năng lượng & đạm (ít calo/đạm trong bữa chính hoặc bữa phụ)
-                                const hasStuntedKids = (advisory?.bmiSummary?.wastedUnderweightCount || 0) > 0;
-                                const isLowNutrientInMain = (slot.key === 'LUNCH' || slot.key === 'BREAKFAST') && (dishCalo < 50 || dishProtein < 3.0);
-                                const isLowSnack = (slot.key === 'MORNING_SNACK' || slot.key === 'AFTERNOON_SNACK') && dishCalo < 60;
-                                const needsStuntedAdjustment = hasStuntedKids && !needsObeseAdjustment && (isLowNutrientInMain || isLowSnack);
-
-                                // Nếu món ăn không bị dị ứng, không cần điều chỉnh calo/béo và chưa gán món thay thế -> KHÔNG HIỆN
-                                const hasAnyItem = hasAllergyConflict || needsObeseAdjustment || needsStuntedAdjustment || md.substituteDish;
-                                if (!hasAnyItem) return null;
-
-                                return (
-                                  <div className="mt-1.5 pt-1.5 border-t border-slate-100 space-y-1.5">
-                                    {/* 1. MÓN THAY THẾ ĐÃ GÁN (HIỂN THỊ RÕ RÀNG LOẠI HỌC SINH NÀO & CHI TIẾT) */}
-                                    {md.substituteDish && (() => {
-                                      const subInfo = resolveSubstituteInfo(md, advisory);
-                                      return (
+                                  return (
+                                    <div className="mt-1.5 pt-1 border-t border-slate-100">
+                                      {/* 1. ĐÃ CÓ GHI CHÚ BẾP & GV: Thanh ghi chú 1 dòng gọn gàng, đều đặn */}
+                                      {md.specialDietNotes ? (
                                         <div
                                           onClick={(e) => {
                                             e.stopPropagation();
+                                            const subInfo = resolveSubstituteInfo(md, advisory);
                                             onOpenAdvisoryForDish?.(md.id, subInfo.type);
                                           }}
-                                          className={`p-2 rounded-xl border transition cursor-pointer shadow-2xs hover:scale-[1.02] ${subInfo.containerClasses}`}
-                                          title={`Món thay thế cho ${subInfo.badgeTitle}: ${md.substituteDish.name}. ${subInfo.studentDesc}. Nhấp để xem chi tiết học sinh và đổi lại món nếu cần.`}
+                                          className="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-900 transition cursor-pointer hover:bg-amber-100/90 shadow-2xs flex items-center gap-1.5"
+                                          title={`Ghi chú Bếp & GV: ${md.specialDietNotes}. Bấm để xem / chỉnh sửa.`}
                                         >
-                                          {/* Dòng 1: Huy hiệu Loại học sinh & Nhãn Đã đổi */}
-                                          <div className="flex items-center justify-between gap-1 mb-1">
-                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shadow-2xs flex items-center gap-1 shrink-0 ${subInfo.badgeBg}`}>
-                                              {subInfo.type === 'ALLERGIES' ? '⚠️' : subInfo.type === 'OBESE' ? '🔥' : '❤️'}
-                                              <span>{subInfo.badgeTitle}</span>
-                                            </span>
-                                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider bg-white/80 border border-slate-200 text-slate-700 shrink-0">
-                                              {subInfo.tagText}
-                                            </span>
-                                          </div>
-
-                                          {/* Dòng 2: Món ăn thay thế */}
-                                          <div className="flex items-center gap-1 text-[11px] font-black text-slate-900 leading-tight">
-                                            <span className="text-emerald-600 font-bold shrink-0">👉</span>
-                                            <span className="truncate">{md.substituteDish.name}</span>
-                                          </div>
-
-                                          {/* Dòng 3: Cho đối tượng học sinh nào cụ thể */}
-                                          <div className="flex items-center justify-between gap-1 text-[8.5px] font-semibold text-slate-600 mt-1 pt-1 border-t border-slate-200/60">
-                                            <span className="truncate text-slate-700 font-medium">
-                                              👤 {subInfo.studentDesc}
-                                            </span>
-                                            <span className="text-[8px] text-emerald-800 font-black shrink-0 bg-white/90 px-1 py-0.2 rounded border border-slate-200">
-                                              {Number(md.substituteDish.totalCalories || 0).toFixed(0)} Kcal
-                                            </span>
-                                          </div>
+                                          <FileText className="w-3 h-3 text-amber-600 shrink-0" />
+                                          <span className="text-[9.5px] font-semibold truncate flex-1">
+                                            {md.specialDietNotes}
+                                          </span>
                                         </div>
-                                      );
-                                    })()}
-
-                                    {/* 2. CÁC NÚT ĐỔI MÓN KHI CHƯA GÁN MÓN THAY THẾ */}
-                                    {!md.substituteDish && hasAllergyConflict && (
-                                      <button
-                                        type="button"
-                                        onClick={() => onOpenAdvisoryForDish?.(md.id, 'ALLERGIES')}
-                                        className="w-full text-left p-1.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-950 hover:bg-rose-100 transition cursor-pointer flex flex-col gap-0.5 group/warn shadow-2xs animate-pulse"
-                                        title={`Phát hiện ${conflictsForDish.length} bé dị ứng: ${conflictsForDish.map((c) => `${c.childName} (${c.allergenDetected})`).join(', ')}. Bấm để xem thông tin học sinh và chọn món thay thế an toàn.`}
-                                      >
-                                        <div className="flex items-center justify-between gap-1 text-[10px] font-black">
-                                          <span className="flex items-center gap-1 text-rose-700">
+                                      ) : (
+                                        /* 2. CẢNH BÁO DỊ ỨNG TRỰC TIẾP: Gọn gàng 1 dòng không làm vỡ chiều cao thẻ */
+                                        <button
+                                          type="button"
+                                          onClick={() => onOpenAdvisoryForDish?.(md.id, 'ALLERGIES')}
+                                          className="w-full text-left px-2 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 hover:bg-rose-100 transition cursor-pointer flex items-center justify-between gap-1 shadow-2xs"
+                                          title={`Phát hiện ${conflictsForDish.length} bé dị ứng: ${conflictsForDish.map((c) => `${c.childName} (${c.allergenDetected})`).join(', ')}. Bấm để ghi chú cho nhân viên.`}
+                                        >
+                                          <div className="flex items-center gap-1 truncate text-[10px] font-bold text-rose-700">
                                             <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
-                                            <span>⚠️ Loại 3 (Dị ứng): {conflictsForDish.length} bé</span>
+                                            <span className="truncate">Dị ứng ({conflictsForDish.length} bé)</span>
+                                          </div>
+                                          <span className="text-[8px] bg-rose-600 text-white px-1.5 py-0.2 rounded font-extrabold shrink-0">
+                                            Note
                                           </span>
-                                          <span className="text-[8px] bg-rose-600 text-white px-1.5 py-0.5 rounded font-extrabold shrink-0">
-                                            Đổi món
-                                          </span>
-                                        </div>
-                                        <span className="text-[9px] text-rose-700 font-semibold truncate block">
-                                          {conflictsForDish.map((c) => `${c.childName} (${c.allergenDetected})`).join('; ')}
-                                        </span>
-                                      </button>
-                                    )}
-
-                                    {!md.substituteDish && needsObeseAdjustment && (
-                                      <button
-                                        type="button"
-                                        onClick={() => onOpenAdvisoryForDish?.(md.id, 'OBESE')}
-                                        className="w-full text-left px-2 py-1 rounded-lg text-[9px] font-bold flex items-center justify-between gap-1 transition cursor-pointer bg-purple-50 hover:bg-purple-100 text-purple-950 border border-purple-200/90 group/b2 shadow-2xs"
-                                        title={`Món có calo/chất béo cao (${dishCalo.toFixed(0)} Kcal, ${dishFat.toFixed(1)}g béo). Bấm để xem thông tin ${advisory?.bmiSummary?.overweightObeseCount} bé béo phì và đổi món thanh đạm.`}
-                                      >
-                                        <div className="flex items-center gap-1 truncate">
-                                          <Flame className="w-2.5 h-2.5 text-purple-600 shrink-0" />
-                                          <span className="truncate">Loại 2 (Béo phì): Giảm calo/béo</span>
-                                        </div>
-                                        <span className="text-[8px] bg-purple-200 text-purple-900 group-hover/b2:bg-purple-300 px-1.5 py-0.2 rounded font-extrabold shrink-0">
-                                          Đổi món
-                                        </span>
-                                      </button>
-                                    )}
-
-                                    {!md.substituteDish && needsStuntedAdjustment && (
-                                      <button
-                                        type="button"
-                                        onClick={() => onOpenAdvisoryForDish?.(md.id, 'STUNTED')}
-                                        className="w-full text-left px-2 py-1 rounded-lg text-[9px] font-bold flex items-center justify-between gap-1 transition cursor-pointer bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200/90 group/b1 shadow-2xs"
-                                        title={`Món ít calo/đạm (${dishCalo.toFixed(0)} Kcal, ${dishProtein.toFixed(1)}g đạm). Bấm để xem thông tin ${advisory?.bmiSummary?.wastedUnderweightCount} bé còi xương và đổi món giàu năng lượng.`}
-                                      >
-                                        <div className="flex items-center gap-1 truncate">
-                                          <Heart className="w-2.5 h-2.5 text-amber-600 shrink-0" />
-                                          <span className="truncate">Loại 1 (Còi xương): Tăng calo/đạm</span>
-                                        </div>
-                                        <span className="text-[8px] bg-amber-200 text-amber-900 group-hover/b1:bg-amber-300 px-1.5 py-0.2 rounded font-extrabold shrink-0">
-                                          Đổi món
-                                        </span>
-                                      </button>
-                                    )}
-                                  </div>
-                                );
-                              })()}
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                             </div>
                           );
                         })}
