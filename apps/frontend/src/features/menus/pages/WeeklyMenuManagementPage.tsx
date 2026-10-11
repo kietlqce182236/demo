@@ -104,13 +104,14 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
         }),
       ]);
 
+      const menusList = Array.isArray(menusRes) ? menusRes : ((menusRes as any)?.items || (menusRes as any)?.data || []);
       setStats(statsRes);
-      setAvailableDishes(dishesRes);
-      setMenus(menusRes);
+      setAvailableDishes(Array.isArray(dishesRes) ? dishesRes : ((dishesRes as any)?.items || (dishesRes as any)?.data || []));
+      setMenus(menusList);
 
-      if (menusRes.length > 0) {
+      if (menusList.length > 0) {
         // Chọn menu đang ACTIVE trước, nếu không chọn menu đầu tiên
-        const activeOne = menusRes.find((m) => m.status === 'ACTIVE') || menusRes[0];
+        const activeOne = menusList.find((m: any) => m.status === 'ACTIVE') || menusList[0];
         await handleSelectMenu(activeOne.id);
       } else {
         setSelectedMenu(null);
@@ -133,14 +134,14 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
     try {
       const [detailRes, versionsRes, advisoryRes] = await Promise.all([
         weeklyMenusApi.getMenuById(menuId),
-        weeklyMenusApi.getMenuVersions(menuId),
+        weeklyMenusApi.getMenuVersions(menuId).catch(() => []),
         weeklyMenusApi.getAdvisory(menuId).catch((e) => {
           console.warn('Lỗi khi tải tư vấn dị ứng & BMI:', e);
           return null;
         }),
       ]);
       setSelectedMenu(detailRes);
-      setMenuVersions(versionsRes);
+      setMenuVersions(Array.isArray(versionsRes) ? versionsRes : []);
       setAdvisory(advisoryRes);
     } catch (err) {
       showNotify('error', 'Không thể tải chi tiết thực đơn.');
@@ -152,9 +153,24 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // 3. Tạo mới hoặc cập nhật thực đơn
+  /**
+   * =========================================================================================
+   * [LUỒNG TẠO THỰC ĐƠN - BƯỚC 1/6: ĐIỂM BẮT ĐẦU TỪ MÀN HÌNH CHÍNH (FRONTEND UI)]
+   * =========================================================================================
+   * - File này: `apps/frontend/src/features/menus/pages/WeeklyMenuManagementPage.tsx`
+   * - Tương tác: Người dùng nhấn nút "+ Tạo thực đơn tuần" -> Mở component `MenuDrawer.tsx`.
+   * - Tiếp nhận: Khi người dùng bấm "Lưu thực đơn" trong Drawer, hàm `handleSaveMenu` này nhận `payload`.
+   * - GỌI FILE TIẾP THEO: Gọi hàm `weeklyMenusApi.createMenu(payload)` trong File:
+   *   -> `apps/frontend/src/features/menus/api/weekly-menus.api.ts` (BƯỚC 3).
+   * - Sau khi Backend phản hồi thành công:
+   *   1. Hiển thị thông báo Toast thành công (`showNotify`).
+   *   2. Tự động tải lại danh sách thực đơn (`fetchInitialData`).
+   *   3. Nạp thực đơn vừa tạo lên bảng ma trận `WeeklyGridTable.tsx` và `NutritionBar.tsx`.
+   * =========================================================================================
+   */
   const handleSaveMenu = async (payload: any) => {
     if (menuDrawerMode === 'create') {
+      // GỌI SANG: apps/frontend/src/features/menus/api/weekly-menus.api.ts
       const created = await weeklyMenusApi.createMenu(payload);
       showNotify('success', `Đã tạo thành công thực đơn: ${created.title}`);
       await fetchInitialData();
@@ -183,9 +199,19 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
     }
   };
 
-  // 5. Tinh chỉnh món ăn trong bữa ăn
+  /**
+   * =========================================================================================
+   * [LUỒNG TINH CHỈNH MÓN ĂN - BƯỚC 1/4: GIAO DIỆN NGƯỜI DÙNG]
+   * =========================================================================================
+   * - File này: `apps/frontend/src/features/menus/pages/WeeklyMenuManagementPage.tsx`
+   * - Tương tác: Người dùng bấm vào 1 ô món trên lưới -> Mở `DishAdjustmentDrawer.tsx`.
+   * - GỌI SANG: `weeklyMenusApi.adjustDish(menuId, payload)` trong:
+   *   -> `apps/frontend/src/features/menus/api/weekly-menus.api.ts` (BƯỚC 2)
+   * =========================================================================================
+   */
   const handleAdjustDish = async (payload: any) => {
     if (!selectedMenu) return;
+    // GỌI SANG: apps/frontend/src/features/menus/api/weekly-menus.api.ts -> adjustDish()
     await weeklyMenusApi.adjustDish(selectedMenu.id, payload);
     showNotify('success', 'Đã cập nhật món ăn vào thực đơn.');
     await handleSelectMenu(selectedMenu.id);
@@ -206,11 +232,22 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
     }
   };
 
-  // 7. Gửi duyệt (Dinh dưỡng -> BGH)
+  /**
+   * =========================================================================================
+   * [LUỒNG GỬI DUYỆT THỰC ĐƠN - BƯỚC 1/4: GIAO DIỆN NGƯỜI DÙNG]
+   * =========================================================================================
+   * - File này: `apps/frontend/src/features/menus/pages/WeeklyMenuManagementPage.tsx`
+   * - Vai trò: Chuyên viên Dinh dưỡng (`NUTRITIONIST`) nhấn nút "Gửi Ban Giám Hiệu phê duyệt".
+   * - Trạng thái: DRAFT -> SUBMITTED_FOR_REVIEW.
+   * - GỌI SANG: `weeklyMenusApi.submitForReview(selectedMenu.id)` trong:
+   *   -> `apps/frontend/src/features/menus/api/weekly-menus.api.ts` (BƯỚC 2)
+   * =========================================================================================
+   */
   const handleSubmitForReview = async () => {
     if (!selectedMenu) return;
     try {
       setActionLoading(true);
+      // GỌI SANG: apps/frontend/src/features/menus/api/weekly-menus.api.ts -> submitForReview()
       const updated = await weeklyMenusApi.submitForReview(selectedMenu.id);
       showNotify(
         'success',
@@ -288,9 +325,20 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
     }
   };
 
-  // 8. BGH Phê duyệt
+  /**
+   * =========================================================================================
+   * [LUỒNG BGH PHÊ DUYỆT - BƯỚC 1/4: GIAO DIỆN HIỆU TRƯỞNG]
+   * =========================================================================================
+   * - File này: `apps/frontend/src/features/menus/pages/WeeklyMenuManagementPage.tsx`
+   * - Vai trò: Hiệu trưởng (`PRINCIPAL`) nhấn "Phê duyệt" từ `ApprovalModal.tsx`.
+   * - Trạng thái: SUBMITTED_FOR_REVIEW -> APPROVED.
+   * - GỌI SANG: `weeklyMenusApi.approveMenu(id, notes)` trong:
+   *   -> `apps/frontend/src/features/menus/api/weekly-menus.api.ts` (BƯỚC 2)
+   * =========================================================================================
+   */
   const handleApprove = async (id: string, notes?: string) => {
     try {
+      // GỌI SANG: apps/frontend/src/features/menus/api/weekly-menus.api.ts -> approveMenu()
       const updated = await weeklyMenusApi.approveMenu(id, notes);
       showNotify('success', 'Ban Giám Hiệu đã phê duyệt thực đơn tuần.');
       await fetchInitialData();
@@ -300,9 +348,20 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
     }
   };
 
-  // 9. BGH Từ chối
+  /**
+   * =========================================================================================
+   * [LUỒNG BGH TỪ CHỐI - BƯỚC 1/4: GIAO DIỆN HIỆU TRƯỞNG]
+   * =========================================================================================
+   * - File này: `apps/frontend/src/features/menus/pages/WeeklyMenuManagementPage.tsx`
+   * - Vai trò: Hiệu trưởng (`PRINCIPAL`) từ chối và nhập lý do yêu cầu sửa đổi.
+   * - Trạng thái: SUBMITTED_FOR_REVIEW -> REJECTED.
+   * - GỌI SANG: `weeklyMenusApi.rejectMenu(id, reason)` trong:
+   *   -> `apps/frontend/src/features/menus/api/weekly-menus.api.ts` (BƯỚC 2)
+   * =========================================================================================
+   */
   const handleReject = async (id: string, reason: string) => {
     try {
+      // GỌI SANG: apps/frontend/src/features/menus/api/weekly-menus.api.ts -> rejectMenu()
       const updated = await weeklyMenusApi.rejectMenu(id, reason);
       showNotify('success', 'Đã từ chối thực đơn kèm lý do yêu cầu chỉnh sửa.');
       await fetchInitialData();
@@ -312,12 +371,23 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
     }
   };
 
-  // 10. Khóa & Công bố thực đơn
+  /**
+   * =========================================================================================
+   * [LUỒNG KHÓA & CÔNG BỐ THỰC ĐƠN - BƯỚC 1/4: GIAO DIỆN NGƯỜI DÙNG]
+   * =========================================================================================
+   * - File này: `apps/frontend/src/features/menus/pages/WeeklyMenuManagementPage.tsx`
+   * - Vai trò: Khóa bản duyệt và phát hành áp dụng chính thức toàn trường (bếp & phụ huynh).
+   * - Trạng thái: APPROVED -> ACTIVE, isPublished = true.
+   * - GỌI SANG: `weeklyMenusApi.publishMenu(selectedMenu.id)` trong:
+   *   -> `apps/frontend/src/features/menus/api/weekly-menus.api.ts` (BƯỚC 2)
+   * =========================================================================================
+   */
   const handlePublish = async () => {
     if (!selectedMenu) return;
     if (!window.confirm('Công bố thực đơn sẽ khóa bản này và hiển thị lên toàn hệ thống. Xác nhận?')) return;
     try {
       setActionLoading(true);
+      // GỌI SANG: apps/frontend/src/features/menus/api/weekly-menus.api.ts -> publishMenu()
       const updated = await weeklyMenusApi.publishMenu(selectedMenu.id);
       showNotify('success', 'Thực đơn đã được KHÓA và CÔNG BỐ áp dụng toàn trường!');
       await fetchInitialData();
@@ -444,7 +514,7 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
                   onChange={(e) => handleSelectMenu(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-800 bg-white hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer"
                 >
-                  {menus.map((m) => (
+                  {(Array.isArray(menus) ? menus : []).map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.title} (v{m.version}.0) - {m.status}
                     </option>
@@ -491,7 +561,7 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
               </div>
 
               {/* Lọc Phiên bản nếu có nhiều version */}
-              {menuVersions.length > 1 && (
+              {Array.isArray(menuVersions) && menuVersions.length > 1 && (
                 <div>
                   <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Phiên bản
@@ -789,6 +859,8 @@ export const WeeklyMenuManagementPage: React.FC<WeeklyMenuManagementPageProps> =
         <WeeklyGridTable
           menu={selectedMenu}
           advisory={advisory}
+          availableDishes={availableDishes}
+          onAdjustDish={handleAdjustDish}
           readOnly={
             isPrincipal ||
             selectedMenu?.status === 'ACTIVE' ||

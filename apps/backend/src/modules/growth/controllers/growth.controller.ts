@@ -8,113 +8,90 @@ import {
   Param,
   Query,
   UseGuards,
-  HttpCode,
-  HttpStatus,
-  Req,
+  ParseIntPipe,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { GrowthService } from '../services/growth.service';
 import { CreateGrowthRecordDto } from '../dto/create-growth-record.dto';
 import { QueryGrowthRecordsDto } from '../dto/query-growth-records.dto';
 
-@Controller('growth')
+@ApiTags('Growth & Health Monitoring')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('growth')
 export class GrowthController {
   constructor(private readonly growthService: GrowthService) {}
 
-  private resolveTenantId(req: Request, userTenantId?: string): string {
-    return (
-      (req.headers['x-tenant-id'] as string) ||
-      userTenantId ||
-      'a0000000-0000-0000-0000-000000000001'
-    );
-  }
-
-  @Post()
-  @Roles('NUTRITIONIST', 'MEDICAL_STAFF', 'PRINCIPAL', 'SUPER_ADMIN', 'TEACHER')
-  @HttpCode(HttpStatus.CREATED)
-  async recordGrowth(
-    @Req() req: Request,
-    @CurrentUser('tenantId') tenantId: string,
-    @CurrentUser('id') userId: string,
-    @Body() dto: CreateGrowthRecordDto,
-  ) {
-    return this.growthService.recordGrowth(this.resolveTenantId(req, tenantId), userId, dto);
-  }
-
   @Get()
-  @Roles('NUTRITIONIST', 'MEDICAL_STAFF', 'PRINCIPAL', 'SUPER_ADMIN', 'TEACHER', 'PARENT')
+  @ApiOperation({ summary: 'Danh sách hồ sơ tăng trưởng & Z-score' })
+  @Roles('SCHOOL_MANAGEMENT', 'NUTRITIONIST', 'TEACHER', 'PARENT')
   async getRecords(
-    @Req() req: Request,
-    @CurrentUser('tenantId') tenantId: string,
     @Query() query: QueryGrowthRecordsDto,
+    @CurrentTenant() schoolId?: number,
   ) {
-    return this.growthService.getRecords(this.resolveTenantId(req, tenantId), query);
+    return this.growthService.findAll(query, schoolId);
   }
 
   @Get('child/:childId')
-  @Roles('NUTRITIONIST', 'MEDICAL_STAFF', 'PRINCIPAL', 'SUPER_ADMIN', 'TEACHER', 'PARENT')
-  async getChildHistory(
-    @Req() req: Request,
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('childId') childId: string,
-  ) {
-    return this.growthService.getChildHistory(this.resolveTenantId(req, tenantId), childId);
+  @ApiOperation({ summary: 'Lịch sử phát triển thể chất của học sinh' })
+  @Roles('SCHOOL_MANAGEMENT', 'NUTRITIONIST', 'TEACHER', 'PARENT')
+  async getChildHistory(@Param('childId', ParseIntPipe) childId: number) {
+    return this.growthService.getChildHistory(childId);
   }
 
   @Get('class/:classId/overview')
-  @Roles('NUTRITIONIST', 'MEDICAL_STAFF', 'PRINCIPAL', 'SUPER_ADMIN', 'TEACHER')
-  async getClassOverview(
-    @Req() req: Request,
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('classId') classId: string,
-  ) {
-    return this.growthService.getClassOverview(this.resolveTenantId(req, tenantId), classId);
+  @ApiOperation({ summary: 'Tổng quan tình trạng dinh dưỡng của lớp học' })
+  @Roles('SCHOOL_MANAGEMENT', 'NUTRITIONIST', 'TEACHER')
+  async getClassOverview(@Param('classId', ParseIntPipe) classId: number) {
+    return this.growthService.getClassOverview(classId);
   }
 
-  @Get('export')
-  @Roles('NUTRITIONIST', 'MEDICAL_STAFF', 'PRINCIPAL', 'SUPER_ADMIN')
-  async exportReport(
-    @Req() req: Request,
-    @CurrentUser('tenantId') tenantId: string,
-    @Query('classId') classId?: string,
+  @Post()
+  @ApiOperation({ summary: 'Ghi nhận chỉ số thể chất mới (chiều cao, cân nặng)' })
+  @Roles('SCHOOL_MANAGEMENT', 'NUTRITIONIST', 'TEACHER')
+  async createRecord(
+    @Body() dto: CreateGrowthRecordDto,
+    @CurrentUser('id') userId?: number,
   ) {
-    return this.growthService.exportReport(this.resolveTenantId(req, tenantId), classId);
-  }
-
-  @Post('import')
-  @Roles('NUTRITIONIST', 'MEDICAL_STAFF', 'PRINCIPAL', 'SUPER_ADMIN', 'TEACHER')
-  async importRecords(
-    @Req() req: Request,
-    @CurrentUser('tenantId') tenantId: string,
-    @CurrentUser('id') userId: string,
-    @Body('items') items: any[],
-  ) {
-    return this.growthService.importRecords(this.resolveTenantId(req, tenantId), userId, items || []);
+    return this.growthService.createRecord(dto, userId);
   }
 
   @Put(':id')
-  @Roles('NUTRITIONIST', 'MEDICAL_STAFF', 'PRINCIPAL', 'SUPER_ADMIN', 'TEACHER')
+  @ApiOperation({ summary: 'Cập nhật chỉ số thể chất' })
+  @Roles('SCHOOL_MANAGEMENT', 'NUTRITIONIST', 'TEACHER')
   async updateRecord(
-    @Req() req: Request,
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: Partial<CreateGrowthRecordDto>,
   ) {
-    return this.growthService.updateRecord(this.resolveTenantId(req, tenantId), id, dto);
+    return this.growthService.updateRecord(id, dto);
   }
 
   @Delete(':id')
-  @Roles('NUTRITIONIST', 'SUPER_ADMIN')
-  async deleteRecord(
-    @Req() req: Request,
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('id') id: string,
+  @ApiOperation({ summary: 'Xóa chỉ số thể chất' })
+  @Roles('SCHOOL_MANAGEMENT', 'NUTRITIONIST')
+  async deleteRecord(@Param('id', ParseIntPipe) id: number) {
+    return this.growthService.deleteRecord(id);
+  }
+
+  @Post('import')
+  @ApiOperation({ summary: 'Nhập dữ liệu đo thể chất hàng loạt từ Excel/CSV' })
+  @Roles('SCHOOL_MANAGEMENT', 'NUTRITIONIST')
+  async importRecords(
+    @Body('items') items: any[],
+    @CurrentUser('id') userId?: number,
   ) {
-    return this.growthService.deleteRecord(this.resolveTenantId(req, tenantId), id);
+    return this.growthService.importRecords(items || [], userId);
+  }
+
+  @Get('export')
+  @ApiOperation({ summary: 'Xuất báo cáo tăng trưởng' })
+  @Roles('SCHOOL_MANAGEMENT', 'NUTRITIONIST', 'TEACHER')
+  async exportReport(@Query('classId') classId?: string) {
+    return this.growthService.exportReport(classId);
   }
 }

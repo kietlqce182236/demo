@@ -1,19 +1,27 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { BigIntTransformer } from '../../../database/base.entity';
+import { Dish } from './dish.entity';
 
 @Entity('dish_categories')
 export class DishCategory {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
 
-  @Column({ type: 'varchar', length: 50, unique: true })
+  @Column({ length: 30, unique: true })
   code: string;
 
-  @Column({ name: 'name_vi', type: 'varchar', length: 100 })
-  nameVi: string;
+  @Column({ length: 100 })
+  name: string;
 
-  @Column({ name: 'display_order', type: 'int', default: 0 })
+  @Column({ name: 'display_order', default: 0 })
   displayOrder: number;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-  createdAt: Date;
+  @Column({ name: 'is_required_in_meal', default: false })
+  isRequiredInMeal: boolean;
+
+  @Column({ length: 20, default: 'ACTIVE' })
+  status: string;
+
+  @OneToMany(() => Dish, (d) => d.category)
+  dishes: Dish[];
 }

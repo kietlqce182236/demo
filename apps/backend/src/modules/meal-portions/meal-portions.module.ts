@@ -1,23 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DailyMealPortionEntity } from './entities/daily-meal-portion.entity';
-import { MealPortionIngredientEntity } from './entities/meal-portion-ingredient.entity';
-import { WeeklyMenuPlanItemEntity } from './entities/weekly-menu-plan-item.entity';
-import { WeeklyNutritionStatEntity } from './entities/weekly-nutrition-stat.entity';
+import { DailyMealPortion } from './entities/daily-meal-portion.entity';
+import { ClassEntity } from '../classes/entities/class.entity';
 import { MealPortionsService } from './services/meal-portions.service';
-import { MealPortionsController } from '../../controllers/meal-portions.controller';
+import { MealPortionsController } from './meal-portions.controller';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      DailyMealPortionEntity,
-      MealPortionIngredientEntity,
-      WeeklyMenuPlanItemEntity,
-      WeeklyNutritionStatEntity,
-    ]),
-  ],
+  imports: [TypeOrmModule.forFeature([DailyMealPortion, ClassEntity])],
   controllers: [MealPortionsController],
   providers: [MealPortionsService],
-  exports: [MealPortionsService],
+  exports: [MealPortionsService, TypeOrmModule],
 })
 export class MealPortionsModule {}

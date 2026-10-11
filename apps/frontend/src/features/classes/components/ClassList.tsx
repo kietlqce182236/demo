@@ -18,6 +18,7 @@ export const ClassList = () => {
   });
 
   const { data, isLoading, isError, refetch } = useClasses(filters);
+  const classItems = Array.isArray(data) ? data : (data?.items || []);
 
   const handleFilterChange = (key: keyof ClassFilters, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
@@ -201,7 +202,7 @@ export const ClassList = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {data?.items?.length === 0 ? (
+              {classItems.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-16 text-center">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 text-slate-400 mb-4">
@@ -212,7 +213,7 @@ export const ClassList = () => {
                   </td>
                 </tr>
               ) : (
-                data?.items?.map((item: any, index: number) => {
+                classItems.map((item: any, index: number) => {
                   const isMushroom = index % 2 === 0;
                   const isChhoi = item.gradeLevel?.includes('4_5Y');
                   

@@ -1,6 +1,14 @@
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3000/kitchen';
+const getSocketUrl = (): string => {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.host}/kitchen`;
+  }
+  return 'http://localhost:3000/kitchen';
+};
+
+const SOCKET_URL = getSocketUrl();
 
 let socket: Socket | null = null;
 

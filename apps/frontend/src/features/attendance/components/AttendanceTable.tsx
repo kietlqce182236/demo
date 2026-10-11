@@ -46,7 +46,8 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
   onToggleSelectAll,
   onToggleSelectChild,
 }) => {
-  const isAllSelected = childrenList.length > 0 && childrenList.every((c) => selectedChildIds.includes(c.id));
+  const safeList = Array.isArray(childrenList) ? childrenList : [];
+  const isAllSelected = safeList.length > 0 && safeList.every((c) => selectedChildIds.includes(c.id));
 
   // Helper avatar generator with image or initials with pleasant colors
   const getAvatarBadge = (child: ChildAttendanceItem) => {
@@ -136,7 +137,7 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs">
-            {childrenList.map((child) => {
+            {safeList.map((child) => {
               const isSelected = selectedChildIds.includes(child.id);
               const isAbsent = child.mealOption === 'ABSENT';
 

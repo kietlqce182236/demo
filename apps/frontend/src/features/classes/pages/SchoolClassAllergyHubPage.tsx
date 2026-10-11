@@ -4,7 +4,7 @@ import {
   Filter, Plus, RefreshCw, CheckCircle2, Phone, UserCheck, 
   ChevronRight, Calendar, AlertOctagon, Utensils, FileSignature, 
   Sparkles, Check, ArrowRight, BookOpen, Clock, Activity, FileText,
-  Pencil, Trash2, UserPlus, UserMinus, X, GraduationCap
+  Pencil, Trash2, UserPlus, UserMinus, X, GraduationCap, FileSpreadsheet
 } from 'lucide-react';
 import { classesApi } from '../api/classes';
 import { childrenApi, ChildItem, AllergenCatalogItem } from '../../children/api/children.api';
@@ -12,7 +12,28 @@ import { attendanceApi } from '../../attendance/api/attendanceApi';
 import { SchoolHeadcountSummaryResponse } from '../../attendance/types';
 import { ClassData, GradeLevel, ClassStatus } from '../types';
 import { staffApi, StaffUser } from '../../staff/api/staff.api';
+import { ClassStudentExcelImport } from '../components/ClassStudentExcelImport';
 
+/**
+ * ============================================================================
+ * TRANG TRUNG TÂM ĐIỀU HÀNH: QUẢN LÝ LỚP HỌC, GIÁO VIÊN CHỦ NHIỆM, SĨ SỐ & DỊ ỨNG
+ * ============================================================================
+ * 
+ * [CÁC PHÂN HỆ VÀ LUỒNG HOẠT ĐỘNG CHÍNH]:
+ * 1. QUẢN LÝ LỚP HỌC & GIÁO VIÊN CHỦ NHIỆM (Tab 'classes'):
+ *    - Tạo mới / Sửa / Xóa lớp học theo khối lứa tuổi (Nhà trẻ: 0-3 tuổi; Mẫu giáo: 3-6 tuổi).
+ *    - Phân công / Hoán đổi Giáo viên chủ nhiệm (GVCN) từ danh sách nhân sự sư phạm.
+ *    - Giám sát Sĩ số thực tế (studentCount) so với Định mức tối đa (maxCapacity: 20-30 bé/lớp).
+ *    - Điều phối học sinh: Thêm học sinh chưa phân lớp, rút học sinh khỏi lớp, hoặc nạp file Excel hàng loạt.
+ * 2. GIÁM SÁT DỊ ỨNG TOÀN TRƯỜNG (Tab 'allergies'):
+ *    - Tổng hợp danh sách tất cả trẻ có hồ sơ dị ứng / kiêng cữ trong trường.
+ *    - Lọc theo mức độ nguy hiểm (Nhẹ -> Trung bình -> Nặng -> Sốc phản vệ).
+ *    - Tra cứu phác đồ xử trí khẩn cấp và thông tin liên hệ phụ huynh.
+ * 3. HỖ TRỢ PHỤ HUYNH KHAI BÁO (Tab 'parent-form'):
+ *    - Cho phép cán bộ y tế trường hoặc GVCN nhập hộ khai báo cho phụ huynh khi có chỉ định bác sĩ.
+ * 4. KẾT NỐI BẾP BÁN TRÚ (Tab 'kitchen'):
+ *    - Tích hợp trực tiếp màn hình Bếp (Kitchen Display System), hỗ trợ rà soát món ăn và gắn Tem Đỏ cho khay ăn riêng.
+ */
 export const SchoolClassAllergyHubPage: React.FC = () => {
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<'classes' | 'allergies' | 'parent-form' | 'kitchen'>('classes');
@@ -70,7 +91,7 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
 
   // Assign & Manage Students in Class ("app học sinh vào lớp")
   const [isStudentModalOpen, setIsStudentModalOpen] = useState<boolean>(false);
-  const [studentModalTab, setStudentModalTab] = useState<'current' | 'assign'>('current');
+  const [studentModalTab, setStudentModalTab] = useState<'current' | 'assign' | 'excel'>('current');
   const [classStudents, setClassStudents] = useState<ChildItem[]>([]);
   const [studentSearch, setStudentSearch] = useState<string>('');
   const [unassignedOnly, setUnassignedOnly] = useState<boolean>(true);
@@ -103,13 +124,44 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
       const [classesRes, childrenRes, catalogsRes, headcountRes, staffRes] = await Promise.all([
         classesApi.getClasses({ limit: 50 }),
         childrenApi.getChildren({ limit: 200 }),
-        childrenApi.getAllergenCatalogs(),
+        childrenApi.getAllergenCatalogs().catch(() => []),
         attendanceApi.getSchoolHeadcountSummary().catch(() => null),
         staffApi.getStaffList({ roleCode: 'TEACHER', limit: 100 }).catch(() => ({ data: [] } as any)),
       ]);
 
-      const classList = classesRes?.items || [];
-      const childList = childrenRes?.items || [];
+      const rawClasses = Array.isArray(classesRes) ? classesRes : (classesRes?.items || []);
+      const classList: ClassData[] = rawClasses.map((c: any) => ({
+        id: String(c.id),
+        name: c.name,
+        gradeLevel: c.gradeLevel || (
+          c.name?.toLowerCase().includes('mầm') ? 'KINDERGARTEN_3_4Y' :
+          c.name?.toLowerCase().includes('chồi') ? 'KINDERGARTEN_4_5Y' :
+          c.name?.toLowerCase().includes('lá') ? 'KINDERGARTEN_5_6Y' :
+          c.ageGroup === 'NHA_TRE' ? 'TODDLER_2_3Y' : 'KINDERGARTEN_3_4Y'
+        ),
+        academicYear: c.academicYear || c.schoolYear || '2025-2026',
+        roomNumber: c.roomNumber || `P.10${c.id}`,
+        mainTeacherId: String(c.mainTeacherId || c.homeroomTeacherId || c.homeroomTeacher?.id || ''),
+        mainTeacher: c.mainTeacher || (c.homeroomTeacher ? {
+          id: String(c.homeroomTeacher.id),
+          fullName: c.homeroomTeacher.fullName,
+          phone: c.homeroomTeacher.phone,
+          email: c.homeroomTeacher.email,
+        } : undefined),
+        status: c.status || 'ACTIVE',
+        createdAt: c.createdAt || new Date().toISOString(),
+        updatedAt: c.updatedAt || new Date().toISOString(),
+        studentCount: Number(c.studentCount ?? 0),
+        allergicCount: Number(c.allergicCount ?? 0),
+        maxCapacity: Number(c.maxCapacity ?? 30),
+      }));
+
+      const rawChildren = Array.isArray(childrenRes) ? childrenRes : (childrenRes?.items || []);
+      const childList: ChildItem[] = rawChildren.map((ch: any) => ({
+        ...ch,
+        id: String(ch.id),
+        classId: ch.classId ? String(ch.classId) : undefined,
+      }));
 
       setClasses(classList);
       setChildren(childList);
@@ -216,20 +268,27 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
     if (!createFormData.name.trim()) return;
     setIsSubmitting(true);
     try {
+      const ageGroup =
+        createFormData.gradeLevel.includes('TODDLER') || createFormData.gradeLevel.includes('INFANT')
+          ? 'NHA_TRE'
+          : 'MAU_GIAO';
       await classesApi.createClass({
         name: createFormData.name.trim(),
         gradeLevel: createFormData.gradeLevel,
+        ageGroup,
         roomNumber: createFormData.roomNumber.trim() || undefined,
-        academicYear: createFormData.academicYear.trim() || '2026-2027',
+        academicYear: createFormData.academicYear.trim() || '2025-2026',
+        schoolYear: createFormData.academicYear.trim() || '2025-2026',
         mainTeacherId: createFormData.mainTeacherId || undefined,
-      });
+        homeroomTeacherId: createFormData.mainTeacherId ? Number(createFormData.mainTeacherId) : undefined,
+      } as any);
       await fetchData();
       setIsCreateModalOpen(false);
       setCreateFormData({
         name: '',
         gradeLevel: 'KINDERGARTEN_3_4Y',
         roomNumber: '',
-        academicYear: '2026-2027',
+        academicYear: '2025-2026',
         mainTeacherId: '',
       });
     } catch (err: any) {
@@ -247,7 +306,7 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
       name: cls.name,
       gradeLevel: cls.gradeLevel,
       roomNumber: cls.roomNumber || '',
-      academicYear: cls.academicYear || '2026-2027',
+      academicYear: cls.academicYear || '2025-2026',
       mainTeacherId: cls.mainTeacherId || '',
       status: cls.status || 'ACTIVE',
     });
@@ -259,14 +318,21 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
     if (!selectedClass || !editFormData.name.trim()) return;
     setIsSubmitting(true);
     try {
+      const ageGroup =
+        editFormData.gradeLevel.includes('TODDLER') || editFormData.gradeLevel.includes('INFANT')
+          ? 'NHA_TRE'
+          : 'MAU_GIAO';
       await classesApi.updateClass(selectedClass.id, {
         name: editFormData.name.trim(),
         gradeLevel: editFormData.gradeLevel,
+        ageGroup,
         roomNumber: editFormData.roomNumber.trim() || undefined,
-        academicYear: editFormData.academicYear.trim() || '2026-2027',
+        academicYear: editFormData.academicYear.trim() || '2025-2026',
+        schoolYear: editFormData.academicYear.trim() || '2025-2026',
         mainTeacherId: editFormData.mainTeacherId || undefined,
+        homeroomTeacherId: editFormData.mainTeacherId ? Number(editFormData.mainTeacherId) : undefined,
         status: editFormData.status,
-      });
+      } as any);
       await fetchData();
       setIsEditModalOpen(false);
       setSelectedClass(null);
@@ -659,7 +725,7 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
                           <td className="py-4 px-4 font-bold text-slate-800">
                             <div className="flex items-center gap-2.5">
                               <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-black text-xs">
-                                {cls.name.substring(0, 2)}
+                                {cls.name ? cls.name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase() : 'LM'}
                               </div>
                               <div>
                                 <div className="font-bold text-slate-900">{cls.name}</div>
@@ -1578,26 +1644,68 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
                 <UserPlus className="w-4 h-4 text-emerald-600" />
                 <span>+ Gán Thêm Học Sinh Vào Lớp</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setStudentModalTab('excel')}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  studentModalTab === 'excel'
+                    ? 'bg-white text-emerald-800 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>📥 Nhập Bằng File Excel</span>
+              </button>
             </div>
 
             {/* Tab 1: Danh sách học sinh hiện có trong lớp */}
             {studentModalTab === 'current' && (
               <div className="space-y-3 overflow-y-auto flex-1 pr-1">
+                {/* Header Toolbar với nút Import Excel nhanh */}
+                {classStudents.length > 0 && (
+                  <div className="flex items-center justify-between gap-2 px-1 pb-1">
+                    <span className="text-xs font-bold text-slate-500">
+                      Danh sách: <strong className="text-emerald-700">{classStudents.length}</strong> học sinh
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setStudentModalTab('excel')}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 transition flex items-center gap-1.5 shadow-xs active:scale-95"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Nhập Thêm Bằng Excel</span>
+                    </button>
+                  </div>
+                )}
+
                 {classStudents.length === 0 ? (
                   <div className="py-14 text-center text-slate-400 space-y-3">
                     <Users className="w-10 h-10 text-slate-300 mx-auto" />
                     <div>
                       <p className="font-bold text-slate-700 text-sm">Chưa có học sinh nào trong lớp này</p>
-                      <p className="text-xs text-slate-400 mt-1">Chuyển sang tab "+ Gán Thêm Học Sinh" để đưa các bé vào lớp.</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Chuyển sang tab "+ Gán Thêm Học Sinh" hoặc nhập danh sách học sinh từ file Excel.
+                      </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setStudentModalTab('assign')}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition inline-flex items-center gap-1.5"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      <span>Gán Học Sinh Ngay</span>
-                    </button>
+                    <div className="flex items-center justify-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setStudentModalTab('assign')}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition inline-flex items-center gap-1.5"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Gán Học Sinh Ngay</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStudentModalTab('excel')}
+                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs transition inline-flex items-center gap-1.5"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        <span>Nhập Bằng File Excel</span>
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-100 rounded-2xl border border-slate-100 overflow-hidden">
@@ -1775,6 +1883,25 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
                   </button>
                 </div>
               </div>
+            )}
+
+            {/* Tab 3: Nhập học sinh từ file Excel */}
+            {studentModalTab === 'excel' && (
+              <ClassStudentExcelImport
+                classId={selectedClass.id}
+                className={selectedClass.name}
+                onImportSuccess={async () => {
+                  try {
+                    const updated = await classesApi.getClassStudents(selectedClass.id);
+                    setClassStudents(updated || []);
+                  } catch (err) {
+                    console.error('Lỗi tải lại danh sách học sinh:', err);
+                  }
+                  await fetchData();
+                  setStudentModalTab('current');
+                }}
+                onCancel={() => setStudentModalTab('current')}
+              />
             )}
           </div>
         </div>

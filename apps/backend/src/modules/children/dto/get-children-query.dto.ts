@@ -1,36 +1,35 @@
-import { IsOptional, IsString, IsUUID, IsInt, Min } from 'class-validator';
+import { IsOptional, IsString, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class GetChildrenQueryDto {
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   search?: string;
 
-  @IsOptional()
-  @IsUUID()
-  classId?: string;
-
-  @IsOptional()
-  @IsUUID()
-  parentId?: string;
-
-  @IsOptional()
-  @IsString()
-  status?: string;
-
-  @IsOptional()
-  @IsString()
-  hasAllergy?: string; // 'true' | 'false'
-
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
+  classId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  ageGroup?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  allergyRisk?: string;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
   page?: number = 1;
 
+  @ApiPropertyOptional({ default: 50 })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  limit?: number = 10;
+  limit?: number = 50;
 }

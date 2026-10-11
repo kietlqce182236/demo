@@ -1,39 +1,25 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../entities/user.entity';
 
-/**
- * JWT Payload interface — mapping chính xác các claim trong access token.
- * Giữ payload nhỏ gọn: chỉ chứa identity + roles + tenant.
- * KHÔNG lưu fullName hay email trong JWT để giảm kích thước token.
- */
 export interface JwtPayload {
-  /** User UUID */
-  sub: string;
-  /** Email đăng nhập */
+  sub: number;
   email: string;
-  /** Tenant UUID (null cho superadmin) */
-  tenantId: string | null;
-  /** Mảng role codes: ['NUTRITIONIST', 'TEACHER'] */
   roles: string[];
-  /** Token issued at (epoch seconds) — tự động bởi JWT */
-  iat?: number;
-  /** Token expiration (epoch seconds) — tự động bởi JWT */
-  exp?: number;
+  tenantId: number;
 }
 
-/**
- * Passport JWT Strategy — Extract Bearer token từ Authorization header.
- *
- * Performance:
- * - Không query DB trên mỗi request (stateless verification).
- * - Chỉ verify signature + expiration rồi attach payload vào req.user.
- * - DB lookup chỉ xảy ra khi cần fresh data (GET /auth/me).
- */
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor(private readonly configService: ConfigService) {
+export class JwtStrategy extends PassportStrategy(Strategy) {
+  constructor(
+    private readonly configService: ConfigService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -41,18 +27,27 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  /**
-   * Được gọi sau khi JWT signature hợp lệ.
-   * Return value sẽ được gắn vào `req.user`.
-   * Không cần query DB ở đây — giữ stateless cho performance tối đa.
-   */
-  async validate(payload: JwtPayload): Promise<JwtPayload & { userId: string }> {
+  async validate(payload: JwtPayload) {
+    const user = await this.userRepository.findOne({
+      where: { id: payload.sub },
+      relations: ['roles'],
+    });
+
+    if (!user || user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('Tài khoản không tồn tại hoặc đã bị khóa');
+    }
+
+    const roleCodes = user.roles?.map((r) => r.code) || payload.roles || [];
+
     return {
-      sub: payload.sub,
-      userId: payload.sub,
-      email: payload.email,
-      tenantId: payload.tenantId,
-      roles: payload.roles,
+      id: String(user.id),
+      sub: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      phone: user.phone,
+      avatarUrl: user.avatar,
+      roles: roleCodes,
+      tenantId: String(payload.tenantId || 1),
     };
   }
 }

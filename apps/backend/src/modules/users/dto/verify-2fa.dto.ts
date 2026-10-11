@@ -1,8 +1,10 @@
-import { IsString, IsNotEmpty, Length } from 'class-validator';
+import { IsNotEmpty, IsString, Length } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class Verify2faDto {
+  @ApiProperty({ example: '123456' })
+  @IsNotEmpty()
   @IsString()
-  @IsNotEmpty({ message: 'Vui lòng nhập mã xác thực OTP 6 chữ số' })
-  @Length(6, 6, { message: 'Mã xác thực OTP phải gồm đúng 6 chữ số' })
+  @Length(6, 6)
   code: string;
 }

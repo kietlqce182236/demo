@@ -1,26 +1,34 @@
-import { IsNotEmpty, IsUUID, IsNumber, IsDateString, IsOptional, IsString, Min, Max } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateGrowthRecordDto {
-  @IsNotEmpty()
-  @IsUUID()
-  childId: string;
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  studentId?: number;
 
-  @IsNotEmpty()
-  @IsDateString()
-  measurementDate: string;
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  childId?: number | string;
 
+  @ApiPropertyOptional({ example: '2025-09-08' })
+  @IsOptional()
+  measuredDate?: string;
+
+  @ApiPropertyOptional({ example: '2025-09-08' })
+  @IsOptional()
+  measurementDate?: string;
+
+  @ApiProperty({ example: 102.5 })
   @IsNotEmpty()
   @IsNumber()
-  @Min(2)
-  @Max(80)
-  weightKg: number;
-
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(40)
-  @Max(160)
   heightCm: number;
 
+  @ApiProperty({ example: 16.2 })
+  @IsNotEmpty()
+  @IsNumber()
+  weightKg: number;
+
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   healthNotes?: string;

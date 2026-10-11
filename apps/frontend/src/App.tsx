@@ -10,6 +10,7 @@ import { ForgotPasswordPage } from './features/auth/pages/ForgotPasswordPage';
 import { WeeklyMenuManagementPage } from './features/menus/pages/WeeklyMenuManagementPage';
 import { NutritionistDashboardPage } from './features/menus/pages/NutritionistDashboardPage';
 import { NutritionRulesPage } from './features/menus/pages/NutritionRulesPage';
+import { NutritionistAllergyManagementPage } from './features/menus/pages/NutritionistAllergyManagementPage';
 import { SchoolSettingsPage } from './features/tenant/pages/SchoolSettingsPage';
 import { StaffManagementPage } from './features/staff/pages/StaffManagementPage';
 import { PrincipalMenuApprovalPage } from './features/menus/pages/PrincipalMenuApprovalPage';
@@ -66,7 +67,12 @@ const RoleBasedRedirect: React.FC = () => {
   if (roles.includes('TEACHER')) {
     return <Navigate to="/tablet" replace />;
   }
-  if (roles.includes('PRINCIPAL') || roles.includes('SUPER_ADMIN')) {
+  if (
+    roles.includes('PRINCIPAL') ||
+    roles.includes('SUPER_ADMIN') ||
+    roles.includes('SCHOOL_MANAGER') ||
+    roles.includes('SCHOOL_MANAGEMENT')
+  ) {
     return <Navigate to="/dashboard" replace />;
   }
   if (roles.includes('PARENT')) {
@@ -87,7 +93,11 @@ export const App: React.FC = () => {
   const roles = user?.roles || [];
   const isKitchen = roles.includes('KITCHEN_STAFF') || roles.includes('KITCHEN_MANAGER');
   const isNutritionist = roles.includes('NUTRITIONIST');
-  const isPrincipal = roles.includes('PRINCIPAL') || roles.includes('SUPER_ADMIN');
+  const isPrincipal =
+    roles.includes('PRINCIPAL') ||
+    roles.includes('SUPER_ADMIN') ||
+    roles.includes('SCHOOL_MANAGER') ||
+    roles.includes('SCHOOL_MANAGEMENT');
   const isParent = roles.includes('PARENT');
   const isTeacher = roles.includes('TEACHER');
   const isSuperAdmin = roles.includes('SUPER_ADMIN');
@@ -139,8 +149,12 @@ export const App: React.FC = () => {
                 <UtensilsCrossed className="w-3.5 h-3.5" /> Cổng Dinh Dưỡng
               </Link>
               <span className="text-slate-600">|</span>
+              <Link to="/nutritionist/allergens" className="flex items-center gap-1 text-rose-300 hover:text-rose-200 transition font-bold">
+                <ShieldAlert className="w-3.5 h-3.5" /> Quản Lý Dị Ứng
+              </Link>
+              <span className="text-slate-600">|</span>
               <Link to="/nutritionist/rules" className="flex items-center gap-1 hover:text-teal-300 transition">
-                <Scale className="w-3.5 h-3.5" /> Quy chuẩn & Dị ứng
+                <Scale className="w-3.5 h-3.5" /> Quy chuẩn TT 28
               </Link>
               <span className="text-slate-600">|</span>
             </>
@@ -239,7 +253,7 @@ export const App: React.FC = () => {
           <Route path="dashboard" element={<NutritionistDashboardPage />} />
           <Route path="menus" element={<WeeklyMenuManagementPage />} />
           <Route path="rules" element={<NutritionRulesPage />} />
-          <Route path="allergens" element={<NutritionRulesPage />} />
+          <Route path="allergens" element={<NutritionistAllergyManagementPage />} />
           <Route path="foods" element={<FoodIngredientsPage />} />
           <Route path="foods/create" element={<CreateFoodPage />} />
           <Route path="dishes" element={<DishesPage />} />
@@ -263,7 +277,7 @@ export const App: React.FC = () => {
         {/* Chuyên gia dinh dưỡng KHÔNG vào được giao diện này (Sẽ bị ProtectedRoute chặn và đẩy về /nutritionist/menus) */}
         <Route
           element={
-            <ProtectedRoute allowedRoles={['PRINCIPAL', 'SUPER_ADMIN', 'SCHOOL_MANAGEMENT']}>
+            <ProtectedRoute allowedRoles={['PRINCIPAL', 'SUPER_ADMIN', 'SCHOOL_MANAGEMENT', 'SCHOOL_MANAGER']}>
               <AdminDashboardLayout />
             </ProtectedRoute>
           }

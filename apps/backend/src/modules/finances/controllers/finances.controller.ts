@@ -1,53 +1,56 @@
-import { Controller, Get, Post, Delete, Body, Query, Headers, Param } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery, ApiParam } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
+import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { FinancesService } from '../services/finances.service';
 import { CreateExpenseDto } from '../dto/create-expense.dto';
 
-@ApiTags('School Finances & Reports')
+@ApiTags('Finances & Accounting')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('finances')
 export class FinancesController {
   constructor(private readonly financesService: FinancesService) {}
 
   @Get('overview')
-  @ApiOperation({ summary: 'Lấy báo cáo tài chính trường học mầm non (Thu - Chi, Sổ lớp, Giao dịch, Định mức)' })
-  @ApiQuery({ name: 'month', required: false, description: 'Tháng báo cáo (YYYY-MM)' })
-  async getFinancialOverview(
+  @ApiOperation({ summary: 'Báo cáo tổng quan tài chính, thu chi và định lượng tiền ăn' })
+  @Roles('SCHOOL_MANAGEMENT')
+  async getOverview(
     @Query('month') month?: string,
-    @Headers('x-tenant-id') tenantId?: string,
-  ) {
-    const resolvedTenantId = tenantId || 'a0000000-0000-0000-0000-000000000001';
-    return this.financesService.getFinancialOverview(resolvedTenantId, month);
+    @CurrentTenant() schoolId?: number,
+  ): Promise<any> {
+    return this.financesService.getOverview(month, schoolId);
   }
 
   @Post('expenses')
-  @ApiOperation({ summary: 'Ghi nhận khoản chi tiêu nhà bếp / thực phẩm mới' })
-  async createExpense(
-    @Body() dto: CreateExpenseDto,
-    @Headers('x-tenant-id') tenantId?: string,
-  ) {
-    const resolvedTenantId = tenantId || 'a0000000-0000-0000-0000-000000000001';
-    return this.financesService.createExpense(dto, resolvedTenantId);
+  @ApiOperation({ summary: 'Ghi nhận khoản chi phí nhà bếp / nguyên liệu' })
+  @Roles('SCHOOL_MANAGEMENT')
+  async createExpense(@Body() dto: CreateExpenseDto): Promise<any> {
+    return this.financesService.createExpense(dto);
   }
 
   @Delete('expenses/:id')
-  @ApiOperation({ summary: 'Xóa chứng từ chi tiêu' })
-  @ApiParam({ name: 'id', description: 'ID chứng từ chi tiêu' })
-  async deleteExpense(
-    @Param('id') id: string,
-    @Headers('x-tenant-id') tenantId?: string,
-  ) {
-    const resolvedTenantId = tenantId || 'a0000000-0000-0000-0000-000000000001';
-    return this.financesService.deleteExpense(id, resolvedTenantId);
+  @ApiOperation({ summary: 'Xóa khoản chi phí' })
+  @Roles('SCHOOL_MANAGEMENT')
+  async deleteExpense(@Param('id') id: string) {
+    return this.financesService.deleteExpense(id);
   }
 
-  @Post('remind-class/:id')
-  @ApiOperation({ summary: 'Gửi thông báo nhắc đóng tiền ăn cho toàn bộ học sinh còn nợ trong lớp' })
-  @ApiParam({ name: 'id', description: 'ID lớp học' })
-  async remindClass(
-    @Param('id') classId: string,
-    @Headers('x-tenant-id') tenantId?: string,
-  ) {
-    const resolvedTenantId = tenantId || 'a0000000-0000-0000-0000-000000000001';
-    return this.financesService.remindClass(classId, resolvedTenantId);
+  @Post('remind-class/:classId')
+  @ApiOperation({ summary: 'Gửi nhắc nhở thu phí đến giáo viên chủ nhiệm & phụ huynh lớp' })
+  @Roles('SCHOOL_MANAGEMENT')
+  async remindClass(@Param('classId') classId: string) {
+    return this.financesService.remindClass(classId);
   }
 }

@@ -1,19 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import { JwtPayload } from '../../modules/auth/strategies/jwt.strategy';
 
-/**
- * Roles Guard — Kiểm tra user có ít nhất 1 role phù hợp.
- *
- * Performance:
- * - Không query DB — đọc trực tiếp roles[] từ JWT payload (đã decode ở JwtStrategy).
- * - O(n*m) với n = số roles yêu cầu, m = số roles của user. Thực tế n,m < 5.
- * - Nếu không có @Roles() decorator → cho phép tất cả (chỉ cần authenticated).
- */
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
@@ -21,23 +12,38 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    // Không khai báo @Roles() → cho phép mọi authenticated user
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
-    const user = request.user as JwtPayload;
-
+    const { user } = context.switchToHttp().getRequest();
     if (!user || !user.roles) {
-      return false;
+      throw new ForbiddenException('Bạn không có quyền truy cập chức năng này (Missing roles)');
     }
 
-    // SUPER_ADMIN luôn bypass mọi role check
-    if (user.roles.includes('SUPER_ADMIN')) {
-      return true;
+    const normalizeRole = (r: string): string => {
+      const up = (r || '').trim().toUpperCase();
+      if (up === 'SCHOOL_MANAGEMENT' || up === 'PRINCIPAL' || up === 'SUPER_ADMIN') {
+        return 'SCHOOL_MANAGER';
+      }
+      if (up === 'KITCHEN_MANAGER') {
+        return 'KITCHEN_STAFF';
+      }
+      return up;
+    };
+
+    const userRoles: string[] = user.roles.map((r: string) => r.toUpperCase());
+    const normalizedUserRoles = userRoles.map(normalizeRole);
+    const normalizedRequired = requiredRoles.map(normalizeRole);
+
+    const hasRole = normalizedRequired.some((role) => normalizedUserRoles.includes(role));
+
+    if (!hasRole) {
+      throw new ForbiddenException(
+        `Quyền yêu cầu: [${requiredRoles.join(', ')}]. Quyền hiện tại của bạn: [${userRoles.join(', ')}]`,
+      );
     }
 
-    return requiredRoles.some((role) => user.roles.includes(role));
+    return true;
   }
 }

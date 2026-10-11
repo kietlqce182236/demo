@@ -1,47 +1,88 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
-  // Kích hoạt CORS cho Frontend Web & Tablet
+  // Global prefix
+  app.setGlobalPrefix('api/v1');
+
+  // Enable CORS
   app.enableCors({
-    origin: '*',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, postman) or any localhost/docker origin
+      if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
     credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: [
+      'Content-Type',
+      'Accept',
+      'Authorization',
+      'x-tenant-id',
+      'X-Tenant-Id',
+      'x-requested-with',
+      'X-Requested-With',
+      'Range',
+      'Origin',
+      'Cache-Control',
+      'Pragma',
+      'If-Modified-Since',
+      'If-None-Match',
+    ],
   });
 
-  // Global Validation Pipe với class-validator
+  // Global pipes, filters & interceptors
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidNonWhitelisted: true,
+      transformOptions: { enableImplicitConversion: true },
+      forbidNonWhitelisted: false,
     }),
   );
 
-  // Thiết lập tiền tố API toàn cục
-  app.setGlobalPrefix('api/v1');
+  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor());
 
-  // Cấu hình Swagger API Documentation
+  // Swagger Documentation
   const config = new DocumentBuilder()
-    .setTitle('KidsNutriJournal API')
-    .setDescription('Hệ thống Quản lý Dinh dưỡng và Bữa ăn Bán trú tại Trường Mầm non (Multi-tenant RESTful API)')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .addApiKey({ type: 'apiKey', name: 'x-tenant-id', in: 'header' }, 'TenantHeader')
+    .setTitle('KidMeal (NutriBud) API')
+    .setDescription(
+      'Hệ thống Quản lý Dinh dưỡng và Bữa ăn Bán trú tại Trường Mầm non theo Thông tư 28/2016/TT-BGDĐT & QĐ 1246/QĐ-BYT',
+    )
+    .setVersion('1.0.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'Nhập access token JWT',
+        in: 'header',
+      },
+      'JWT-auth',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('api-docs', app, document);
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`[KidsNutriJournal] Backend Server đang chạy tại: http://localhost:${port}/api/v1`);
-  console.log(`[KidsNutriJournal] Swagger API Docs: http://localhost:${port}/api/docs`);
+  logger.log(`🚀 KidMeal Backend Server is running on: http://localhost:${port}/api/v1`);
+  logger.log(`📚 Swagger API Docs available at: http://localhost:${port}/api/docs`);
 }
 
 bootstrap();
-// Trigger reload

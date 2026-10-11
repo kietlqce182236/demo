@@ -2,74 +2,46 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { Menu } from './menu.entity';
-import { Dish } from './dish.entity';
+import { BigIntTransformer } from '../../../database/base.entity';
+import { NumericTransformer } from '../../foods/entities/food.entity';
+import { MenuMeal } from './menu-meal.entity';
+import { Dish } from '../../dishes/entities/dish.entity';
 
 @Entity('menu_dishes')
 export class MenuDish {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
 
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  tenantId: string;
+  @Column({ name: 'menu_meal_id', type: 'bigint', transformer: BigIntTransformer })
+  menuMealId: number;
 
-  @Column({ name: 'menu_id', type: 'uuid' })
-  menuId: string;
+  @Column({ name: 'dish_id', type: 'bigint', transformer: BigIntTransformer })
+  dishId: number;
 
-  @Column({ name: 'dish_id', type: 'uuid' })
-  dishId: string;
-
-  /**
-   * 1 = Thứ Hai, 2 = Thứ Ba, 3 = Thứ Tư, 4 = Thứ Năm, 5 = Thứ Sáu
-   */
-  @Column({ name: 'day_of_week', type: 'int' })
-  dayOfWeek: number;
-
-  /**
-   * BREAKFAST | MORNING_SNACK | LUNCH | AFTERNOON_SNACK | LATE_SNACK
-   */
-  @Column({ name: 'meal_time', type: 'varchar', length: 50 })
-  mealTime: string;
-
-  @Column({ name: 'serving_order', type: 'int', default: 1 })
-  servingOrder: number;
-
-  @Column({ name: 'portion_size_g', type: 'numeric', precision: 8, scale: 2, default: 100 })
+  @Column({
+    name: 'portion_size_g',
+    type: 'numeric',
+    precision: 8,
+    scale: 2,
+    nullable: true,
+    transformer: NumericTransformer,
+  })
   portionSizeG: number;
 
-  @Column({ name: 'planned_calories', type: 'numeric', precision: 8, scale: 2, default: 0 })
-  plannedCalories: number;
-
-  @Column({ name: 'substitute_dish_id', type: 'uuid', nullable: true })
-  substituteDishId: string | null;
+  @Column({ name: 'display_order', default: 0 })
+  displayOrder: number;
 
   @Column({ name: 'special_diet_notes', type: 'text', nullable: true })
   specialDietNotes: string | null;
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  @ManyToOne(() => MenuMeal, (m) => m.dishes, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'menu_meal_id' })
+  menuMeal: MenuMeal;
 
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
-
-  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
-  deletedAt: Date | null;
-
-  @ManyToOne(() => Menu, (menu) => menu.menuDishes, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'menu_id' })
-  menu: Menu;
-
-  @ManyToOne(() => Dish, { eager: true, onDelete: 'RESTRICT' })
+  @ManyToOne(() => Dish, { eager: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'dish_id' })
   dish: Dish;
-
-  @ManyToOne(() => Dish, { eager: true, nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'substitute_dish_id' })
-  substituteDish: Dish | null;
 }

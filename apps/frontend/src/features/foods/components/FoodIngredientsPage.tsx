@@ -81,8 +81,24 @@ export const FoodIngredientsPage: React.FC = () => {
           limit,
         },
       });
-      setFoods(res.data.items || []);
-      setTotal(res.data.total || 0);
+      const rawItems = res.data?.items || res.data?.data || (Array.isArray(res.data) ? res.data : []);
+      const normalizedFoods = rawItems.map((f: any) => ({
+        ...f,
+        id: String(f.id),
+        code: f.code || `NL-${f.id}`,
+        name: f.name || 'Nguyên liệu',
+        category: typeof f.category === 'object' && f.category !== null ? (f.category.name || f.category.code || 'Khác') : (f.categoryName || f.category || 'Khác'),
+        energyKcal: Number(f.energyKcal ?? f.energyKcal100g ?? 0),
+        proteinG: Number(f.proteinG ?? 0),
+        fatG: Number(f.fatG ?? 0),
+        carbG: Number(f.carbG ?? 0),
+        defaultUnit: f.unit || f.defaultUnit || 'g',
+        allergens: Array.isArray(f.allergens)
+          ? f.allergens.map((a: any) => typeof a === 'object' && a !== null ? (a.name || a.allergenName || String(a.id)) : String(a))
+          : [],
+      }));
+      setFoods(normalizedFoods);
+      setTotal(res.data?.total || normalizedFoods.length);
     } catch (error) {
       console.error('Error fetching foods:', error);
     } finally {
@@ -132,60 +148,63 @@ export const FoodIngredientsPage: React.FC = () => {
     }
   };
 
-  const getCategoryBadge = (category: string) => {
-    switch (category) {
-      case 'MEAT_POULTRY':
-        return <span className="bg-rose-100 text-rose-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Thịt & Gia cầm</span>;
-      case 'SEAFOOD':
-        return <span className="bg-sky-100 text-sky-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Thủy hải sản</span>;
-      case 'EGGS':
-        return <span className="bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Trứng</span>;
-      case 'DAIRY':
-        return <span className="bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Sữa & Chế phẩm</span>;
-      case 'CEREAL_GRAINS':
-        return <span className="bg-yellow-100 text-yellow-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Ngũ cốc & Gạo</span>;
-      case 'FATS_OILS':
-        return <span className="bg-orange-100 text-orange-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Dầu & Chất béo</span>;
-      case 'NUTS_SEEDS':
-        return <span className="bg-teal-100 text-teal-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Hạt & Đậu đỗ</span>;
-      case 'VEGETABLES':
-        return <span className="bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Rau củ tươi</span>;
-      case 'FRUITS':
-        return <span className="bg-purple-100 text-purple-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Trái cây</span>;
-      case 'SPICES_CONDIMENTS':
-        return <span className="bg-slate-100 text-slate-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Gia vị mầm non</span>;
-      case 'BEVERAGES':
-        return <span className="bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Đồ uống</span>;
-      default:
-        return <span className="bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-md text-[10px] font-bold">{category || 'Khác'}</span>;
+  const getCategoryBadge = (category: any) => {
+    const code = (typeof category === 'object' && category !== null ? (category.code || category.name) : category) || '';
+    const name = (typeof category === 'object' && category !== null ? (category.name || category.code) : category) || '';
+    const str = `${code} ${name}`.toUpperCase();
+
+    if (str.includes('MEAT') || str.includes('THỊT')) {
+      return <span className="bg-rose-100 text-rose-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Thịt & Gia cầm</span>;
     }
+    if (str.includes('SEAFOOD') || str.includes('THỦY HẢI SẢN') || str.includes('HẢI SẢN') || str.includes('CÁ') || str.includes('TÔM')) {
+      return <span className="bg-sky-100 text-sky-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Thủy hải sản</span>;
+    }
+    if (str.includes('EGG') || str.includes('TRỨNG')) {
+      return <span className="bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Trứng</span>;
+    }
+    if (str.includes('DAIRY') || str.includes('SỮA')) {
+      return <span className="bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Sữa & Chế phẩm</span>;
+    }
+    if (str.includes('CEREAL') || str.includes('GRAIN') || str.includes('NGŨ CỐC') || str.includes('GẠO')) {
+      return <span className="bg-yellow-100 text-yellow-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Ngũ cốc & Gạo</span>;
+    }
+    if (str.includes('FAT') || str.includes('OIL') || str.includes('DẦU') || str.includes('MỠ')) {
+      return <span className="bg-orange-100 text-orange-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Dầu & Chất béo</span>;
+    }
+    if (str.includes('NUT') || str.includes('SEED') || str.includes('HẠT') || str.includes('ĐẬU')) {
+      return <span className="bg-teal-100 text-teal-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Hạt & Đậu đỗ</span>;
+    }
+    if (str.includes('VEGETABLE') || str.includes('RAU')) {
+      return <span className="bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Rau củ tươi</span>;
+    }
+    if (str.includes('FRUIT') || str.includes('TRÁI CÂY') || str.includes('QUẢ')) {
+      return <span className="bg-purple-100 text-purple-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Trái cây</span>;
+    }
+    if (str.includes('SPICE') || str.includes('CONDIMENT') || str.includes('GIA VỊ')) {
+      return <span className="bg-slate-100 text-slate-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Gia vị mầm non</span>;
+    }
+    if (str.includes('BEVERAGE') || str.includes('DRINK') || str.includes('ĐỒ UỐNG') || str.includes('NƯỚC')) {
+      return <span className="bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold">Đồ uống</span>;
+    }
+    return <span className="bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-md text-[10px] font-bold">{String(name || code || 'Khác')}</span>;
   };
 
-  const getFoodEmoji = (category: string) => {
-    switch (category) {
-      case 'MEAT_POULTRY':
-        return '🥩';
-      case 'DAIRY':
-        return '🥛';
-      case 'SEAFOOD':
-        return '🦐';
-      case 'CEREAL_GRAINS':
-        return '🍚';
-      case 'EGGS':
-        return '🥚';
-      case 'NUTS_SEEDS':
-        return '🥜';
-      case 'VEGETABLES':
-        return '🥬';
-      case 'FRUITS':
-        return '🍎';
-      case 'FATS_OILS':
-        return '🧈';
-      case 'BEVERAGES':
-        return '🧃';
-      default:
-        return '🍲';
-    }
+  const getFoodEmoji = (category: any) => {
+    const code = (typeof category === 'object' && category !== null ? (category.code || category.name) : category) || '';
+    const name = (typeof category === 'object' && category !== null ? (category.name || category.code) : category) || '';
+    const str = `${code} ${name}`.toUpperCase();
+
+    if (str.includes('MEAT') || str.includes('THỊT')) return '🥩';
+    if (str.includes('DAIRY') || str.includes('SỮA')) return '🥛';
+    if (str.includes('SEAFOOD') || str.includes('HẢI SẢN') || str.includes('CÁ') || str.includes('TÔM')) return '🦐';
+    if (str.includes('CEREAL') || str.includes('NGŨ CỐC') || str.includes('GẠO')) return '🍚';
+    if (str.includes('EGG') || str.includes('TRỨNG')) return '🥚';
+    if (str.includes('NUT') || str.includes('HẠT') || str.includes('ĐẬU')) return '🥜';
+    if (str.includes('VEGETABLE') || str.includes('RAU')) return '🥬';
+    if (str.includes('FRUIT') || str.includes('TRÁI CÂY') || str.includes('QUẢ')) return '🍎';
+    if (str.includes('FAT') || str.includes('OIL') || str.includes('DẦU') || str.includes('MỠ')) return '🧈';
+    if (str.includes('BEVERAGE') || str.includes('ĐỒ UỐNG')) return '🧃';
+    return '🍲';
   };
 
   // Optional local nutrition filter
@@ -510,10 +529,10 @@ export const FoodIngredientsPage: React.FC = () => {
                           {hasAllergens ? (
                             <span
                               className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200/80 px-2.5 py-0.5 rounded-full text-[10px] font-bold"
-                              title={food.allergens?.join(', ')}
+                              title={food.allergens?.map((a: any) => typeof a === 'object' && a !== null ? a.name : String(a)).join(', ')}
                             >
                               <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
-                              {food.allergens?.[0]}
+                              {typeof food.allergens?.[0] === 'object' && food.allergens[0] !== null ? (food.allergens[0] as any)?.name : String(food.allergens?.[0] || 'Dị ứng')}
                               {food.allergens && food.allergens.length > 1 ? ` (+${food.allergens.length - 1})` : ''}
                             </span>
                           ) : (

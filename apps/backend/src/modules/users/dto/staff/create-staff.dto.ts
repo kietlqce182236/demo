@@ -1,42 +1,39 @@
-import {
-  IsEmail,
-  IsNotEmpty,
-  IsString,
-  MinLength,
-  MaxLength,
-  IsOptional,
-  IsArray,
-  ArrayNotEmpty,
-  IsIn,
-} from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateStaffDto {
-  @IsEmail({}, { message: 'Email không đúng định dạng' })
-  @IsNotEmpty({ message: 'Email không được để trống' })
+  @ApiProperty({ example: 'giaovien.moi@huongduong.edu.vn' })
+  @IsNotEmpty()
+  @IsString()
   email: string;
 
-  @IsString({ message: 'Họ và tên phải là chuỗi ký tự' })
-  @IsNotEmpty({ message: 'Họ và tên không được để trống' })
-  @MinLength(2, { message: 'Họ và tên tối thiểu 2 ký tự' })
-  @MaxLength(100, { message: 'Họ và tên tối đa 100 ký tự' })
-  fullName: string;
-
-  @IsString({ message: 'Số điện thoại phải là chuỗi ký tự' })
+  @ApiPropertyOptional({ example: '123456' })
   @IsOptional()
-  phone?: string;
-
-  @IsString({ message: 'Mật khẩu phải là chuỗi ký tự' })
-  @MinLength(6, { message: 'Mật khẩu khởi tạo tối thiểu 6 ký tự' })
-  @IsOptional()
+  @IsString()
   password?: string;
 
-  @IsArray({ message: 'Danh sách vai trò phải là mảng' })
-  @ArrayNotEmpty({ message: 'Phải chọn ít nhất 1 vai trò chuyên môn' })
-  @IsString({ each: true, message: 'Mã vai trò phải là chuỗi ký tự' })
-  roleCodes: string[];
+  @ApiProperty({ example: 'Nguyễn Văn An' })
+  @IsNotEmpty()
+  @IsString()
+  fullName: string;
 
-  @IsString({ message: 'Trạng thái phải là chuỗi ký tự' })
-  @IsIn(['ACTIVE', 'INACTIVE', 'BLOCKED'], { message: 'Trạng thái không hợp lệ' })
+  @ApiPropertyOptional({ example: '0901234567' })
   @IsOptional()
-  status?: string = 'ACTIVE';
+  @IsString()
+  phone?: string;
+
+  @ApiProperty({ example: 'TEACHER', enum: ['MANAGEMENT', 'SPECIALIST', 'TEACHER', 'KITCHEN'] })
+  @IsNotEmpty()
+  @IsString()
+  staffType: string;
+
+  @ApiPropertyOptional({ example: 'Giáo viên phụ trách lớp Mầm' })
+  @IsOptional()
+  @IsString()
+  position?: string;
+
+  @ApiProperty({ example: 'TEACHER', enum: ['SCHOOL_MANAGER', 'NUTRITIONIST', 'TEACHER', 'KITCHEN_STAFF'] })
+  @IsNotEmpty()
+  @IsString()
+  roleCode: string;
 }

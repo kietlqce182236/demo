@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Utensils, Flame, Sparkles, AlertTriangle, ShieldCheck, Plus, Check } from 'lucide-react';
+import { X, Utensils, Flame, Sparkles, AlertTriangle, ShieldCheck, Plus, Check, ShieldAlert, Scale, Baby, ChefHat, Users } from 'lucide-react';
 import { DishItem, MenuDishItem, AdjustDishPayload } from '../api/weekly-menus.api';
 
 interface DishAdjustmentDrawerProps {
@@ -14,6 +14,18 @@ interface DishAdjustmentDrawerProps {
   } | null;
 }
 
+
+// Phân loại nhóm món ăn chuẩn dinh dưỡng
+const detectCategory = (name: string, dishType?: string): 'SOUP' | 'MAIN' | 'STAPLE' | 'DRINK' | 'SNACK_MEAL' => {
+  const n = (name || '').toLowerCase();
+  const dt = (dishType || '').toUpperCase();
+  if (dt === 'SOUP' || n.startsWith('canh')) return 'SOUP';
+  if (n.startsWith('cháo') || n.includes('súp') || n.includes('bún') || n.includes('phở') || n.includes('miến') || n.includes('hủ tiếu') || n.includes('bánh canh') || n.includes('nui') || n.includes('bánh bao')) return 'SNACK_MEAL';
+  if (n.startsWith('cơm') || n.includes('xôi') || n.includes('bánh mì')) return 'STAPLE';
+  if (dt === 'DRINK' || n.includes('sữa') || n.includes('yaourt') || n.includes('sữa chua') || n.includes('nước') || n.includes('chè') || n.includes('sâm') || n.includes('nha đam') || n.includes('chuối') || n.includes('dưa') || n.includes('hồng')) return 'DRINK';
+  return 'MAIN';
+};
+
 export const DishAdjustmentDrawer: React.FC<DishAdjustmentDrawerProps> = ({
   isOpen,
   onClose,
@@ -27,6 +39,8 @@ export const DishAdjustmentDrawer: React.FC<DishAdjustmentDrawerProps> = ({
   const [portionSizeG, setPortionSizeG] = useState<number>(100);
   const [substituteDishId, setSubstituteDishId] = useState<string>('');
   const [specialDietNotes, setSpecialDietNotes] = useState<string>('');
+  const [targetChildType, setTargetChildType] = useState<'STANDARD' | 'ALLERGIES' | 'OBESE' | 'STUNTED' | 'COMMON'>('STANDARD');
+  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +70,14 @@ export const DishAdjustmentDrawer: React.FC<DishAdjustmentDrawerProps> = ({
         setSelectedDishId(initialSlot.existingDish.dishId);
         setPortionSizeG(Number(initialSlot.existingDish.portionSizeG) || 100);
         setSubstituteDishId(initialSlot.existingDish.substituteDishId || '');
-        setSpecialDietNotes(initialSlot.existingDish.specialDietNotes || '');
+        const note = initialSlot.existingDish.specialDietNotes || '';
+        setSpecialDietNotes(note);
+        const noteUp = note.toUpperCase();
+        if (noteUp.includes('LOẠI 3') || noteUp.includes('DỊ ỨNG')) setTargetChildType('ALLERGIES');
+        else if (noteUp.includes('LOẠI 2') || noteUp.includes('BÉO PHÌ') || noteUp.includes('THỪA CÂN')) setTargetChildType('OBESE');
+        else if (noteUp.includes('LOẠI 1') || noteUp.includes('SDD') || noteUp.includes('CÒI XƯƠNG')) setTargetChildType('STUNTED');
+        else if (noteUp.includes('CHUNG')) setTargetChildType('COMMON');
+        else setTargetChildType('STANDARD');
       } else {
         setSelectedDishId(dishes[0]?.id || '');
         setPortionSizeG(100);
@@ -88,13 +109,24 @@ export const DishAdjustmentDrawer: React.FC<DishAdjustmentDrawerProps> = ({
     try {
       setIsSubmitting(true);
       setError(null);
+      let finalNotes = specialDietNotes.trim();
+      if (targetChildType === 'ALLERGIES' && !finalNotes.includes('Loại 3')) {
+        finalNotes = `[Loại 3: Dị ứng] ${finalNotes || 'Món thay thế suất riêng cho trẻ dị ứng'}`;
+      } else if (targetChildType === 'OBESE' && !finalNotes.includes('Loại 2')) {
+        finalNotes = `[Loại 2: Béo phì] ${finalNotes || 'Món thay thế giảm béo TT 28/2016'}`;
+      } else if (targetChildType === 'STUNTED' && !finalNotes.includes('Loại 1')) {
+        finalNotes = `[Loại 1: SDD] ${finalNotes || 'Món thay thế tăng đạm sinh học QĐ 1246'}`;
+      } else if (targetChildType === 'COMMON' && !finalNotes.includes('Món Chung')) {
+        finalNotes = `[Món Chung] ${finalNotes || 'Món thay thế chung toàn năng cả 3 nhóm'}`;
+      }
+
       await onSubmit({
         dayOfWeek,
         mealTime,
         dishId: selectedDishId,
         portionSizeG: Number(portionSizeG),
         substituteDishId: substituteDishId || undefined,
-        specialDietNotes: specialDietNotes.trim() || undefined,
+        specialDietNotes: finalNotes || undefined,
       });
       onClose();
     } catch (err: any) {
@@ -187,11 +219,113 @@ export const DishAdjustmentDrawer: React.FC<DishAdjustmentDrawerProps> = ({
               </div>
             </div>
 
-            {/* Chọn Món ăn */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Chọn món ăn từ ngân hàng món <span className="text-rose-500">*</span>
+            {/* 1. MỤC ĐÍCH MÓN ĂN / THAY THẾ CHO LOẠI BÉ NÀO */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+              <label className="block text-xs font-black text-slate-800 uppercase tracking-wider">
+                Mục đích món ăn & Đối tượng trẻ áp dụng:
               </label>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setTargetChildType('STANDARD')}
+                  className={`p-2.5 rounded-xl border text-left transition flex items-center gap-2 cursor-pointer ${
+                    targetChildType === 'STANDARD'
+                      ? 'bg-white border-slate-700 ring-2 ring-slate-700 shadow-2xs font-bold text-slate-900'
+                      : 'bg-white/80 border-slate-200 text-slate-600 hover:bg-white'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                  <span className="truncate">🌟 Cả lớp dùng chung</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTargetChildType('ALLERGIES')}
+                  className={`p-2.5 rounded-xl border text-left transition flex items-center gap-2 cursor-pointer ${
+                    targetChildType === 'ALLERGIES'
+                      ? 'bg-rose-50 border-rose-600 ring-2 ring-rose-600 shadow-2xs font-bold text-rose-950'
+                      : 'bg-white/80 border-rose-200 text-rose-800 hover:bg-rose-50'
+                  }`}
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span className="truncate">🚨 Loại 3: Dị ứng</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTargetChildType('OBESE')}
+                  className={`p-2.5 rounded-xl border text-left transition flex items-center gap-2 cursor-pointer ${
+                    targetChildType === 'OBESE'
+                      ? 'bg-purple-50 border-purple-600 ring-2 ring-purple-600 shadow-2xs font-bold text-purple-950'
+                      : 'bg-white/80 border-purple-200 text-purple-800 hover:bg-purple-50'
+                  }`}
+                >
+                  <Scale className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  <span className="truncate">⚖️ Loại 2: Thừa cân</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTargetChildType('STUNTED')}
+                  className={`p-2.5 rounded-xl border text-left transition flex items-center gap-2 cursor-pointer ${
+                    targetChildType === 'STUNTED'
+                      ? 'bg-amber-50 border-amber-600 ring-2 ring-amber-600 shadow-2xs font-bold text-amber-950'
+                      : 'bg-white/80 border-amber-200 text-amber-800 hover:bg-amber-50'
+                  }`}
+                >
+                  <Baby className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span className="truncate">👶 Loại 1: Thấp còi/SDD</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setTargetChildType('COMMON')}
+                className={`w-full p-2 rounded-xl border text-center transition flex items-center justify-center gap-2 text-xs cursor-pointer ${
+                  targetChildType === 'COMMON'
+                    ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-600 shadow-2xs font-bold text-emerald-950'
+                    : 'bg-white/80 border-emerald-200 text-emerald-800 hover:bg-emerald-50'
+                }`}
+              >
+                <ChefHat className="w-3.5 h-3.5 text-emerald-600" />
+                <span>⭐ Món thay thế chung toàn năng cho Bếp (Cả 3 nhóm bé)</span>
+              </button>
+            </div>
+
+            {/* 2. CHỌN MÓN ĂN & BỘ LỌC CÙNG LOẠI */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Chọn món ăn cùng loại <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-[10px] text-slate-400 font-medium">Lọc theo nhóm món</span>
+              </div>
+
+              {/* Pills lọc cùng loại */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {[
+                  { key: 'ALL', label: 'Tất cả' },
+                  { key: 'MAIN', label: 'Món Mặn' },
+                  { key: 'SOUP', label: 'Món Canh' },
+                  { key: 'STAPLE', label: 'Cơm / Tinh bột' },
+                  { key: 'SNACK_MEAL', label: 'Cháo / Món Xế' },
+                  { key: 'DRINK', label: 'Đồ uống / Tráng miệng' },
+                ].map((cat) => (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => setCategoryFilter(cat.key)}
+                    className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold transition cursor-pointer ${
+                      categoryFilter === cat.key
+                        ? 'bg-slate-900 text-white shadow-3xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
               <select
                 value={selectedDishId}
                 onChange={(e) => {
@@ -203,11 +337,16 @@ export const DishAdjustmentDrawer: React.FC<DishAdjustmentDrawerProps> = ({
                 required
               >
                 <option value="">-- Chọn món ăn --</option>
-                {dishes.map((dish) => (
-                  <option key={dish.id} value={dish.id}>
-                    {dish.name} ({dish.totalCalories} Kcal / {dish.standardServingSizeG}g)
-                  </option>
-                ))}
+                {dishes
+                  .filter((dish) => {
+                    if (categoryFilter === 'ALL') return true;
+                    return detectCategory(dish.name, dish.dishType) === categoryFilter;
+                  })
+                  .map((dish) => (
+                    <option key={dish.id} value={dish.id}>
+                      {dish.name} ({dish.totalCalories} Kcal / {dish.standardServingSizeG}g)
+                    </option>
+                  ))}
               </select>
             </div>
 

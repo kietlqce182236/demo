@@ -1,23 +1,44 @@
-import { IsUUID, IsOptional, IsString, IsIn } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsArray, IsNumber } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class DishEvaluationItem {
+  @ApiProperty({ example: 1 })
+  @IsNumber()
+  dishId: number;
+
+  @ApiPropertyOptional({ example: 'MORNING_SNACK' })
+  @IsOptional()
+  @IsString()
+  mealType?: string;
+}
 
 export class EvaluateMenuDto {
-  @IsUUID('4', { message: 'Menu ID phải là UUID hợp lệ' })
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
-  menuId?: string;
+  menuId?: number;
 
-  @IsString()
-  @IsIn(
-    ['TODDLER_18_36M', 'KINDERGARTEN_3_4Y', 'KINDERGARTEN_4_5Y', 'KINDERGARTEN_5_6Y', 'ALL_AGES'],
-    { message: 'Nhóm tuổi không hợp lệ' },
-  )
+  @ApiPropertyOptional({ example: 'MAU_GIAO', enum: ['NHA_TRE', 'MAU_GIAO'] })
   @IsOptional()
+  @IsString()
+  ageGroup?: string;
+
+  @ApiPropertyOptional({ example: 'MAU_GIAO' })
+  @IsOptional()
+  @IsString()
   targetAgeGroup?: string;
 
-  @IsUUID('4', { message: 'Rule ID phải là UUID hợp lệ' })
+  @ApiPropertyOptional({ example: '1' })
   @IsOptional()
+  @IsString()
   ruleId?: string;
 
-  @IsString()
+  @ApiPropertyOptional({ example: '2026-10-10' })
   @IsOptional()
+  @IsString()
   targetDate?: string;
+
+  @ApiPropertyOptional({ type: [DishEvaluationItem] })
+  @IsOptional()
+  @IsArray()
+  dishes?: DishEvaluationItem[];
 }

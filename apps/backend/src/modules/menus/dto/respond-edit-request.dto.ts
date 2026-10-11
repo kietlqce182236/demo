@@ -1,7 +1,14 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsBoolean } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class RespondEditRequestDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsBoolean()
+  approved: boolean;
+
+  @ApiProperty()
+  @IsNotEmpty()
   @IsString()
-  @IsOptional()
-  notes?: string;
+  responseNote: string;
 }

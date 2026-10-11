@@ -119,10 +119,13 @@ export interface CreateMenuPayload {
 
 export interface AdjustDishPayload {
   dayOfWeek: number;
-  mealTime: string;
-  dishId: string;
+  mealTime?: string;
+  mealType?: string;
+  dishId?: string | number;
+  oldDishId?: number;
+  newDishId?: number;
+  substituteDishId?: string | number;
   portionSizeG?: number;
-  substituteDishId?: string;
   specialDietNotes?: string;
 }
 
@@ -153,6 +156,7 @@ export interface AutoGeneratePayload {
   referenceMenuId?: string;
   includeBreakfast?: boolean;
   previewOnly?: boolean;
+  dailyPlan?: any[];
 }
 
 export interface AutoGeneratePreviewResponse {
@@ -238,8 +242,18 @@ export const weeklyMenusApi = {
     version?: number;
     includeDeleted?: boolean;
   }): Promise<WeeklyMenu[]> {
-    const res = await apiClient.get('/menus', { params });
-    return res.data;
+    const cleanParams: any = { ...params };
+    if (cleanParams.status === 'ALL') delete cleanParams.status;
+    if (cleanParams.targetAgeGroup === 'ALL') delete cleanParams.targetAgeGroup;
+    if (cleanParams.targetAgeGroup) {
+      cleanParams.ageGroup = cleanParams.targetAgeGroup === 'TODDLER_18_36M' ? 'NHA_TRE' : 'MAU_GIAO';
+    }
+    const res = await apiClient.get('/menus', { params: cleanParams });
+    const raw = res.data?.data || res.data;
+    if (Array.isArray(raw)) return raw;
+    if (Array.isArray(raw?.items)) return raw.items;
+    if (Array.isArray(raw?.data)) return raw.data;
+    return [];
   },
 
   // 2. Thống kê KPI
@@ -251,7 +265,11 @@ export const weeklyMenusApi = {
   // 3. Món ăn trong kho
   async getAvailableDishes(): Promise<DishItem[]> {
     const res = await apiClient.get('/menus/available-dishes');
-    return res.data;
+    const raw = res.data;
+    if (Array.isArray(raw)) return raw;
+    if (Array.isArray(raw?.items)) return raw.items;
+    if (Array.isArray(raw?.data)) return raw.data;
+    return [];
   },
 
   // 4. Chi tiết thực đơn tuần
@@ -262,12 +280,35 @@ export const weeklyMenusApi = {
 
   // 5. Danh sách phiên bản
   async getMenuVersions(id: string): Promise<WeeklyMenu[]> {
-    const res = await apiClient.get(`/menus/${id}/versions`);
-    return res.data;
+    try {
+      const res = await apiClient.get(`/menus/${id}/versions`);
+      const raw = res.data;
+      if (Array.isArray(raw)) return raw;
+      if (Array.isArray((raw as any)?.items)) return (raw as any).items;
+      if (Array.isArray((raw as any)?.data)) return (raw as any).data;
+      return [];
+    } catch {
+      return [];
+    }
   },
 
-  // 6. Tạo thực đơn thủ công
+  /**
+   * =========================================================================================
+   * [LUỒNG TẠO THỰC ĐƠN - BƯỚC 3/6: TẦNG HTTP API CLIENT (FRONTEND NETWORK LAYER)]
+   * =========================================================================================
+   * - File này: `apps/frontend/src/features/menus/api/weekly-menus.api.ts`
+   * - Được gọi từ: File 1 `apps/frontend/src/features/menus/pages/WeeklyMenuManagementPage.tsx`
+   *   (thông qua hàm `handleSaveMenu`).
+   * - Nhiệm vụ: Gửi yêu cầu HTTP POST đến API Backend.
+   *   + `apiClient` (`apps/frontend/src/core/api/axios.ts`) tự động đính kèm Token xác thực:
+   *     Header `Authorization: Bearer <jwt_access_token>`.
+   *   + Payload gửi đi tuân thủ interface `CreateMenuPayload` (khớp với `CreateMenuDto` ở Backend).
+   * - GỌI FILE TIẾP THEO: Endpoint `@Post()` trong File:
+   *   -> `apps/backend/src/modules/menus/controllers/menus.controller.ts` (BƯỚC 4).
+   * =========================================================================================
+   */
   async createMenu(payload: CreateMenuPayload): Promise<WeeklyMenu> {
+    // GỬI HTTP POST SANG BACKEND: apps/backend/src/modules/menus/controllers/menus.controller.ts
     const res = await apiClient.post('/menus', payload);
     return res.data;
   },
@@ -290,7 +331,11 @@ export const weeklyMenusApi = {
     return res.data;
   },
 
-  // 10. Tinh chỉnh món ăn
+  /**
+   * [LUỒNG TINH CHỈNH MÓN ĂN - BƯỚC 2/4: TẦNG HTTP API CLIENT]
+   * - GỌI TỪ: handleAdjustDish() trong WeeklyMenuManagementPage.tsx
+   * - GỌI SANG: POST /menus/:menuId/adjust-dish trong apps/backend/src/modules/menus/controllers/menus.controller.ts (BƯỚC 3)
+   */
   async adjustDish(menuId: string, payload: AdjustDishPayload): Promise<MenuDishItem> {
     const res = await apiClient.post(`/menus/${menuId}/adjust-dish`, payload);
     return res.data;
@@ -302,25 +347,41 @@ export const weeklyMenusApi = {
     return res.data;
   },
 
-  // 12. Gửi duyệt
+  /**
+   * [LUỒNG GỬI DUYỆT THỰC ĐƠN - BƯỚC 2/4: TẦNG HTTP API CLIENT]
+   * - GỌI TỪ: handleSubmitForReview() trong WeeklyMenuManagementPage.tsx
+   * - GỌI SANG: POST /menus/:id/submit trong apps/backend/src/modules/menus/controllers/menus.controller.ts (BƯỚC 3)
+   */
   async submitForReview(id: string): Promise<WeeklyMenu> {
     const res = await apiClient.post(`/menus/${id}/submit`);
     return res.data;
   },
 
-  // 13. Phê duyệt (BGH)
+  /**
+   * [LUỒNG BGH PHÊ DUYỆT - BƯỚC 2/4: TẦNG HTTP API CLIENT]
+   * - GỌI TỪ: handleApprove() trong WeeklyMenuManagementPage.tsx
+   * - GỌI SANG: POST /menus/:id/approve trong apps/backend/src/modules/menus/controllers/menus.controller.ts (BƯỚC 3)
+   */
   async approveMenu(id: string, approvalNotes?: string): Promise<WeeklyMenu> {
     const res = await apiClient.post(`/menus/${id}/approve`, { approvalNotes });
     return res.data;
   },
 
-  // 14. Từ chối (BGH)
+  /**
+   * [LUỒNG BGH TỪ CHỐI - BƯỚC 2/4: TẦNG HTTP API CLIENT]
+   * - GỌI TỪ: handleReject() trong WeeklyMenuManagementPage.tsx
+   * - GỌI SANG: POST /menus/:id/reject trong apps/backend/src/modules/menus/controllers/menus.controller.ts (BƯỚC 3)
+   */
   async rejectMenu(id: string, rejectionReason: string): Promise<WeeklyMenu> {
     const res = await apiClient.post(`/menus/${id}/reject`, { rejectionReason });
     return res.data;
   },
 
-  // 15. Khóa & Công bố
+  /**
+   * [LUỒNG KHÓA & CÔNG BỐ THỰC ĐƠN - BƯỚC 2/4: TẦNG HTTP API CLIENT]
+   * - GỌI TỪ: handlePublish() trong WeeklyMenuManagementPage.tsx
+   * - GỌI SANG: POST /menus/:id/publish trong apps/backend/src/modules/menus/controllers/menus.controller.ts (BƯỚC 3)
+   */
   async publishMenu(id: string): Promise<WeeklyMenu> {
     const res = await apiClient.post(`/menus/${id}/publish`);
     return res.data;
@@ -360,26 +421,38 @@ export const weeklyMenusApi = {
 
   // 20. Tự động sinh thực đơn (Lưu vào DB)
   async autoGenerateMenu(payload: AutoGeneratePayload): Promise<WeeklyMenu> {
-    const res = await apiClient.post<WeeklyMenu>('/menus/auto-generate', {
+    const rawAge = payload.targetAgeGroup || 'MAU_GIAO';
+    const ageGroup = rawAge === 'TODDLER_18_36M' ? 'NHA_TRE' : (rawAge === 'KINDERGARTEN_3_5Y' ? 'MAU_GIAO' : rawAge);
+    const res = await apiClient.post<any>('/menus/auto-generate', {
       ...payload,
+      ageGroup,
+      weekStartDate: payload.startDate,
       previewOnly: false,
     });
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   // 21. Xem trước ma trận thực đơn tự động sinh
   async previewAutoGenerateMenu(payload: AutoGeneratePayload): Promise<AutoGeneratePreviewResponse> {
-    const res = await apiClient.post<AutoGeneratePreviewResponse>('/menus/auto-generate', {
+    const rawAge = payload.targetAgeGroup || 'MAU_GIAO';
+    const ageGroup = rawAge === 'TODDLER_18_36M' ? 'NHA_TRE' : (rawAge === 'KINDERGARTEN_3_5Y' ? 'MAU_GIAO' : rawAge);
+    const res = await apiClient.post<any>('/menus/auto-generate', {
       ...payload,
+      ageGroup,
+      weekStartDate: payload.startDate,
       previewOnly: true,
     });
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   // 22. Lấy tư vấn cảnh báo Dị ứng học sinh & Cá nhân hóa Dinh dưỡng theo BMI
-  async getAdvisory(menuId: string): Promise<MenuAdvisoryResponse> {
-    const res = await apiClient.get<MenuAdvisoryResponse>(`/menus/${menuId}/advisory`);
-    return res.data;
+  async getAdvisory(menuId: string): Promise<MenuAdvisoryResponse | null> {
+    try {
+      const res = await apiClient.get<MenuAdvisoryResponse>(`/menus/${menuId}/advisory`);
+      return res.data;
+    } catch {
+      return null;
+    }
   },
 
   // 23. Gán hoặc hủy món ăn thay thế an toàn cho ô món ăn trong thực đơn

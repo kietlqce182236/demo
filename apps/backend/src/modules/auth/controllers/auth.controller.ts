@@ -3,24 +3,23 @@ import {
   Post,
   Get,
   Body,
-  Headers,
-  Req,
+  UseGuards,
   HttpCode,
   HttpStatus,
-  UseGuards,
+  Headers,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from '../services/auth.service';
+import { PasswordResetService } from '../services/password-reset.service';
 import { LoginDto } from '../dto/login.dto';
 import { QuickLoginDto } from '../dto/quick-login.dto';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { JwtPayload } from '../strategies/jwt.strategy';
-
-import { PasswordResetService } from '../services/password-reset.service';
+import { ChangePasswordDto } from '../dto/change-password.dto';
 import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { VerifyResetOtpDto } from '../dto/verify-reset-otp.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
-import { ChangePasswordDto } from '../dto/change-password.dto';
+import { Public } from '../../../common/decorators/public.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -30,162 +29,82 @@ export class AuthController {
     private readonly passwordResetService: PasswordResetService,
   ) {}
 
-  /**
-   * GET /api/v1/auth/tenants
-   * Public — Lấy danh sách trường mầm non đang hoạt động cho dropdown login.
-   * Không cần JWT. Kết quả ít thay đổi → frontend nên cache 5 phút.
-   */
+  @Public()
   @Get('tenants')
-  @ApiOperation({ summary: 'Lấy danh sách trường mầm non (public)' })
+  @ApiOperation({ summary: 'Lấy danh sách các trường mầm non (Công khai)' })
   async getTenants() {
-    const tenants = await this.authService.getActiveTenants();
-    return { tenants };
+    return this.authService.getTenants();
   }
 
-  /**
-   * POST /api/v1/auth/login
-   * Public — Đăng nhập bằng email + password.
-   * Tenant ID gửi qua header x-tenant-id (do TenantResolverMiddleware xử lý).
-   */
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đăng nhập hệ thống' })
-  @ApiHeader({ name: 'x-tenant-id', required: false, description: 'UUID của trường mầm non' })
+  @ApiOperation({ summary: 'Đăng nhập tài khoản bằng Email / SĐT + Mật khẩu' })
   async login(
     @Body() loginDto: LoginDto,
-    @Headers('x-tenant-id') tenantId?: string,
+    @Headers('x-tenant-id') tenantIdHeader?: string,
   ) {
+    const tenantId = Number(tenantIdHeader) || 1;
     return this.authService.login(loginDto, tenantId);
   }
 
-  /**
-   * POST /api/v1/auth/refresh
-   * Public — Làm mới access token bằng refresh token.
-   */
+  @Public()
+  @Post('quick-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đăng nhập nhanh theo Role (Chế độ phát triển & demo)' })
+  async quickLogin(@Body() dto: QuickLoginDto) {
+    return this.authService.quickLogin(dto);
+  }
+
+  @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Làm mới access token' })
+  @ApiOperation({ summary: 'Làm mới Access Token bằng Refresh Token' })
   async refresh(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshToken(refreshToken);
   }
 
-  /**
-   * POST /api/v1/auth/quick-login
-   * Đăng nhập nhanh theo role (development/testing).
-   * Bị block ở production bởi AuthService.
-   */
-  @Post('quick-login')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đăng nhập nhanh theo role (dev only)' })
-  async quickLogin(@Body() dto: QuickLoginDto) {
-    return this.authService.quickLogin(dto.roleCode, dto.tenantId);
-  }
-
-  /**
-   * POST /api/v1/auth/forgot-password
-   * Public — Yêu cầu gửi mã xác thực OTP qua Email
-   */
-  @Post('forgot-password')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Yêu cầu gửi mã OTP đặt lại mật khẩu qua Email' })
-  async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.passwordResetService.forgotPassword(dto);
-  }
-
-  /**
-   * POST /api/v1/auth/verify-reset-otp
-   * Public — Xác thực mã OTP 6 số để nhận resetToken
-   */
-  @Post('verify-reset-otp')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Xác thực mã OTP 6 số để nhận reset token' })
-  async verifyResetOtp(@Body() dto: VerifyResetOtpDto) {
-    return this.passwordResetService.verifyResetOtp(dto);
-  }
-
-  /**
-   * POST /api/v1/auth/reset-password
-   * Public — Đặt mật khẩu mới với resetToken
-   */
-  @Post('reset-password')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Thiết lập mật khẩu mới sau khi xác thực OTP' })
-  async resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.passwordResetService.resetPassword(dto);
-  }
-
-  /**
-   * GET /api/v1/auth/me
-   * Authenticated — Lấy thông tin user hiện tại.
-   * Chỉ trả về các trường hiển thị (không có password_hash, 2fa secret).
-   */
+  @UseGuards(JwtAuthGuard)
   @Get('me')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Lấy thông tin user hiện tại' })
-  async getMe(@Req() req: { user: JwtPayload }) {
-    return this.authService.getMe(req.user.sub);
+  @ApiOperation({ summary: 'Lấy thông tin tài khoản hiện tại đang đăng nhập' })
+  async getMe(@CurrentUser('sub') userId: number) {
+    return this.authService.getMe(userId);
   }
 
-  /**
-   * POST /api/v1/auth/change-password
-   * Authenticated — Đổi mật khẩu (lần đầu hoặc định kỳ)
-   */
-  @Post('change-password')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @Post('change-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đổi mật khẩu người dùng' })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Đổi mật khẩu tài khoản đang đăng nhập' })
   async changePassword(
-    @Req() req: { user: JwtPayload },
+    @CurrentUser('sub') userId: number,
     @Body() dto: ChangePasswordDto,
   ) {
-    return this.authService.changePassword(req.user.sub, dto);
+    return this.authService.changePassword(userId, dto);
   }
 
-  /**
-   * POST /api/v1/auth/2fa/setup
-   * Authenticated — Khởi tạo mã secret và QR Code cho 2FA
-   */
-  @Post('2fa/setup')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @Public()
+  @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Khởi tạo cấu hình 2FA' })
-  async setup2Fa(@Req() req: { user: JwtPayload }) {
-    return this.authService.setup2Fa(req.user.sub);
+  @ApiOperation({ summary: 'Gửi yêu cầu khôi phục mật khẩu (Mã OTP gửi về Email)' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.passwordResetService.forgotPassword(dto.email);
   }
 
-  /**
-   * POST /api/v1/auth/2fa/enable
-   * Authenticated — Xác nhận mã OTP để bật 2FA
-   */
-  @Post('2fa/enable')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @Public()
+  @Post('verify-reset-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Kích hoạt 2FA' })
-  async enable2Fa(
-    @Req() req: { user: JwtPayload },
-    @Body('code') code: string,
-  ) {
-    return this.authService.enable2Fa(req.user.sub, code);
+  @ApiOperation({ summary: 'Xác thực mã OTP 6 số để nhận Reset Token' })
+  async verifyResetOtp(@Body() dto: VerifyResetOtpDto) {
+    return this.passwordResetService.verifyResetOtp(dto.email, dto.otp);
   }
 
-  /**
-   * POST /api/v1/auth/2fa/disable
-   * Authenticated — Tắt 2FA
-   */
-  @Post('2fa/disable')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @Public()
+  @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Hủy kích hoạt 2FA' })
-  async disable2Fa(
-    @Req() req: { user: JwtPayload },
-    @Body('code') code: string,
-  ) {
-    return this.authService.disable2Fa(req.user.sub, code);
+  @ApiOperation({ summary: 'Đặt lại mật khẩu mới bằng Reset Token' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.passwordResetService.resetPassword(dto.resetToken, dto.newPassword);
   }
 }
-

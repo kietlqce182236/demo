@@ -49,8 +49,9 @@ export interface MeResponse {
  * Endpoint public — không cần JWT.
  */
 export async function fetchTenants(): Promise<TenantInfo[]> {
-  const { data } = await apiClient.get<TenantsResponse>('/auth/tenants');
-  return data.tenants;
+  const { data } = await apiClient.get<any>('/auth/tenants');
+  const payload = data?.data || data;
+  return payload?.tenants || [];
 }
 
 /**
@@ -60,11 +61,8 @@ export async function fetchTenants(): Promise<TenantInfo[]> {
 export async function loginApi(
   request: LoginRequest,
 ): Promise<LoginResponse | TwoFaRequiredResponse> {
-  const { data } = await apiClient.post<LoginResponse | TwoFaRequiredResponse>(
-    '/auth/login',
-    request,
-  );
-  return data;
+  const { data } = await apiClient.post<any>('/auth/login', request);
+  return data?.data || data;
 }
 
 /**
@@ -73,16 +71,17 @@ export async function loginApi(
 export async function quickLoginApi(
   request: QuickLoginRequest,
 ): Promise<LoginResponse> {
-  const { data } = await apiClient.post<LoginResponse>('/auth/quick-login', request);
-  return data;
+  const { data } = await apiClient.post<any>('/auth/quick-login', request);
+  return data?.data || data;
 }
 
 /**
  * Lấy thông tin user hiện tại (authenticated).
  */
 export async function fetchCurrentUser(): Promise<MeResponse> {
-  const { data } = await apiClient.get<MeResponse>('/auth/me');
-  return data;
+  const { data } = await apiClient.get<any>('/auth/me');
+  const payload = data?.data || data;
+  return payload?.user || payload;
 }
 
 // ─── Quên & Đặt lại mật khẩu (OTP Email) ────────────────────────────────────────

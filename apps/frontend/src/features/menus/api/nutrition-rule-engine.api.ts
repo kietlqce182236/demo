@@ -152,12 +152,28 @@ export const nutritionEngineApi = {
     includeDeleted?: boolean;
   }): Promise<NutritionRule[]> {
     const res = await apiClient.get<NutritionRule[]>('/nutrition-rules', { params });
-    return res.data;
+    const raw = res.data;
+    if (Array.isArray(raw)) return raw;
+    if (Array.isArray((raw as any)?.items)) return (raw as any).items;
+    if (Array.isArray((raw as any)?.data)) return (raw as any).data;
+    return [];
   },
 
   async getNutritionStats(): Promise<NutritionEngineStats> {
     const res = await apiClient.get<NutritionEngineStats>('/nutrition-rules/stats');
     return res.data;
+  },
+
+  async syncRdaStandards(): Promise<{
+    success: boolean;
+    message: string;
+    syncedCount: number;
+    source: string;
+    version: string;
+    syncedAt: string;
+  }> {
+    const res = await apiClient.post('/nutrition-rules/sync-rda');
+    return res.data?.data || res.data;
   },
 
   async getRuleById(id: string): Promise<NutritionRule> {
@@ -190,7 +206,11 @@ export const nutritionEngineApi = {
   // --- QUY TẮC & DANH MỤC DỊ ỨNG ---
   async getAllergens(params?: { search?: string; includeDeleted?: boolean }): Promise<AllergenCatalog[]> {
     const res = await apiClient.get<AllergenCatalog[]>('/allergens', { params });
-    return res.data;
+    const raw = res.data;
+    if (Array.isArray(raw)) return raw;
+    if (Array.isArray((raw as any)?.items)) return (raw as any).items;
+    if (Array.isArray((raw as any)?.data)) return (raw as any).data;
+    return [];
   },
 
   async createAllergen(payload: CreateAllergenPayload): Promise<AllergenCatalog> {

@@ -68,7 +68,7 @@ export const ClassSelectionHub: React.FC<ClassSelectionHubProps> = ({
     onDateChange(d.toISOString().split('T')[0]);
   };
 
-  const classes = summaryData?.classes || [];
+  const classes = Array.isArray(summaryData?.classes) ? summaryData.classes : [];
   const overview = summaryData?.overview;
 
   const filteredClasses = classes.filter((cls) => {

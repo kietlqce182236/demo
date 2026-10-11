@@ -1,6 +1,13 @@
 import axios, { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
+const getApiBaseUrl = (): string => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  return '/api/v1';
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -12,15 +19,15 @@ export const apiClient = axios.create({
 // Request Interceptor: Tự động đính kèm Tenant ID và Access Token
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // 1. Tenant ID từ LocalStorage hoặc Env
-    const tenantId = localStorage.getItem('tenant_id') || import.meta.env.VITE_DEFAULT_TENANT_ID || 'a0000000-0000-0000-0000-000000000001';
+    // 1. Tenant ID từ LocalStorage hoặc Env (Mặc định 1: Trường Mầm non Hướng Dương)
+    const tenantId = localStorage.getItem('tenant_id') || import.meta.env.VITE_DEFAULT_TENANT_ID || '1';
     if (tenantId) {
       config.headers['x-tenant-id'] = tenantId;
     }
 
-    // 2. JWT Access Token
+    // 2. JWT Access Token (bảo đảm không gửi chuỗi 'undefined' hoặc 'null')
     const token = localStorage.getItem('access_token');
-    if (token) {
+    if (token && token !== 'undefined' && token !== 'null') {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
@@ -48,7 +55,22 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Tự động bóc tách Response Envelope { success: true, data: T, meta: ... } của NestJS TransformInterceptor
+    if (
+      response?.data &&
+      typeof response.data === 'object' &&
+      response.data.success === true &&
+      response.data.data !== undefined
+    ) {
+      const payload = response.data.data;
+      if (response.data.meta && payload && typeof payload === 'object' && !Array.isArray(payload)) {
+        payload.meta = response.data.meta;
+      }
+      response.data = payload;
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 
@@ -68,23 +90,34 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       const refreshToken = localStorage.getItem('refresh_token');
-      if (!refreshToken) {
+      if (!refreshToken || refreshToken === 'undefined' || refreshToken === 'null') {
         localStorage.clear();
         window.location.href = '/login';
         return Promise.reject(error);
       }
 
       try {
-        const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+        const res = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refreshToken,
         });
 
-        const newAccessToken = data.accessToken;
-        localStorage.setItem('access_token', newAccessToken);
-        apiClient.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+        const payload = res.data?.data || res.data;
+        const newAccessToken = payload?.accessToken;
+        const newRefreshToken = payload?.refreshToken;
 
-        processQueue(null, newAccessToken);
-        return apiClient(originalRequest);
+        if (newAccessToken) {
+          localStorage.setItem('access_token', newAccessToken);
+          if (newRefreshToken) {
+            localStorage.setItem('refresh_token', newRefreshToken);
+          }
+          apiClient.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+
+          processQueue(null, newAccessToken);
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+          return apiClient(originalRequest);
+        } else {
+          throw new Error('Refresh token returned invalid payload');
+        }
       } catch (refreshError) {
         processQueue(refreshError, null);
         localStorage.clear();

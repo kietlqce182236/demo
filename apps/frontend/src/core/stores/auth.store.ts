@@ -102,20 +102,29 @@ export const useAuthStore = create<AuthState>((set) => ({
     const tenantId = localStorage.getItem('tenant_id');
     const userJson = localStorage.getItem('auth_user');
 
-    if (accessToken && userJson) {
+    if (
+      accessToken &&
+      accessToken !== 'undefined' &&
+      accessToken !== 'null' &&
+      userJson
+    ) {
       try {
         const user = JSON.parse(userJson) as AuthUser;
         set({
           user,
           accessToken,
           refreshToken,
-          selectedTenantId: tenantId,
+          selectedTenantId: tenantId || '1',
           isAuthenticated: true,
         });
       } catch {
         // JSON parse lỗi → reset
         localStorage.removeItem('auth_user');
       }
+    } else if (accessToken === 'undefined' || accessToken === 'null') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('auth_user');
     }
   },
 }));

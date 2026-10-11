@@ -1,77 +1,38 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsEnum,
-  IsNumber,
-  IsArray,
-  ValidateNested,
-  Min,
-  Max,
-} from 'class-validator';
-import { Type } from 'class-transformer';
-
-export class CreateMenuDishItemDto {
-  @IsNumber()
-  @Min(1)
-  @Max(7)
-  dayOfWeek: number; // 1: Thứ 2 ... 5: Thứ 6
-
-  @IsString()
-  @IsNotEmpty()
-  mealTime: string; // BREAKFAST, MORNING_SNACK, LUNCH, AFTERNOON_SNACK, LATE_SNACK
-
-  @IsString()
-  @IsNotEmpty()
-  dishId: string;
-
-  @IsNumber()
-  @IsOptional()
-  portionSizeG?: number;
-
-  @IsString()
-  @IsOptional()
-  substituteDishId?: string;
-
-  @IsString()
-  @IsOptional()
-  specialDietNotes?: string;
-}
+import { IsNotEmpty, IsOptional, IsString, IsArray } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateMenuDto {
+  @ApiProperty({ example: 'Thực đơn tuần 01 - Học kỳ I (Tháng 9/2025)' })
+  @IsNotEmpty({ message: 'Tiêu đề thực đơn không được để trống' })
   @IsString()
-  @IsNotEmpty()
   title: string;
 
-  @IsString()
-  @IsOptional()
-  menuCycleType?: string = 'WEEKLY';
-
-  @IsString()
-  @IsOptional()
-  targetAgeGroup?: string = 'ALL_AGES';
-
-  @IsString()
+  @ApiProperty({ example: '2025-09-08' })
   @IsNotEmpty()
-  startDate: string; // YYYY-MM-DD
-
   @IsString()
+  weekStartDate: string;
+
+  @ApiProperty({ example: '2025-09-12' })
   @IsNotEmpty()
-  endDate: string; // YYYY-MM-DD
-
-  @IsNumber()
-  @IsOptional()
-  @Min(1)
-  @Max(52)
-  cycleWeekNumber?: number = 1;
-
   @IsString()
-  @IsOptional()
-  parentMenuId?: string;
+  weekEndDate: string;
 
+  @ApiProperty({ example: 'MAU_GIAO', enum: ['NHA_TRE', 'MAU_GIAO'] })
+  @IsNotEmpty()
+  @IsString()
+  ageGroup: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  cycleId?: number;
+
+  @ApiPropertyOptional({ default: 'DRAFT' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsArray()
-  @IsOptional()
-  @ValidateNested({ each: true })
-  @Type(() => CreateMenuDishItemDto)
-  dishes?: CreateMenuDishItemDto[];
+  days?: any[];
 }

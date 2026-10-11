@@ -1,77 +1,68 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsBoolean } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsNumber } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateFoodDto {
-  @IsString()
-  code: string;
-
+  @ApiProperty({ example: 'Thịt bò phi lê' })
+  @IsNotEmpty({ message: 'Tên nguyên liệu không được để trống' })
   @IsString()
   name: string;
 
+  @ApiPropertyOptional({ example: 7 })
+  @IsOptional()
+  categoryId?: number;
+
+  @ApiPropertyOptional({ default: 'g' })
+  @IsOptional()
   @IsString()
-  category: string;
+  unit?: string;
 
-  @IsNumber()
+  @ApiPropertyOptional({ example: 182 })
   @IsOptional()
-  energyKcal?: number;
+  @IsNumber()
+  energyKcal100g?: number;
 
-  @IsNumber()
+  @ApiPropertyOptional({ example: 21.5 })
   @IsOptional()
+  @IsNumber()
   proteinG?: number;
 
-  @IsNumber()
+  @ApiPropertyOptional({ example: 10.7 })
   @IsOptional()
+  @IsNumber()
   fatG?: number;
 
-  @IsNumber()
+  @ApiPropertyOptional({ example: 0 })
   @IsOptional()
+  @IsNumber()
   carbG?: number;
 
-  @IsNumber()
+  @ApiPropertyOptional({ example: 0 })
   @IsOptional()
+  @IsNumber()
   fiberG?: number;
 
-  @IsNumber()
+  @ApiPropertyOptional({ example: 12 })
   @IsOptional()
+  @IsNumber()
   calciumMg?: number;
 
-  @IsNumber()
+  @ApiPropertyOptional({ example: 3.1 })
   @IsOptional()
+  @IsNumber()
   ironMg?: number;
 
-  @IsNumber()
+  @ApiPropertyOptional({ example: 4.5 })
   @IsOptional()
+  @IsNumber()
   zincMg?: number;
 
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
   @IsNumber()
-  @IsOptional()
-  vitaminAMcg?: number;
+  refuseRatePercent?: number;
 
-  @IsNumber()
+  @ApiPropertyOptional({ default: 'ACTIVE' })
   @IsOptional()
-  vitaminCMg?: number;
-
-  @IsArray()
-  @IsString({ each: true })
-  @IsOptional()
-  allergens?: string[];
-
   @IsString()
-  @IsOptional()
-  defaultUnit?: string;
-
-  @IsString()
-  @IsOptional()
-  imageUrl?: string;
-
-  @IsString()
-  @IsOptional()
-  supplier?: string;
-
-  @IsString()
-  @IsOptional()
-  description?: string;
-
-  @IsString()
-  @IsOptional()
   status?: string;
 }

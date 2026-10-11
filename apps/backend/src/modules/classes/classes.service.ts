@@ -11,156 +11,168 @@ import { FilterClassDto } from './dto/filter-class.dto';
 export class ClassesService {
   constructor(
     @InjectRepository(ClassEntity)
-    private readonly classRepository: Repository<ClassEntity>,
+    private readonly classRepo: Repository<ClassEntity>,
     @InjectRepository(Child)
-    private readonly childRepository: Repository<Child>,
+    private readonly childRepo: Repository<Child>,
   ) {}
 
-  async create(createClassDto: CreateClassDto, tenantId: string): Promise<ClassEntity> {
-    const newClass = this.classRepository.create({
-      ...createClassDto,
-      tenantId,
-    });
-    return await this.classRepository.save(newClass);
+  async findAll(filter: FilterClassDto) {
+    const qb = this.classRepo
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.homeroomTeacher', 'teacher');
+
+    if (filter.search) {
+      qb.andWhere('LOWER(c.name) LIKE :search', { search: `%${filter.search.toLowerCase()}%` });
+    }
+    if (filter.ageGroup) {
+      qb.andWhere('c.ageGroup = :ageGroup', { ageGroup: filter.ageGroup });
+    }
+    if (filter.schoolYear) {
+      qb.andWhere('c.schoolYear = :schoolYear', { schoolYear: filter.schoolYear });
+    }
+    if (filter.status) {
+      qb.andWhere('c.status = :status', { status: filter.status });
+    }
+
+    qb.orderBy('c.id', 'ASC');
+    const classes = await qb.getMany();
+
+    // Enrich with student count & allergy count
+    const enriched = await Promise.all(
+      classes.map(async (cls) => {
+        const students = await this.childRepo.find({
+          where: { classId: cls.id },
+          relations: ['allergies'],
+        });
+
+        const studentCount = students.length;
+        const allergicCount = students.filter((s) => s.allergies && s.allergies.length > 0).length;
+
+        return {
+          ...cls,
+          studentCount,
+          allergicCount,
+          hasAllergyAlert: allergicCount > 0,
+        };
+      }),
+    );
+
+    return enriched;
   }
 
-  async findAll(filterDto: FilterClassDto, tenantId: string) {
-    const { search, gradeLevel, status, academicYear, page = 1, limit = 20 } = filterDto;
-
-    const query = this.classRepository.createQueryBuilder('class')
-      .leftJoinAndSelect('class.mainTeacher', 'mainTeacher')
-      .addSelect((sub) => {
-        return sub
-          .select('COUNT(c.id)', 'count')
-          .from('children', 'c')
-          .where('c.class_id = class.id')
-          .andWhere("c.status = 'ACTIVE'");
-      }, 'student_count')
-      .addSelect((sub) => {
-        return sub
-          .select('COUNT(DISTINCT ca.child_id)', 'count')
-          .from('child_allergies', 'ca')
-          .innerJoin('children', 'c', 'c.id = ca.child_id')
-          .where('c.class_id = class.id')
-          .andWhere('ca.is_active = true')
-          .andWhere("c.status = 'ACTIVE'");
-      }, 'allergic_count')
-      .where('class.tenantId = :tenantId', { tenantId });
-
-    if (search) {
-      query.andWhere('class.name ILIKE :search', { search: `%${search}%` });
-    }
-    if (gradeLevel) {
-      query.andWhere('class.gradeLevel = :gradeLevel', { gradeLevel });
-    }
-    if (status) {
-      query.andWhere('class.status = :status', { status });
-    }
-    if (academicYear) {
-      query.andWhere('class.academicYear = :academicYear', { academicYear });
+  async findOne(id: number) {
+    const cls = await this.classRepo.findOne({
+      where: { id },
+      relations: ['homeroomTeacher'],
+    });
+    if (!cls) {
+      throw new NotFoundException(`Không tìm thấy lớp học với ID: ${id}`);
     }
 
-    query.orderBy('class.createdAt', 'DESC');
-
-    const total = await query.getCount();
-    const { entities, raw } = await query
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getRawAndEntities();
-
-    const items = entities.map((entity, index) => {
-      const rawRow = raw[index] || {};
-      const studentCount = parseInt(rawRow.student_count || rawRow.studentCount || '0', 10);
-      const allergicCount = parseInt(rawRow.allergic_count || rawRow.allergicCount || '0', 10);
-      const maxCapacity = entity.gradeLevel?.startsWith('INFANT') ? 20 : entity.gradeLevel?.startsWith('TODDLER') ? 25 : 30;
-
-      return {
-        ...entity,
-        studentCount,
-        allergicCount,
-        maxCapacity,
-      };
+    const students = await this.childRepo.find({
+      where: { classId: cls.id },
+      relations: ['allergies', 'allergies.allergen'],
     });
 
     return {
-      items,
-      meta: {
-        total,
-        page: Number(page),
-        lastPage: Math.ceil(total / limit),
-      },
+      ...cls,
+      studentCount: students.length,
+      students,
     };
   }
 
-  async findOne(id: string, tenantId: string): Promise<ClassEntity> {
-    const classEntity = await this.classRepository.findOne({
-      where: { id, tenantId },
-      relations: ['mainTeacher'],
-    });
-
-    if (!classEntity) {
-      throw new NotFoundException(`Class with ID ${id} not found`);
+  async create(dto: CreateClassDto) {
+    let ageGroup = dto.ageGroup;
+    if (!ageGroup && dto.gradeLevel) {
+      ageGroup =
+        dto.gradeLevel.includes('TODDLER') || dto.gradeLevel.includes('INFANT')
+          ? 'NHA_TRE'
+          : 'MAU_GIAO';
+    }
+    if (!ageGroup) {
+      const name = (dto.name || '').toLowerCase();
+      ageGroup = name.includes('nhà trẻ') || name.includes('nha tre') ? 'NHA_TRE' : 'MAU_GIAO';
     }
 
-    return classEntity;
+    const schoolYear = dto.schoolYear || dto.academicYear || '2025-2026';
+    const homeroomTeacherId =
+      dto.homeroomTeacherId !== undefined
+        ? dto.homeroomTeacherId
+        : dto.mainTeacherId
+        ? Number(dto.mainTeacherId)
+        : null;
+
+    const cls = this.classRepo.create({
+      schoolId: 1,
+      name: dto.name,
+      ageGroup,
+      schoolYear,
+      homeroomTeacherId,
+      status: dto.status || 'ACTIVE',
+    });
+    return this.classRepo.save(cls);
   }
 
-  async update(id: string, updateClassDto: UpdateClassDto, tenantId: string): Promise<ClassEntity> {
-    const classEntity = await this.findOne(id, tenantId);
-    
-    Object.assign(classEntity, updateClassDto);
-    return await this.classRepository.save(classEntity);
+  async update(id: number, dto: UpdateClassDto) {
+    const cls = await this.classRepo.findOne({ where: { id } });
+    if (!cls) {
+      throw new NotFoundException(`Không tìm thấy lớp học với ID: ${id}`);
+    }
+
+    let ageGroup = dto.ageGroup;
+    if (!ageGroup && dto.gradeLevel) {
+      ageGroup =
+        dto.gradeLevel.includes('TODDLER') || dto.gradeLevel.includes('INFANT')
+          ? 'NHA_TRE'
+          : 'MAU_GIAO';
+    }
+
+    const schoolYear = dto.schoolYear || dto.academicYear;
+    const homeroomTeacherId =
+      dto.homeroomTeacherId !== undefined
+        ? dto.homeroomTeacherId
+        : dto.mainTeacherId
+        ? Number(dto.mainTeacherId)
+        : undefined;
+
+    if (dto.name !== undefined) cls.name = dto.name;
+    if (ageGroup !== undefined) cls.ageGroup = ageGroup;
+    if (schoolYear !== undefined) cls.schoolYear = schoolYear;
+    if (homeroomTeacherId !== undefined) cls.homeroomTeacherId = homeroomTeacherId;
+    if (dto.status !== undefined) cls.status = dto.status;
+
+    return this.classRepo.save(cls);
   }
 
-  async remove(id: string, tenantId: string): Promise<{ success: boolean; message: string }> {
-    const classEntity = await this.findOne(id, tenantId);
-    // Gỡ liên kết học sinh khỏi lớp trước khi xóa
-    await this.childRepository.update({ classId: id, tenantId }, { classId: null as any });
-    await this.classRepository.remove(classEntity);
-    return { success: true, message: 'Đã xóa lớp học thành công' };
+  async remove(id: number) {
+    const cls = await this.classRepo.findOne({ where: { id } });
+    if (!cls) {
+      throw new NotFoundException(`Không tìm thấy lớp học với ID: ${id}`);
+    }
+    await this.classRepo.remove(cls);
+    return { success: true, message: 'Đã xóa lớp học' };
   }
 
-  async getClassStudents(classId: string, tenantId: string) {
-    await this.findOne(classId, tenantId);
-    return await this.childRepository.find({
-      where: { classId, tenantId },
-      relations: ['allergies', 'allergies.allergenCatalog', 'parent'],
+  async getStudents(classId: number) {
+    return this.childRepo.find({
+      where: { classId },
+      relations: ['allergies', 'allergies.allergen'],
       order: { fullName: 'ASC' },
     });
   }
 
-  async addStudentsToClass(classId: string, childIds: string[], tenantId: string) {
-    const classEntity = await this.findOne(classId, tenantId);
-    if (!childIds || childIds.length === 0) {
-      return { success: true, updatedCount: 0, message: 'Không có học sinh nào được chọn' };
-    }
-
-    const children = await this.childRepository.find({
-      where: { id: In(childIds), tenantId },
-    });
-
-    for (const child of children) {
-      child.classId = classId;
-    }
-    await this.childRepository.save(children);
-
-    return {
-      success: true,
-      updatedCount: children.length,
-      message: `Đã thêm ${children.length} học sinh vào ${classEntity.name}`,
-    };
+  async addStudents(classId: number, childIds: number[]) {
+    if (!childIds || childIds.length === 0) return { success: true };
+    await this.childRepo.update({ id: In(childIds) }, { classId });
+    return { success: true, count: childIds.length };
   }
 
-  async removeStudentFromClass(classId: string, childId: string, tenantId: string) {
-    await this.findOne(classId, tenantId);
-    const child = await this.childRepository.findOne({
-      where: { id: childId, classId, tenantId },
-    });
-    if (!child) {
-      throw new NotFoundException(`Học sinh không tồn tại trong lớp này`);
+  async removeStudent(classId: number, childId: number) {
+    const child = await this.childRepo.findOne({ where: { id: childId, classId } });
+    if (child) {
+      child.classId = null;
+      await this.childRepo.save(child);
     }
-    child.classId = null as any;
-    await this.childRepository.save(child);
-    return { success: true, message: 'Đã xóa học sinh khỏi lớp thành công' };
+    return { success: true };
   }
 }

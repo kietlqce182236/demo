@@ -83,9 +83,12 @@ export const ParentManagementPage: React.FC = () => {
         parentsApi.getStats(),
       ]);
 
-      setParents(parentData.data || []);
-      setTotalCount(parentData.meta.total || 0);
-      setTotalPages(parentData.meta.totalPages || 1);
+      const parentList = Array.isArray(parentData)
+        ? parentData
+        : (parentData as any)?.data || (parentData as any)?.items || [];
+      setParents(parentList);
+      setTotalCount((parentData as any)?.meta?.total ?? parentList.length);
+      setTotalPages((parentData as any)?.meta?.totalPages ?? 1);
       setStats(statData);
     } catch (err) {
       console.error('Lỗi khi tải danh sách phụ huynh:', err);
@@ -142,7 +145,7 @@ export const ParentManagementPage: React.FC = () => {
     setFormPhone(parent.phone || '');
     setFormPassword('');
     setFormStatus(parent.status);
-    setFormSelectedChildIds(parent.children.map((c) => c.id));
+    setFormSelectedChildIds(Array.isArray(parent.children) ? parent.children.map((c) => c.id) : []);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -416,7 +419,7 @@ export const ParentManagementPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                parents.map((p) => (
+                (Array.isArray(parents) ? parents : []).map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50 transition">
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
@@ -444,7 +447,7 @@ export const ParentManagementPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3.5">
-                      {p.children && p.children.length > 0 ? (
+                      {Array.isArray(p.children) && p.children.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
                           {p.children.map((c) => (
                             <span
@@ -654,7 +657,7 @@ export const ParentManagementPage: React.FC = () => {
                   {availableChildren.length === 0 ? (
                     <p className="text-slate-400 text-center py-4">Chưa có danh sách học sinh</p>
                   ) : (
-                    availableChildren.map((c) => {
+                    (Array.isArray(availableChildren) ? availableChildren : []).map((c) => {
                       const isSelected = formSelectedChildIds.includes(c.id);
                       return (
                         <div

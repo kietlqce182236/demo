@@ -1,120 +1,14 @@
-import { IsString, IsOptional, IsUUID, IsEnum, IsBoolean, IsArray, ValidateIf } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
-export class MealCoordinationQueryDto {
-  @IsOptional()
+export class MealCoordinationDto {
+  @ApiProperty({ example: '2025-09-08' })
+  @IsNotEmpty()
   @IsString()
-  date?: string;
+  date: string;
 
-  @IsOptional()
-  @IsString()
-  classId?: string;
-
-  @IsOptional()
-  @IsString()
-  mealSession?: string;
-
-  @IsOptional()
-  @IsString()
-  status?: string;
-
-  @IsOptional()
-  @IsString()
-  priority?: string;
-
-  @IsOptional()
-  @IsString()
-  noteType?: string;
-
-  @IsOptional()
-  @IsString()
-  search?: string;
-}
-
-export class CreateMealCoordinationNoteDto {
-  @IsString()
-  classId: string;
-
-  @IsOptional()
-  @IsString()
-  childId?: string;
-
-  @IsString()
-  mealDate: string;
-
-  @IsString()
-  mealSession: string; // 'BREAKFAST' | 'LUNCH' | 'AFTERNOON_SNACK' | 'ALL_DAY'
-
-  @IsString()
-  noteType: string; // 'PORTION_ADJUSTMENT' | 'ALLERGY_WARNING' | 'MEDICATION_FEEDING' | 'SPECIAL_DIET' | 'KITCHEN_REQUEST' | 'PARENT_DIRECTIVE' | 'GENERAL_OBSERVATION'
-
-  @IsString()
-  priority: string; // 'URGENT' | 'HIGH' | 'NORMAL'
-
-  @IsString()
-  title: string;
-
+  @ApiProperty({ example: 'Hôm nay bé Gia Huy ăn chậm, cần cô hỗ trợ xúc cơm' })
+  @IsNotEmpty()
   @IsString()
   content: string;
-
-  @IsOptional()
-  @IsString()
-  targetRole?: string; // 'KITCHEN' | 'HEALTH_OFFICER' | 'PRINCIPAL' | 'PARENT'
-
-  @IsOptional()
-  @IsString()
-  teacherName?: string;
-
-  @IsOptional()
-  @IsArray()
-  photos?: string[];
-}
-
-export class UpdateMealCoordinationNoteDto {
-  @IsOptional()
-  @IsString()
-  title?: string;
-
-  @IsOptional()
-  @IsString()
-  content?: string;
-
-  @IsOptional()
-  @IsString()
-  priority?: string;
-
-  @IsOptional()
-  @IsString()
-  noteType?: string;
-
-  @IsOptional()
-  @IsString()
-  mealSession?: string;
-
-  @IsOptional()
-  @IsString()
-  status?: string;
-
-  @IsOptional()
-  @IsString()
-  kitchenResponse?: string;
-
-  @IsOptional()
-  @IsArray()
-  photos?: string[];
-}
-
-export class AcknowledgeCoordinationDto {
-  @IsOptional()
-  @IsString()
-  acknowledgedBy?: string;
-
-  @IsOptional()
-  @IsString()
-  kitchenResponse?: string;
-}
-
-export class ResolveCoordinationDto {
-  @IsOptional()
-  @IsString()
-  resolutionNote?: string;
 }

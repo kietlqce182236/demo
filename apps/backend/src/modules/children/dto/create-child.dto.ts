@@ -1,54 +1,38 @@
-import { IsString, IsNotEmpty, IsOptional, IsDateString, IsIn, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateChildDto {
+  @ApiProperty({ example: 'Nguyễn Gia Huy' })
+  @IsNotEmpty({ message: 'Họ tên trẻ không được để trống' })
   @IsString()
-  @IsNotEmpty()
-  firstName: string;
+  fullName: string;
 
+  @ApiProperty({ example: '2020-03-15' })
+  @IsNotEmpty({ message: 'Ngày sinh không được để trống' })
   @IsString()
-  @IsNotEmpty()
-  lastName: string;
-
-  @IsDateString()
   dateOfBirth: string;
 
+  @ApiProperty({ example: 'MALE', enum: ['MALE', 'FEMALE'] })
+  @IsNotEmpty({ message: 'Giới tính không được để trống' })
   @IsString()
-  @IsIn(['MALE', 'FEMALE', 'OTHER'])
   gender: string;
 
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
-  @IsUUID()
-  classId?: string;
+  classId?: number;
 
+  @ApiPropertyOptional({ example: 'HS-2024-001' })
   @IsOptional()
   @IsString()
   studentCode?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  bloodType?: string;
+  avatar?: string;
 
-  @IsOptional()
-  @IsDateString()
-  enrollmentDate?: string;
-
-  @IsString()
-  @IsNotEmpty()
-  emergencyContactName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  emergencyContactPhone: string;
-
+  @ApiPropertyOptional({ default: 'ACTIVE' })
   @IsOptional()
   @IsString()
-  medicalNotes?: string;
-
-  @IsOptional()
-  @IsString()
-  avatarUrl?: string;
-
-  @IsOptional()
-  @IsUUID()
-  parentId?: string;
+  status?: string;
 }

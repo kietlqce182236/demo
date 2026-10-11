@@ -1,900 +1,681 @@
 -- ============================================================================
--- KidsNutriJournal — Multi-Tenant PostgreSQL Schema DDL (Production Grade)
+-- KidMeal — PostgreSQL Schema DDL (Simplified BIGSERIAL)
 -- Standards: Circular 28/2016/TT-BGDĐT, Decision 1246/QĐ-BYT, WHO Child Growth
--- Normalization: Third Normal Form (3NF) with Native Row-Level Security (RLS)
--- Target RDBMS: PostgreSQL 15+ / 16
+-- Target RDBMS: PostgreSQL 16
 -- ============================================================================
 
 BEGIN;
 
--- 1. EXTENSIONS
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-CREATE EXTENSION IF NOT EXISTS "unaccent";
-
--- 2. COMMON TRIGGER FOR AUTO-UPDATING updated_at
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- 3. HELPER FUNCTIONS FOR RLS SESSION RESOLUTION
-CREATE OR REPLACE FUNCTION get_current_tenant_id() RETURNS UUID AS $$
-BEGIN
-    RETURN NULLIF(current_setting('app.current_tenant_id', true), '')::UUID;
-EXCEPTION WHEN OTHERS THEN
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql STABLE;
-
-CREATE OR REPLACE FUNCTION is_current_super_admin() RETURNS BOOLEAN AS $$
-BEGIN
-    RETURN COALESCE(NULLIF(current_setting('app.is_super_admin', true), '') = 'true', false);
-EXCEPTION WHEN OTHERS THEN
-    RETURN FALSE;
-END;
-$$ LANGUAGE plpgsql STABLE;
+-- ============================================================================
+-- Extensions (optional if available on database server)
+-- DO $$ BEGIN PERFORM 1; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 -- ============================================================================
--- MODULE 1: SYSTEM & RBAC
+-- 1. NHÓM NGƯỜI DÙNG & PHÂN QUYỀN
 -- ============================================================================
 
-CREATE TABLE tenants (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(50) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    domain VARCHAR(255) NULL,
-    contact_email VARCHAR(255) NOT NULL,
-    phone VARCHAR(50) NOT NULL,
-    address TEXT NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE' 
-        CHECK (status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'TRIAL')),
-    subscription_tier VARCHAR(50) NOT NULL DEFAULT 'STANDARD' 
-        CHECK (subscription_tier IN ('FREE', 'STANDARD', 'PREMIUM', 'ENTERPRISE')),
-    max_children INT NOT NULL DEFAULT 500 CHECK (max_children > 0),
-    settings JSONB NOT NULL DEFAULT '{
-        "meal_times": ["BREAKFAST", "LUNCH", "AFTERNOON_SNACK"],
-        "standard_weekly_cycle_length": 4,
-        "food_retention_hours": 24,
-        "who_zscore_auto_calc": true
-    }'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMPTZ NULL,
-    CONSTRAINT uq_tenants_code UNIQUE (code),
-    CONSTRAINT uq_tenants_domain UNIQUE (domain)
-);
-
-CREATE INDEX idx_tenants_status ON tenants(status) WHERE deleted_at IS NULL;
-CREATE INDEX idx_tenants_settings_gin ON tenants USING gin (settings);
-
+-- users: Tài khoản đăng nhập chung
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    email VARCHAR(255) NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    full_name VARCHAR(255) NOT NULL,
-    phone VARCHAR(50) NULL,
-    avatar_url TEXT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE' 
-        CHECK (status IN ('ACTIVE', 'INACTIVE', 'BLOCKED', 'INVITED')),
-    two_factor_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    two_factor_secret VARCHAR(255) NULL,
-    two_factor_recovery_codes TEXT[] NULL,
-    last_login_at TIMESTAMPTZ NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMPTZ NULL,
-    CONSTRAINT uq_users_tenant_email UNIQUE (tenant_id, email)
+    id              BIGSERIAL PRIMARY KEY,
+    email           VARCHAR(255) NOT NULL UNIQUE,
+    password_hash   VARCHAR(255) NOT NULL,
+    full_name       VARCHAR(150) NOT NULL,
+    phone           VARCHAR(20),
+    avatar          VARCHAR(500),
+    status          VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+                        CHECK (status IN ('ACTIVE', 'INACTIVE', 'LOCKED')),
+    last_login_at   TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_users_tenant_id ON users(tenant_id);
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_tenant_status ON users(tenant_id, status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_users_status ON users(status);
 
+-- roles: Vai trò hệ thống
 CREATE TABLE roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    code VARCHAR(50) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    description TEXT NULL,
-    is_system BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_roles_tenant_code UNIQUE (tenant_id, code)
+    id   BIGSERIAL PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL
 );
 
-CREATE INDEX idx_roles_tenant_id ON roles(tenant_id);
-
-CREATE TABLE permissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(100) NOT NULL UNIQUE,
-    module VARCHAR(50) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    description TEXT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_permissions_module ON permissions(module);
-
-CREATE TABLE role_permissions (
-    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (role_id, permission_id)
-);
-
-CREATE INDEX idx_role_permissions_perm_id ON role_permissions(permission_id);
-
+-- user_roles: Gán role cho user
 CREATE TABLE user_roles (
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    tenant_id UUID NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    assigned_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role_id BIGINT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, role_id)
 );
 
-CREATE INDEX idx_user_roles_tenant_user ON user_roles(tenant_id, user_id);
 CREATE INDEX idx_user_roles_role_id ON user_roles(role_id);
 
-CREATE TABLE refresh_tokens (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    tenant_id UUID NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    token_hash VARCHAR(255) NOT NULL,
-    family_id UUID NOT NULL DEFAULT gen_random_uuid(),
-    is_revoked BOOLEAN NOT NULL DEFAULT FALSE,
-    expires_at TIMESTAMPTZ NOT NULL,
-    device_info TEXT NULL,
-    ip_address VARCHAR(45) NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- staff_profiles: Thông tin nhân viên
+CREATE TABLE staff_profiles (
+    user_id    BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    staff_type VARCHAR(50),
+    position   VARCHAR(100),
+    start_date DATE
 );
 
-CREATE INDEX idx_refresh_tokens_tenant ON refresh_tokens(tenant_id);
-CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
-CREATE INDEX idx_refresh_tokens_family ON refresh_tokens(family_id);
-CREATE INDEX idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+-- parent_profiles: Thông tin phụ huynh
+CREATE TABLE parent_profiles (
+    user_id    BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    address    TEXT,
+    occupation VARCHAR(100),
+    note       TEXT
+);
 
+-- ============================================================================
+-- 2. NHÓM TRƯỜNG – LỚP – HỌC SINH
+-- ============================================================================
+
+-- schools: Thông tin trường
+CREATE TABLE schools (
+    id             BIGSERIAL PRIMARY KEY,
+    name           VARCHAR(200) NOT NULL,
+    address        TEXT,
+    phone          VARCHAR(20),
+    email          VARCHAR(255),
+    principal_name VARCHAR(150),
+    logo           VARCHAR(500)
+);
+
+-- classes: Danh sách lớp
 CREATE TABLE classes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-    grade_level VARCHAR(50) NOT NULL CHECK (grade_level IN (
-        'INFANT_0_1Y', 'TODDLER_1_2Y', 'TODDLER_2_3Y', 
-        'KINDERGARTEN_3_4Y', 'KINDERGARTEN_4_5Y', 'KINDERGARTEN_5_6Y'
-    )),
-    academic_year VARCHAR(20) NOT NULL,
-    room_number VARCHAR(50) NULL,
-    main_teacher_id UUID NULL REFERENCES users(id) ON DELETE SET NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'ARCHIVED')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_classes_tenant_name_year UNIQUE (tenant_id, name, academic_year)
+    id                  BIGSERIAL PRIMARY KEY,
+    school_id           BIGINT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+    name                VARCHAR(50) NOT NULL,
+    age_group           VARCHAR(20) NOT NULL
+                            CHECK (age_group IN ('NHA_TRE', 'MAU_GIAO')),
+    school_year         VARCHAR(20) NOT NULL,
+    homeroom_teacher_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    status              VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+                            CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
 
-CREATE INDEX idx_classes_tenant_id ON classes(tenant_id);
-CREATE INDEX idx_classes_tenant_grade ON classes(tenant_id, grade_level);
-CREATE INDEX idx_classes_tenant_status ON classes(tenant_id, status);
-CREATE INDEX idx_classes_main_teacher ON classes(main_teacher_id);
+CREATE INDEX idx_classes_school_id ON classes(school_id);
+CREATE INDEX idx_classes_age_group ON classes(age_group);
+CREATE INDEX idx_classes_school_year ON classes(school_year);
+CREATE INDEX idx_classes_teacher ON classes(homeroom_teacher_id);
+
+-- students: Hồ sơ trẻ
+CREATE TABLE students (
+    id            BIGSERIAL PRIMARY KEY,
+    class_id      BIGINT REFERENCES classes(id) ON DELETE SET NULL,
+    student_code  VARCHAR(50) NOT NULL,
+    full_name     VARCHAR(150) NOT NULL,
+    date_of_birth DATE NOT NULL,
+    gender        VARCHAR(10) NOT NULL
+                      CHECK (gender IN ('MALE', 'FEMALE')),
+    avatar        VARCHAR(500),
+    status        VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+                      CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_students_class_id ON students(class_id);
+CREATE INDEX idx_students_code ON students(student_code);
+CREATE INDEX idx_students_status ON students(status);
+CREATE INDEX idx_students_name ON students(full_name);
+
+-- student_parents: Quan hệ phụ huynh – trẻ
+CREATE TABLE student_parents (
+    student_id   BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    parent_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    relationship VARCHAR(20) NOT NULL
+                     CHECK (relationship IN ('FATHER', 'MOTHER', 'GUARDIAN')),
+    is_primary   BOOLEAN NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (student_id, parent_id)
+);
+
+CREATE INDEX idx_student_parents_parent ON student_parents(parent_id);
 
 -- ============================================================================
--- MODULE 2: CHILD PROFILES & INDIVIDUAL ALLERGIES
+-- 3. NHÓM DỊ ỨNG
 -- ============================================================================
 
-CREATE TABLE allergen_catalogs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(50) NOT NULL UNIQUE,
-    name_vi VARCHAR(150) NOT NULL,
-    name_en VARCHAR(150) NOT NULL,
-    common_foods TEXT NULL,
-    description TEXT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- allergens: Danh mục dị ứng chuẩn
+CREATE TABLE allergens (
+    id          BIGSERIAL PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL,
+    code        VARCHAR(30) NOT NULL UNIQUE,
+    description TEXT
 );
 
-CREATE TABLE children (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    class_id UUID NULL REFERENCES classes(id) ON DELETE SET NULL,
-    parent_id UUID NULL REFERENCES users(id) ON DELETE SET NULL,
-    student_code VARCHAR(50) NOT NULL,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    full_name VARCHAR(255) NOT NULL,
-    date_of_birth DATE NOT NULL CHECK (date_of_birth <= CURRENT_DATE),
-    gender VARCHAR(10) NOT NULL CHECK (gender IN ('MALE', 'FEMALE', 'OTHER')),
-    blood_type VARCHAR(10) NULL CHECK (blood_type IN ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-')),
-    enrollment_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE' 
-        CHECK (status IN ('ACTIVE', 'SUSPENDED', 'GRADUATED', 'WITHDRAWN')),
-    avatar_url TEXT NULL,
-    emergency_contact_name VARCHAR(255) NOT NULL,
-    emergency_contact_phone VARCHAR(50) NOT NULL,
-    medical_notes TEXT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMPTZ NULL,
-    CONSTRAINT uq_children_tenant_student_code UNIQUE (tenant_id, student_code)
+-- student_allergies: Dị ứng của từng trẻ
+CREATE TABLE student_allergies (
+    id          BIGSERIAL PRIMARY KEY,
+    student_id  BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    allergen_id BIGINT NOT NULL REFERENCES allergens(id) ON DELETE CASCADE,
+    severity    VARCHAR(20) NOT NULL DEFAULT 'MEDIUM'
+                    CHECK (severity IN ('LOW', 'MEDIUM', 'HIGH')),
+    note        TEXT,
+    declared_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    declared_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_children_tenant_id ON children(tenant_id);
-CREATE INDEX idx_children_tenant_class ON children(tenant_id, class_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_children_tenant_parent ON children(tenant_id, parent_id);
-CREATE INDEX idx_children_tenant_status ON children(tenant_id, status);
-CREATE INDEX idx_children_tenant_dob ON children(tenant_id, date_of_birth);
-CREATE INDEX idx_children_name_trgm ON children USING gin (full_name gin_trgm_ops);
-
-CREATE TABLE child_allergies (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    child_id UUID NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-    allergen_id UUID NULL REFERENCES allergen_catalogs(id) ON DELETE SET NULL,
-    custom_allergen_name VARCHAR(150) NULL,
-    allergy_type VARCHAR(50) NOT NULL DEFAULT 'ALLERGY' 
-        CHECK (allergy_type IN ('ALLERGY', 'INTOLERANCE', 'RELIGIOUS_RESTRICTION', 'MEDICAL_RESTRICTION')),
-    severity VARCHAR(50) NOT NULL DEFAULT 'MODERATE' 
-        CHECK (severity IN ('MILD', 'MODERATE', 'SEVERE', 'ANAPHYLACTIC')),
-    symptoms TEXT NULL,
-    reaction_treatment TEXT NULL,
-    diagnosed_date DATE NULL,
-    medical_certificate_url TEXT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_allergen_specified CHECK (allergen_id IS NOT NULL OR custom_allergen_name IS NOT NULL)
-);
-
-CREATE INDEX idx_child_allergies_tenant_id ON child_allergies(tenant_id);
-CREATE INDEX idx_child_allergies_tenant_child ON child_allergies(tenant_id, child_id);
-CREATE INDEX idx_child_allergies_allergen ON child_allergies(allergen_id);
-CREATE INDEX idx_child_allergies_active ON child_allergies(tenant_id, is_active);
+CREATE INDEX idx_student_allergies_student ON student_allergies(student_id);
+CREATE INDEX idx_student_allergies_allergen ON student_allergies(allergen_id);
 
 -- ============================================================================
--- MODULE 3: FOODS, DISHES & RECIPE ITEMS
+-- 4. NHÓM THỰC PHẨM & DINH DƯỠNG (Core)
 -- ============================================================================
 
-CREATE TABLE foods (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    code VARCHAR(50) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    category VARCHAR(100) NOT NULL CHECK (category IN (
-        'CEREAL_GRAINS', 'MEAT_POULTRY', 'SEAFOOD', 'EGGS', 'DAIRY', 
-        'VEGETABLES', 'FRUITS', 'FATS_OILS', 'NUTS_SEEDS', 
-        'SPICES_CONDIMENTS', 'BEVERAGES', 'OTHER'
-    )),
-    energy_kcal NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (energy_kcal >= 0),
-    protein_g NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (protein_g >= 0),
-    fat_g NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (fat_g >= 0),
-    carb_g NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (carb_g >= 0),
-    fiber_g NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (fiber_g >= 0),
-    calcium_mg NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (calcium_mg >= 0),
-    iron_mg NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (iron_mg >= 0),
-    zinc_mg NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (zinc_mg >= 0),
-    vitamin_a_mcg NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (vitamin_a_mcg >= 0),
-    vitamin_c_mg NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (vitamin_c_mg >= 0),
-    refuse_rate_percent NUMERIC(5,2) NOT NULL DEFAULT 0 
-        CHECK (refuse_rate_percent >= 0 AND refuse_rate_percent <= 100),
-    default_unit VARCHAR(50) NOT NULL DEFAULT 'gram',
-    allergens TEXT[] NULL,
-    is_system BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_foods_tenant_code UNIQUE (tenant_id, code)
+-- food_categories: Nhóm thực phẩm (Thịt, Cá, Rau củ…)
+CREATE TABLE food_categories (
+    id   BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
 );
 
-CREATE INDEX idx_foods_tenant_id ON foods(tenant_id);
-CREATE INDEX idx_foods_tenant_category ON foods(tenant_id, category);
-CREATE INDEX idx_foods_allergens_gin ON foods USING gin (allergens);
-CREATE INDEX idx_foods_name_trgm ON foods USING gin (name gin_trgm_ops);
+-- food_ingredients: Nguyên liệu thô + dinh dưỡng gốc
+CREATE TABLE food_ingredients (
+    id                  BIGSERIAL PRIMARY KEY,
+    category_id         BIGINT REFERENCES food_categories(id) ON DELETE SET NULL,
+    name                VARCHAR(150) NOT NULL,
+    unit                VARCHAR(20) NOT NULL DEFAULT 'g',
+    energy_kcal_100g    NUMERIC(8,2) NOT NULL DEFAULT 0,
+    protein_g           NUMERIC(8,2) NOT NULL DEFAULT 0,
+    fat_g               NUMERIC(8,2) NOT NULL DEFAULT 0,
+    carb_g              NUMERIC(8,2) NOT NULL DEFAULT 0,
+    fiber_g             NUMERIC(8,2) NOT NULL DEFAULT 0,
+    calcium_mg          NUMERIC(8,2) NOT NULL DEFAULT 0,
+    iron_mg             NUMERIC(8,2) NOT NULL DEFAULT 0,
+    zinc_mg             NUMERIC(8,2) NOT NULL DEFAULT 0,
+    phosphorus_mg       NUMERIC(8,2) NOT NULL DEFAULT 0,
+    sodium_mg           NUMERIC(8,2) NOT NULL DEFAULT 0,
+    vitamin_a_mcg       NUMERIC(8,2) NOT NULL DEFAULT 0,
+    vitamin_c_mg        NUMERIC(8,2) NOT NULL DEFAULT 0,
+    refuse_rate_percent NUMERIC(5,2) NOT NULL DEFAULT 0
+                            CHECK (refuse_rate_percent >= 0 AND refuse_rate_percent <= 100),
+    status              VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+                            CHECK (status IN ('ACTIVE', 'INACTIVE'))
+);
 
+CREATE INDEX idx_food_ingredients_category ON food_ingredients(category_id);
+CREATE INDEX idx_food_ingredients_name ON food_ingredients(name);
+CREATE INDEX idx_food_ingredients_status ON food_ingredients(status);
+
+-- dish_categories: Phân loại món (Món chính, Canh, Tráng miệng, Xế…)
+CREATE TABLE dish_categories (
+    id                  BIGSERIAL PRIMARY KEY,
+    code                VARCHAR(30) NOT NULL UNIQUE,
+    name                VARCHAR(100) NOT NULL,
+    display_order       INT NOT NULL DEFAULT 0,
+    is_required_in_meal BOOLEAN NOT NULL DEFAULT FALSE,
+    status              VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+                            CHECK (status IN ('ACTIVE', 'INACTIVE'))
+);
+
+-- dishes: Món ăn
 CREATE TABLE dishes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    dish_type VARCHAR(50) NOT NULL CHECK (dish_type IN (
-        'MAIN_COURSE', 'SOUP', 'SIDE_VEGETABLE', 'RICE_STAPLE', 
-        'PORRIDGE_NOODLE', 'DESSERT', 'SNACK_AFTERNOON', 'DRINK'
-    )),
-    target_age_group VARCHAR(50) NOT NULL CHECK (target_age_group IN (
-        'TODDLER_18_36M', 'KINDERGARTEN_3_5Y', 'ALL_AGES'
-    )),
-    standard_serving_size_g NUMERIC(8,2) NOT NULL DEFAULT 100 CHECK (standard_serving_size_g > 0),
-    total_calories NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (total_calories >= 0),
-    total_protein_g NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (total_protein_g >= 0),
-    total_fat_g NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (total_fat_g >= 0),
-    total_carb_g NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (total_carb_g >= 0),
-    total_calcium_mg NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (total_calcium_mg >= 0),
-    total_iron_mg NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (total_iron_mg >= 0),
-    total_zinc_mg NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (total_zinc_mg >= 0),
-    cooking_instructions TEXT NULL,
-    presentation_notes TEXT NULL,
-    photo_url TEXT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_dishes_tenant_name UNIQUE (tenant_id, name)
+    id                      BIGSERIAL PRIMARY KEY,
+    category_id             BIGINT REFERENCES dish_categories(id) ON DELETE SET NULL,
+    name                    VARCHAR(150) NOT NULL,
+    description             TEXT,
+    standard_serving_size_g NUMERIC(8,2) NOT NULL DEFAULT 100,
+    status                  VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+                                CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
 
-CREATE INDEX idx_dishes_tenant_id ON dishes(tenant_id);
-CREATE INDEX idx_dishes_tenant_type ON dishes(tenant_id, dish_type);
-CREATE INDEX idx_dishes_tenant_active ON dishes(tenant_id, is_active);
-CREATE INDEX idx_dishes_name_trgm ON dishes USING gin (name gin_trgm_ops);
+CREATE INDEX idx_dishes_category ON dishes(category_id);
+CREATE INDEX idx_dishes_name ON dishes(name);
+CREATE INDEX idx_dishes_status ON dishes(status);
 
-CREATE TABLE recipe_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    dish_id UUID NOT NULL REFERENCES dishes(id) ON DELETE CASCADE,
-    food_id UUID NOT NULL REFERENCES foods(id) ON DELETE RESTRICT,
-    net_weight_per_portion_g NUMERIC(8,2) NOT NULL CHECK (net_weight_per_portion_g > 0),
-    gross_weight_per_portion_g NUMERIC(8,2) NOT NULL,
-    shrinkage_ratio NUMERIC(5,2) NOT NULL DEFAULT 0 
-        CHECK (shrinkage_ratio >= 0 AND shrinkage_ratio <= 100),
-    prep_notes TEXT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_gross_gte_net CHECK (gross_weight_per_portion_g >= net_weight_per_portion_g),
-    CONSTRAINT uq_recipe_items_dish_food UNIQUE (dish_id, food_id)
+-- dish_recipes: Công thức món (gross/net weight)
+CREATE TABLE dish_recipes (
+    id            BIGSERIAL PRIMARY KEY,
+    dish_id       BIGINT NOT NULL REFERENCES dishes(id) ON DELETE CASCADE,
+    ingredient_id BIGINT NOT NULL REFERENCES food_ingredients(id) ON DELETE CASCADE,
+    gross_weight_g NUMERIC(8,2) NOT NULL DEFAULT 0,
+    net_weight_g   NUMERIC(8,2) NOT NULL DEFAULT 0,
+    note          TEXT,
+    CONSTRAINT uq_dish_recipes_dish_ingredient UNIQUE (dish_id, ingredient_id)
 );
 
-CREATE INDEX idx_recipe_items_tenant_id ON recipe_items(tenant_id);
-CREATE INDEX idx_recipe_items_tenant_dish ON recipe_items(tenant_id, dish_id);
-CREATE INDEX idx_recipe_items_food ON recipe_items(food_id);
+CREATE INDEX idx_dish_recipes_dish ON dish_recipes(dish_id);
+CREATE INDEX idx_dish_recipes_ingredient ON dish_recipes(ingredient_id);
+
+-- dish_nutrition: Dinh dưỡng đã cache của 1 suất chuẩn
+CREATE TABLE dish_nutrition (
+    dish_id     BIGINT PRIMARY KEY REFERENCES dishes(id) ON DELETE CASCADE,
+    energy_kcal NUMERIC(8,2) NOT NULL DEFAULT 0,
+    protein_g   NUMERIC(8,2) NOT NULL DEFAULT 0,
+    fat_g       NUMERIC(8,2) NOT NULL DEFAULT 0,
+    carb_g      NUMERIC(8,2) NOT NULL DEFAULT 0,
+    fiber_g     NUMERIC(8,2) NOT NULL DEFAULT 0,
+    calcium_mg  NUMERIC(8,2) NOT NULL DEFAULT 0,
+    iron_mg     NUMERIC(8,2) NOT NULL DEFAULT 0,
+    zinc_mg     NUMERIC(8,2) NOT NULL DEFAULT 0
+);
+
+-- dish_allergens: Liên kết món ăn với các chất gây dị ứng (SEAFOOD, EGG, MILK, SOY, PEANUT...)
+CREATE TABLE dish_allergens (
+    dish_id      BIGINT NOT NULL REFERENCES dishes(id) ON DELETE CASCADE,
+    allergen_id  BIGINT NOT NULL REFERENCES allergens(id) ON DELETE CASCADE,
+    risk_level   VARCHAR(20) NOT NULL DEFAULT 'HIGH'
+                    CHECK (risk_level IN ('LOW', 'MEDIUM', 'HIGH')),
+    note         VARCHAR(255),
+    PRIMARY KEY (dish_id, allergen_id)
+);
+
+CREATE INDEX idx_dish_allergens_dish ON dish_allergens(dish_id);
+CREATE INDEX idx_dish_allergens_allergen ON dish_allergens(allergen_id);
+
+-- nutrition_conversion_factors: Hệ số chuyển đổi 4-9-4 (Protein/Fat/Carb…)
+CREATE TABLE nutrition_conversion_factors (
+    id            BIGSERIAL PRIMARY KEY,
+    nutrient_code VARCHAR(20) NOT NULL UNIQUE,
+    kcal_per_gram NUMERIC(5,2) NOT NULL,
+    description   TEXT,
+    is_active     BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- nutritional_standards: Chuẩn dinh dưỡng theo nhóm tuổi & mức Kcal ngày
+CREATE TABLE nutritional_standards (
+    id              BIGSERIAL PRIMARY KEY,
+    age_group       VARCHAR(20) NOT NULL
+                        CHECK (age_group IN ('NHA_TRE', 'MAU_GIAO')),
+    meal_scope      VARCHAR(20) NOT NULL
+                        CHECK (meal_scope IN ('FULL_DAY', 'DAYBOARDING', 'ALL_DAY', 'LUNCH_ONLY')),
+    min_energy_kcal NUMERIC(6,1) NOT NULL DEFAULT 0,
+    max_energy_kcal NUMERIC(6,1) NOT NULL DEFAULT 0,
+    min_protein_pct NUMERIC(5,2) NOT NULL DEFAULT 0,
+    max_protein_pct NUMERIC(5,2) NOT NULL DEFAULT 0,
+    min_fat_pct     NUMERIC(5,2) NOT NULL DEFAULT 0,
+    max_fat_pct     NUMERIC(5,2) NOT NULL DEFAULT 0,
+    min_carb_pct    NUMERIC(5,2) NOT NULL DEFAULT 0,
+    max_carb_pct    NUMERIC(5,2) NOT NULL DEFAULT 0,
+    min_calcium_mg  NUMERIC(8,2) NOT NULL DEFAULT 0,
+    min_iron_mg     NUMERIC(8,2) NOT NULL DEFAULT 0,
+    min_zinc_mg     NUMERIC(8,2) NOT NULL DEFAULT 0,
+    max_sodium_mg   NUMERIC(8,2) NOT NULL DEFAULT 0,
+    status          VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+                        CHECK (status IN ('ACTIVE', 'INACTIVE'))
+);
+
+CREATE INDEX idx_nutritional_standards_age ON nutritional_standards(age_group);
+
+-- nutrition_rule_codes: Mã quy tắc cảnh báo
+CREATE TABLE nutrition_rule_codes (
+    id          BIGSERIAL PRIMARY KEY,
+    code        VARCHAR(50) NOT NULL UNIQUE,
+    severity    VARCHAR(20) NOT NULL DEFAULT 'WARNING'
+                    CHECK (severity IN ('INFO', 'WARNING', 'ERROR')),
+    description TEXT
+);
 
 -- ============================================================================
--- MODULE 4: NUTRITION STANDARDS, RULES & VIOLATIONS LOG
+-- 5. NHÓM THỰC ĐƠN
 -- ============================================================================
 
-CREATE TABLE nutrition_rules (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    target_age_group VARCHAR(50) NOT NULL CHECK (target_age_group IN (
-        'TODDLER_18_36M', 'KINDERGARTEN_3_4Y', 'KINDERGARTEN_4_5Y', 'KINDERGARTEN_5_6Y', 'ALL_AGES'
-    )),
-    meal_scope VARCHAR(50) NOT NULL CHECK (meal_scope IN (
-        'FULL_DAY_SCHOOL', 'LUNCH_ONLY', 'SNACK_ONLY', 'PER_MEAL'
-    )),
-    min_calories_kcal NUMERIC(8,2) NOT NULL CHECK (min_calories_kcal >= 0),
-    max_calories_kcal NUMERIC(8,2) NOT NULL,
-    min_protein_percent NUMERIC(5,2) NOT NULL CHECK (min_protein_percent >= 0),
-    max_protein_percent NUMERIC(5,2) NOT NULL,
-    min_fat_percent NUMERIC(5,2) NOT NULL CHECK (min_fat_percent >= 0),
-    max_fat_percent NUMERIC(5,2) NOT NULL,
-    min_carb_percent NUMERIC(5,2) NOT NULL CHECK (min_carb_percent >= 0),
-    max_carb_percent NUMERIC(5,2) NOT NULL,
-    min_calcium_mg NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (min_calcium_mg >= 0),
-    min_iron_mg NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (min_iron_mg >= 0),
-    min_zinc_mg NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (min_zinc_mg >= 0),
-    max_sodium_mg NUMERIC(8,2) NULL CHECK (max_sodium_mg >= 0),
-    ca_p_ratio_min NUMERIC(4,2) NOT NULL DEFAULT 1.00 CHECK (ca_p_ratio_min > 0),
-    ca_p_ratio_max NUMERIC(4,2) NOT NULL DEFAULT 1.50,
-    is_strict BOOLEAN NOT NULL DEFAULT TRUE,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_rule_calories CHECK (max_calories_kcal >= min_calories_kcal),
-    CONSTRAINT chk_rule_protein CHECK (max_protein_percent >= min_protein_percent),
-    CONSTRAINT chk_rule_fat CHECK (max_fat_percent >= min_fat_percent),
-    CONSTRAINT chk_rule_carb CHECK (max_carb_percent >= min_carb_percent),
-    CONSTRAINT chk_rule_ca_p CHECK (ca_p_ratio_max >= ca_p_ratio_min)
+-- menu_cycles: Chu kỳ thực đơn (ví dụ 4 tuần liên tiếp)
+CREATE TABLE menu_cycles (
+    id                 BIGSERIAL PRIMARY KEY,
+    name               VARCHAR(100) NOT NULL,
+    age_group          VARCHAR(20) NOT NULL
+                           CHECK (age_group IN ('NHA_TRE', 'MAU_GIAO')),
+    start_date         DATE NOT NULL,
+    end_date           DATE NOT NULL,
+    cycle_length_weeks INT NOT NULL DEFAULT 4,
+    status             VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+                           CHECK (status IN ('ACTIVE', 'CLOSED')),
+    CONSTRAINT chk_menu_cycles_dates CHECK (end_date >= start_date)
 );
 
-CREATE INDEX idx_nutrition_rules_tenant_id ON nutrition_rules(tenant_id);
-CREATE INDEX idx_nutrition_rules_tenant_age ON nutrition_rules(tenant_id, target_age_group);
-CREATE INDEX idx_nutrition_rules_active ON nutrition_rules(tenant_id, is_active);
-
+-- menus: Thực đơn tuần
 CREATE TABLE menus (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    menu_cycle_type VARCHAR(50) NOT NULL CHECK (menu_cycle_type IN (
-        'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'CUSTOM'
-    )),
-    target_age_group VARCHAR(50) NOT NULL CHECK (target_age_group IN (
-        'TODDLER_18_36M', 'KINDERGARTEN_3_4Y', 'KINDERGARTEN_4_5Y', 'KINDERGARTEN_5_6Y', 'ALL_AGES'
-    )),
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    cycle_week_number INT NOT NULL DEFAULT 1 CHECK (cycle_week_number BETWEEN 1 AND 8),
-    status VARCHAR(50) NOT NULL DEFAULT 'DRAFT' CHECK (status IN (
-        'DRAFT', 'SUBMITTED_FOR_REVIEW', 'APPROVED', 'REJECTED', 'ACTIVE', 'ARCHIVED'
-    )),
-    created_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    approved_by UUID NULL REFERENCES users(id) ON DELETE SET NULL,
-    approved_at TIMESTAMPTZ NULL,
-    approval_notes TEXT NULL,
-    daily_average_calories NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (daily_average_calories >= 0),
-    daily_average_protein_g NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (daily_average_protein_g >= 0),
-    daily_average_fat_g NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (daily_average_fat_g >= 0),
-    daily_average_carb_g NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (daily_average_carb_g >= 0),
-    is_published BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_menu_dates CHECK (end_date >= start_date)
+    id              BIGSERIAL PRIMARY KEY,
+    cycle_id        BIGINT REFERENCES menu_cycles(id) ON DELETE SET NULL,
+    week_start_date DATE NOT NULL,
+    week_end_date   DATE NOT NULL,
+    age_group       VARCHAR(20) NOT NULL
+                        CHECK (age_group IN ('NHA_TRE', 'MAU_GIAO')),
+    title           VARCHAR(200) NOT NULL,
+    status          VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
+                        CHECK (status IN ('DRAFT', 'PENDING', 'APPROVED', 'PUBLISHED', 'REJECTED')),
+    created_by      BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    approved_by     BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    approved_at     TIMESTAMPTZ,
+    CONSTRAINT chk_menus_dates CHECK (week_end_date >= week_start_date)
 );
 
-CREATE INDEX idx_menus_tenant_id ON menus(tenant_id);
-CREATE INDEX idx_menus_tenant_dates ON menus(tenant_id, start_date, end_date);
-CREATE INDEX idx_menus_tenant_status ON menus(tenant_id, status);
-CREATE INDEX idx_menus_tenant_age ON menus(tenant_id, target_age_group);
-CREATE INDEX idx_menus_created_by ON menus(created_by);
-CREATE INDEX idx_menus_approved_by ON menus(approved_by);
+CREATE INDEX idx_menus_cycle ON menus(cycle_id);
+CREATE INDEX idx_menus_status ON menus(status);
+CREATE INDEX idx_menus_age_group ON menus(age_group);
+CREATE INDEX idx_menus_dates ON menus(week_start_date, week_end_date);
 
-CREATE TABLE rule_violations_log (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    rule_id UUID NULL REFERENCES nutrition_rules(id) ON DELETE SET NULL,
-    menu_id UUID NULL REFERENCES menus(id) ON DELETE CASCADE,
-    dish_id UUID NULL REFERENCES dishes(id) ON DELETE SET NULL,
-    child_id UUID NULL REFERENCES children(id) ON DELETE CASCADE,
-    violation_code VARCHAR(50) NOT NULL CHECK (violation_code IN (
-        'CALORIE_DEFICIT', 'CALORIE_EXCESS', 'PROTEIN_OUT_OF_RANGE', 
-        'FAT_OUT_OF_RANGE', 'CARB_OUT_OF_RANGE', 'CALCIUM_DEFICIT', 
-        'IRON_DEFICIT', 'ALLERGEN_CONFLICT', 'INCOMPATIBLE_FOODS', 'REPEAT_DISH_IN_CYCLE'
-    )),
-    severity VARCHAR(50) NOT NULL CHECK (severity IN ('INFO', 'WARNING', 'CRITICAL', 'FATAL_BLOCKER')),
-    target_date DATE NULL,
-    meal_type VARCHAR(50) NULL,
-    message TEXT NOT NULL,
-    details JSONB NOT NULL DEFAULT '{}'::jsonb,
-    status VARCHAR(50) NOT NULL DEFAULT 'OPEN' 
-        CHECK (status IN ('OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'OVERRIDDEN')),
-    resolved_by UUID NULL REFERENCES users(id) ON DELETE SET NULL,
-    resolved_at TIMESTAMPTZ NULL,
-    resolution_comment TEXT NULL,
+-- menu_versions: Phiên bản thực đơn (hỗ trợ điều chỉnh)
+CREATE TABLE menu_versions (
+    id             BIGSERIAL PRIMARY KEY,
+    menu_id        BIGINT NOT NULL REFERENCES menus(id) ON DELETE CASCADE,
+    version_number INT NOT NULL DEFAULT 1,
+    change_note    TEXT,
+    created_by     BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_menu_versions_menu ON menu_versions(menu_id);
+
+-- menu_days: Thực đơn theo ngày
+CREATE TABLE menu_days (
+    id              BIGSERIAL PRIMARY KEY,
+    menu_version_id BIGINT NOT NULL REFERENCES menu_versions(id) ON DELETE CASCADE,
+    day_of_week     INT NOT NULL CHECK (day_of_week BETWEEN 2 AND 6),
+    date            DATE NOT NULL
+);
+
+CREATE INDEX idx_menu_days_version ON menu_days(menu_version_id);
+
+-- menu_meals: Các bữa trong ngày
+CREATE TABLE menu_meals (
+    id          BIGSERIAL PRIMARY KEY,
+    menu_day_id BIGINT NOT NULL REFERENCES menu_days(id) ON DELETE CASCADE,
+    meal_type   VARCHAR(30) NOT NULL
+                    CHECK (meal_type IN ('MORNING_SNACK', 'LUNCH', 'AFTERNOON_SNACK'))
+);
+
+CREATE INDEX idx_menu_meals_day ON menu_meals(menu_day_id);
+
+-- menu_dishes: Món trong từng bữa
+CREATE TABLE menu_dishes (
+    id             BIGSERIAL PRIMARY KEY,
+    menu_meal_id   BIGINT NOT NULL REFERENCES menu_meals(id) ON DELETE CASCADE,
+    dish_id        BIGINT NOT NULL REFERENCES dishes(id) ON DELETE CASCADE,
+    portion_size_g NUMERIC(8,2),
+    display_order  INT NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_menu_dishes_meal ON menu_dishes(menu_meal_id);
+CREATE INDEX idx_menu_dishes_dish ON menu_dishes(dish_id);
+
+-- menu_rule_violations: Lịch sử vi phạm khi thẩm định
+CREATE TABLE menu_rule_violations (
+    id              BIGSERIAL PRIMARY KEY,
+    menu_version_id BIGINT NOT NULL REFERENCES menu_versions(id) ON DELETE CASCADE,
+    rule_code       VARCHAR(50) NOT NULL,
+    severity        VARCHAR(20) NOT NULL DEFAULT 'WARNING'
+                        CHECK (severity IN ('INFO', 'WARNING', 'ERROR')),
+    message         TEXT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_menu_rule_violations_version ON menu_rule_violations(menu_version_id);
+
+-- ============================================================================
+-- 6. NHÓM DỊCH VỤ ĂN XẾ
+-- ============================================================================
+
+-- snack_service_periods: Kỳ đăng ký dịch vụ ăn xế
+CREATE TABLE snack_service_periods (
+    id                    BIGSERIAL PRIMARY KEY,
+    name                  VARCHAR(100) NOT NULL,
+    start_date            DATE NOT NULL,
+    end_date              DATE NOT NULL,
+    registration_deadline DATE,
+    fee_amount            NUMERIC(12,2) NOT NULL DEFAULT 0,
+    status                VARCHAR(20) NOT NULL DEFAULT 'OPEN'
+                              CHECK (status IN ('OPEN', 'CLOSED')),
+    CONSTRAINT chk_snack_period_dates CHECK (end_date >= start_date)
+);
+
+-- snack_registrations: Đăng ký của trẻ
+CREATE TABLE snack_registrations (
+    id            BIGSERIAL PRIMARY KEY,
+    period_id     BIGINT NOT NULL REFERENCES snack_service_periods(id) ON DELETE CASCADE,
+    student_id    BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    parent_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status        VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+                      CHECK (status IN ('PENDING', 'PAID', 'CANCELLED')),
+    registered_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_snack_reg_period ON snack_registrations(period_id);
+CREATE INDEX idx_snack_reg_student ON snack_registrations(student_id);
+CREATE INDEX idx_snack_reg_parent ON snack_registrations(parent_id);
+CREATE INDEX idx_snack_reg_status ON snack_registrations(status);
+
+-- payments: Thanh toán (VNPAY…)
+CREATE TABLE payments (
+    id                     BIGSERIAL PRIMARY KEY,
+    registration_id        BIGINT REFERENCES snack_registrations(id) ON DELETE SET NULL,
+    amount                 NUMERIC(12,2) NOT NULL,
+    vnpay_transaction_code VARCHAR(100),
+    status                 VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+                               CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED', 'REFUNDED')),
+    paid_at                TIMESTAMPTZ,
+    raw_response           TEXT
+);
+
+CREATE INDEX idx_payments_registration ON payments(registration_id);
+CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_payments_vnpay_code ON payments(vnpay_transaction_code);
+
+-- snack_daily_rosters: Danh sách suất xế theo ngày
+CREATE TABLE snack_daily_rosters (
+    id              BIGSERIAL PRIMARY KEY,
+    date            DATE NOT NULL,
+    student_id      BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    registration_id BIGINT REFERENCES snack_registrations(id) ON DELETE SET NULL,
+    status          VARCHAR(20) NOT NULL DEFAULT 'PLANNED'
+                        CHECK (status IN ('PLANNED', 'SERVED', 'ABSENT', 'CANCELLED'))
+);
+
+CREATE INDEX idx_snack_roster_date ON snack_daily_rosters(date);
+CREATE INDEX idx_snack_roster_student ON snack_daily_rosters(student_id);
+
+-- ============================================================================
+-- 7. NHÓM VẬN HÀNH HÀNG NGÀY
+-- ============================================================================
+
+-- daily_meal_portions: Số suất cần chuẩn bị
+CREATE TABLE daily_meal_portions (
+    id               BIGSERIAL PRIMARY KEY,
+    date             DATE NOT NULL,
+    class_id         BIGINT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    meal_type        VARCHAR(30) NOT NULL
+                         CHECK (meal_type IN ('MORNING_SNACK', 'LUNCH', 'AFTERNOON_SNACK')),
+    planned_quantity INT NOT NULL DEFAULT 0,
+    actual_quantity  INT,
+    note             TEXT
+);
+
+CREATE INDEX idx_daily_portions_date ON daily_meal_portions(date);
+CREATE INDEX idx_daily_portions_class ON daily_meal_portions(class_id);
+
+-- meal_attendances: Điểm danh + đánh giá mức độ ăn
+CREATE TABLE meal_attendances (
+    id                BIGSERIAL PRIMARY KEY,
+    student_id        BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    date              DATE NOT NULL,
+    meal_type         VARCHAR(30) NOT NULL
+                          CHECK (meal_type IN ('MORNING_SNACK', 'LUNCH', 'AFTERNOON_SNACK')),
+    is_attended       BOOLEAN NOT NULL DEFAULT TRUE,
+    consumption_level VARCHAR(20)
+                          CHECK (consumption_level IN ('FULL', 'PARTIAL', 'NONE')),
+    note              TEXT,
+    recorded_by       BIGINT REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_meal_att_student ON meal_attendances(student_id);
+CREATE INDEX idx_meal_att_date ON meal_attendances(date);
+CREATE UNIQUE INDEX idx_meal_att_unique ON meal_attendances(student_id, date, meal_type);
+
+-- meal_notes: Ghi chú phối hợp giữa các bên
+CREATE TABLE meal_notes (
+    id           BIGSERIAL PRIMARY KEY,
+    date         DATE NOT NULL,
+    from_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content      TEXT NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_meal_notes_date ON meal_notes(date);
+CREATE INDEX idx_meal_notes_user ON meal_notes(from_user_id);
+
+-- ============================================================================
+-- 8. NHÓM AN TOÀN THỰC PHẨM
+-- ============================================================================
+
+-- food_inspections: Kiểm tra 3 bước
+CREATE TABLE food_inspections (
+    id              BIGSERIAL PRIMARY KEY,
+    date            DATE NOT NULL,
+    inspection_step VARCHAR(50) NOT NULL
+                        CHECK (inspection_step IN (
+                            'STEP_1_RAW_CHECK',
+                            'STEP_2_PROCESSING_CHECK',
+                            'STEP_3_PRE_SERVING_CHECK'
+                        )),
+    inspector_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    result          VARCHAR(20) NOT NULL DEFAULT 'PASS'
+                        CHECK (result IN ('PASS', 'FAIL')),
+    note            TEXT
+);
+
+CREATE INDEX idx_food_inspections_date ON food_inspections(date);
+CREATE INDEX idx_food_inspections_inspector ON food_inspections(inspector_id);
+
+-- inspection_images: Ảnh minh chứng kiểm tra
+CREATE TABLE inspection_images (
+    id            BIGSERIAL PRIMARY KEY,
+    inspection_id BIGINT NOT NULL REFERENCES food_inspections(id) ON DELETE CASCADE,
+    image_url     VARCHAR(500) NOT NULL,
+    uploaded_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_inspection_images_inspection ON inspection_images(inspection_id);
+
+-- food_samples: Lưu mẫu 24 giờ (QĐ 1246/QĐ-BYT)
+CREATE TABLE food_samples (
+    id          BIGSERIAL PRIMARY KEY,
+    date        DATE NOT NULL,
+    dish_name   VARCHAR(150) NOT NULL,
+    sample_code VARCHAR(50) NOT NULL,
+    stored_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    dispose_at  TIMESTAMPTZ,
+    status      VARCHAR(20) NOT NULL DEFAULT 'STORED'
+                    CHECK (status IN ('STORED', 'DISPOSED')),
+    note        TEXT
+);
+
+CREATE INDEX idx_food_samples_date ON food_samples(date);
+CREATE INDEX idx_food_samples_status ON food_samples(status);
+CREATE INDEX idx_food_samples_code ON food_samples(sample_code);
+
+-- ============================================================================
+-- 9. NHÓM TĂNG TRƯỞNG & PHẢN HỒI
+-- ============================================================================
+
+-- physical_measurements: Chiều cao – cân nặng
+CREATE TABLE physical_measurements (
+    id            BIGSERIAL PRIMARY KEY,
+    student_id    BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    measured_date DATE NOT NULL,
+    height_cm     NUMERIC(5,1) NOT NULL,
+    weight_kg     NUMERIC(5,2) NOT NULL,
+    measured_by   BIGINT REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_measurements_student ON physical_measurements(student_id);
+CREATE INDEX idx_measurements_date ON physical_measurements(measured_date);
+CREATE UNIQUE INDEX idx_measurements_unique ON physical_measurements(student_id, measured_date);
+
+-- growth_zscores: Chỉ số Z-score (WHO)
+CREATE TABLE growth_zscores (
+    id               BIGSERIAL PRIMARY KEY,
+    measurement_id   BIGINT NOT NULL REFERENCES physical_measurements(id) ON DELETE CASCADE,
+    waz              NUMERIC(5,2),
+    haz              NUMERIC(5,2),
+    baz              NUMERIC(5,2),
+    classification   VARCHAR(30) NOT NULL DEFAULT 'NORMAL'
+                         CHECK (classification IN (
+                             'NORMAL', 'UNDERWEIGHT', 'OVERWEIGHT', 'OBESE', 'STUNTED'
+                         ))
+);
+
+CREATE INDEX idx_zscores_measurement ON growth_zscores(measurement_id);
+CREATE INDEX idx_zscores_classification ON growth_zscores(classification);
+
+-- parent_evaluations: Đánh giá của phụ huynh
+CREATE TABLE parent_evaluations (
+    id         BIGSERIAL PRIMARY KEY,
+    student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    menu_id    BIGINT REFERENCES menus(id) ON DELETE SET NULL,
+    rating     INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment    TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_rule_violations_tenant_id ON rule_violations_log(tenant_id);
-CREATE INDEX idx_rule_violations_tenant_status ON rule_violations_log(tenant_id, status);
-CREATE INDEX idx_rule_violations_menu ON rule_violations_log(menu_id);
-CREATE INDEX idx_rule_violations_child ON rule_violations_log(child_id);
-CREATE INDEX idx_rule_violations_details_gin ON rule_violations_log USING gin (details);
-CREATE INDEX idx_rule_violations_rule ON rule_violations_log(rule_id);
-CREATE INDEX idx_rule_violations_dish ON rule_violations_log(dish_id);
-CREATE INDEX idx_rule_violations_resolver ON rule_violations_log(resolved_by);
+CREATE INDEX idx_parent_eval_student ON parent_evaluations(student_id);
+CREATE INDEX idx_parent_eval_menu ON parent_evaluations(menu_id);
 
--- ============================================================================
--- MODULE 5: MENUS & MENU DISHES
--- ============================================================================
-
-CREATE TABLE menu_dishes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    menu_id UUID NOT NULL REFERENCES menus(id) ON DELETE CASCADE,
-    dish_id UUID NOT NULL REFERENCES dishes(id) ON DELETE RESTRICT,
-    day_of_week INT NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
-    meal_time VARCHAR(50) NOT NULL CHECK (meal_time IN (
-        'BREAKFAST', 'MORNING_SNACK', 'LUNCH', 'AFTERNOON_SNACK', 'LATE_SNACK'
-    )),
-    serving_order INT NOT NULL DEFAULT 1 CHECK (serving_order >= 1),
-    portion_size_g NUMERIC(8,2) NOT NULL CHECK (portion_size_g > 0),
-    planned_calories NUMERIC(8,2) NOT NULL DEFAULT 0 CHECK (planned_calories >= 0),
-    substitute_dish_id UUID NULL REFERENCES dishes(id) ON DELETE SET NULL,
-    special_diet_notes TEXT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_menu_dishes_unique_slot UNIQUE (menu_id, day_of_week, meal_time, dish_id)
+-- evaluation_replies: Phản hồi của nhà trường
+CREATE TABLE evaluation_replies (
+    id            BIGSERIAL PRIMARY KEY,
+    evaluation_id BIGINT NOT NULL REFERENCES parent_evaluations(id) ON DELETE CASCADE,
+    replied_by    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content       TEXT NOT NULL,
+    replied_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_menu_dishes_tenant_id ON menu_dishes(tenant_id);
-CREATE INDEX idx_menu_dishes_tenant_menu ON menu_dishes(tenant_id, menu_id);
-CREATE INDEX idx_menu_dishes_dish_id ON menu_dishes(dish_id);
-CREATE INDEX idx_menu_dishes_slot ON menu_dishes(tenant_id, menu_id, day_of_week, meal_time);
-CREATE INDEX idx_menu_dishes_substitute ON menu_dishes(substitute_dish_id);
+CREATE INDEX idx_eval_replies_evaluation ON evaluation_replies(evaluation_id);
 
 -- ============================================================================
--- MODULE 6: SNACK SERVICES, REGISTRATIONS & VNPAY BILLING
+-- 10. NHÓM HỖ TRỢ HỆ THỐNG
 -- ============================================================================
 
-CREATE TABLE snack_services (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    description TEXT NULL,
-    service_type VARCHAR(50) NOT NULL CHECK (service_type IN (
-        'AFTER_SCHOOL_SNACK', 'PREMIUM_MILK', 'ORGANIC_FRUIT', 'CUSTOM_NUTRITION'
-    )),
-    billing_cycle VARCHAR(50) NOT NULL CHECK (billing_cycle IN (
-        'PER_MEAL', 'WEEKLY', 'MONTHLY', 'SEMESTER'
-    )),
-    price_per_unit NUMERIC(12,2) NOT NULL CHECK (price_per_unit >= 0),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    available_from DATE NOT NULL,
-    available_to DATE NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- notifications: Thông báo (dị ứng, tăng trưởng, thanh toán…)
+CREATE TABLE notifications (
+    id         BIGSERIAL PRIMARY KEY,
+    user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title      VARCHAR(200) NOT NULL,
+    content    TEXT,
+    type       VARCHAR(50),
+    is_read    BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_snack_services_tenant_id ON snack_services(tenant_id);
-CREATE INDEX idx_snack_services_tenant_active ON snack_services(tenant_id, is_active);
+CREATE INDEX idx_notifications_user ON notifications(user_id);
+CREATE INDEX idx_notifications_read ON notifications(user_id, is_read);
+CREATE INDEX idx_notifications_type ON notifications(type);
 
-CREATE TABLE snack_registrations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    child_id UUID NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-    snack_service_id UUID NOT NULL REFERENCES snack_services(id) ON DELETE RESTRICT,
-    registered_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    quantity_per_day INT NOT NULL DEFAULT 1 CHECK (quantity_per_day >= 1),
-    total_price NUMERIC(12,2) NOT NULL CHECK (total_price >= 0),
-    status VARCHAR(50) NOT NULL DEFAULT 'PENDING_PAYMENT' CHECK (status IN (
-        'PENDING_PAYMENT', 'ACTIVE', 'PAUSED', 'EXPIRED', 'CANCELLED'
-    )),
-    special_notes TEXT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_registration_dates CHECK (end_date >= start_date)
+-- system_configs: Cấu hình hệ thống
+CREATE TABLE system_configs (
+    id           BIGSERIAL PRIMARY KEY,
+    config_key   VARCHAR(100) NOT NULL UNIQUE,
+    config_value TEXT,
+    description  TEXT
 );
 
-CREATE INDEX idx_snack_reg_tenant_id ON snack_registrations(tenant_id);
-CREATE INDEX idx_snack_reg_tenant_child ON snack_registrations(tenant_id, child_id);
-CREATE INDEX idx_snack_reg_tenant_status ON snack_registrations(tenant_id, status);
-CREATE INDEX idx_snack_reg_service ON snack_registrations(snack_service_id);
-CREATE INDEX idx_snack_reg_registrar ON snack_registrations(registered_by);
-
-CREATE TABLE transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    registration_id UUID NULL REFERENCES snack_registrations(id) ON DELETE SET NULL,
-    payer_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    order_code VARCHAR(100) NOT NULL UNIQUE,
-    amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
-    currency VARCHAR(10) NOT NULL DEFAULT 'VND',
-    payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN (
-        'VNPAY', 'BANK_TRANSFER', 'CASH', 'WALLET'
-    )),
-    status VARCHAR(50) NOT NULL DEFAULT 'PENDING' CHECK (status IN (
-        'PENDING', 'SUCCESS', 'FAILED', 'CANCELLED', 'REFUNDED'
-    )),
-    vnp_transaction_no VARCHAR(100) NULL,
-    vnp_bank_code VARCHAR(50) NULL,
-    vnp_card_type VARCHAR(50) NULL,
-    vnp_order_info TEXT NULL,
-    vnp_pay_date TIMESTAMPTZ NULL,
-    vnp_response_code VARCHAR(10) NULL,
-    vnp_secure_hash VARCHAR(255) NULL,
-    raw_callback_payload JSONB NULL,
-    paid_at TIMESTAMPTZ NULL,
-    refunded_at TIMESTAMPTZ NULL,
-    refund_reason TEXT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_transactions_tenant_id ON transactions(tenant_id);
-CREATE INDEX idx_transactions_tenant_status ON transactions(tenant_id, status);
-CREATE INDEX idx_transactions_order_code ON transactions(order_code);
-CREATE INDEX idx_transactions_payer ON transactions(payer_id);
-CREATE INDEX idx_transactions_registration ON transactions(registration_id);
-CREATE INDEX idx_transactions_payload_gin ON transactions USING gin (raw_callback_payload);
-
 -- ============================================================================
--- MODULE 7: DAILY MEAL ATTENDANCE & PORTION CONSUMPTION
+-- WHO Child Growth Reference LMS Lookup Table (hệ thống dùng chung)
 -- ============================================================================
-
-CREATE TABLE daily_meal_attendance (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE RESTRICT,
-    child_id UUID NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-    attendance_date DATE NOT NULL,
-    meal_type VARCHAR(50) NOT NULL CHECK (meal_type IN (
-        'BREAKFAST', 'MORNING_SNACK', 'LUNCH', 'AFTERNOON_SNACK', 'EXTRA_SNACK'
-    )),
-    attendance_status VARCHAR(50) NOT NULL DEFAULT 'PRESENT' CHECK (attendance_status IN (
-        'PRESENT', 'ABSENT_PERMITTED', 'ABSENT_UNPERMITTED', 'NOT_REGISTERED'
-    )),
-    recorded_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    recorded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    checkin_source VARCHAR(50) NOT NULL DEFAULT 'TEACHER_APP' CHECK (checkin_source IN (
-        'TEACHER_APP', 'KIOSK_FACE_QR', 'ADMIN_MANUAL'
-    )),
-    notes TEXT NULL,
-    CONSTRAINT uq_daily_meal_attendance UNIQUE (tenant_id, child_id, attendance_date, meal_type)
-);
-
-CREATE INDEX idx_daily_meal_att_tenant_id ON daily_meal_attendance(tenant_id);
-CREATE INDEX idx_daily_meal_att_tenant_date ON daily_meal_attendance(tenant_id, attendance_date, meal_type);
-CREATE INDEX idx_daily_meal_att_class ON daily_meal_attendance(class_id, attendance_date);
-CREATE INDEX idx_daily_meal_att_child ON daily_meal_attendance(child_id);
-CREATE INDEX idx_daily_meal_att_recorder ON daily_meal_attendance(recorded_by);
-
-CREATE TABLE meal_consumption_status (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    attendance_id UUID NOT NULL REFERENCES daily_meal_attendance(id) ON DELETE CASCADE,
-    menu_dish_id UUID NULL REFERENCES menu_dishes(id) ON DELETE SET NULL,
-    portion_consumed VARCHAR(50) NOT NULL CHECK (portion_consumed IN (
-        'ALL', 'HALF', 'QUARTER', 'NONE', 'DOUBLE_PORTION'
-    )),
-    consumption_percentage INT NOT NULL CHECK (consumption_percentage BETWEEN 0 AND 200),
-    adverse_reaction_observed BOOLEAN NOT NULL DEFAULT FALSE,
-    reaction_description TEXT NULL,
-    teacher_feedback TEXT NULL,
-    photo_evidence_url TEXT NULL,
-    water_intake VARCHAR(100) NULL DEFAULT '200ml Nước ấm',
-    sync_status VARCHAR(50) NULL DEFAULT 'SENT',
-    sent_at VARCHAR(50) NULL,
-    recorded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_consumption_attendance_dish UNIQUE (attendance_id, menu_dish_id)
-);
-
-CREATE INDEX idx_consumption_tenant_id ON meal_consumption_status(tenant_id);
-CREATE INDEX idx_consumption_tenant_attendance ON meal_consumption_status(tenant_id, attendance_id);
-CREATE INDEX idx_consumption_menu_dish ON meal_consumption_status(menu_dish_id);
-CREATE INDEX idx_consumption_reaction ON meal_consumption_status(tenant_id, adverse_reaction_observed) 
-    WHERE adverse_reaction_observed = TRUE;
-
--- ============================================================================
--- MODULE 8: FOOD SAFETY 3-STEP INSPECTION & 24H SAMPLE RETENTION
--- ============================================================================
-
-CREATE TABLE food_safety_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    inspection_date DATE NOT NULL,
-    meal_session VARCHAR(50) NOT NULL CHECK (meal_session IN (
-        'BREAKFAST', 'LUNCH', 'AFTERNOON_SNACK', 'ALL_DAY'
-    )),
-    step_number INT NOT NULL CHECK (step_number IN (1, 2, 3)),
-    step_name VARCHAR(100) NOT NULL CHECK (step_name IN (
-        'STEP_1_RAW_INGREDIENT_CHECK', 
-        'STEP_2_PROCESSING_CHECK', 
-        'STEP_3_PRE_SERVING_SAMPLE_RETENTION'
-    )),
-    
-    -- Bước 1: Kiểm thực nguyên liệu đầu vào
-    supplier_name VARCHAR(255) NULL,
-    ingredient_name VARCHAR(255) NULL,
-    invoice_contract_number VARCHAR(100) NULL,
-    gross_quantity_kg NUMERIC(10,2) NULL CHECK (gross_quantity_kg >= 0),
-    ingredient_origin VARCHAR(255) NULL,
-    expiry_date DATE NULL,
-    sensory_status_raw VARCHAR(50) NULL CHECK (sensory_status_raw IN (
-        'FRESH_GOOD', 'SATISFACTORY', 'SUBSTANDARD_REJECTED'
-    )),
-    temperature_storage_celsius NUMERIC(5,2) NULL,
-
-    -- Bước 2: Kiểm thực chế biến
-    kitchen_cleanliness_status VARCHAR(50) NULL CHECK (kitchen_cleanliness_status IN (
-        'CLEAN_COMPLIANT', 'ACCEPTABLE', 'NON_COMPLIANT'
-    )),
-    equipment_sanitation_status VARCHAR(50) NULL CHECK (equipment_sanitation_status IN (
-        'STERILIZED_CLEAN', 'SUBSTANDARD'
-    )),
-    cooking_process_notes TEXT NULL,
-    finished_dish_sensory VARCHAR(50) NULL CHECK (finished_dish_sensory IN (
-        'NORMAL_TASTY', 'ODOR_ANOMALY', 'COLOR_ANOMALY', 'REJECTED'
-    )),
-
-    -- Bước 3 & Lưu mẫu 24h (QĐ 1246/QĐ-BYT: Mẫu >= 100g, tủ lạnh 2.0°C - 8.0°C)
-    has_sample_retention BOOLEAN NOT NULL DEFAULT FALSE,
-    dish_name VARCHAR(255) NULL,
-    serving_temperature_celsius NUMERIC(5,2) NULL 
-        CHECK (serving_temperature_celsius BETWEEN 0 AND 100),
-    sample_seal_code VARCHAR(100) NULL,
-    sample_weight_g NUMERIC(8,2) NULL CHECK (sample_weight_g >= 100),
-    retention_fridge_temp_celsius NUMERIC(4,2) NULL 
-        CHECK (retention_fridge_temp_celsius BETWEEN 2.0 AND 8.0),
-    sample_taken_at TIMESTAMPTZ NULL,
-    sample_disposed_at TIMESTAMPTZ NULL,
-    sample_status VARCHAR(50) NULL CHECK (sample_status IN (
-        'RETAINED_ACTIVE', 'DISPOSED_SAFE', 'SENT_FOR_TESTING', 'SUSPECT_CONTAMINATED'
-    )),
-
-    -- Nhân sự xác nhận & Kết luận
-    inspector_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    kitchen_manager_id UUID NULL REFERENCES users(id) ON DELETE SET NULL,
-    school_representative_id UUID NULL REFERENCES users(id) ON DELETE SET NULL,
-    result_conclusion VARCHAR(50) NOT NULL DEFAULT 'PASSED' CHECK (result_conclusion IN (
-        'PASSED', 'WARNING_CORRECTED', 'REJECTED_DESTROYED'
-    )),
-    rejection_reason TEXT NULL,
-    corrective_action TEXT NULL,
-    photos TEXT[] NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_sample_retention_temp CHECK (
-        NOT has_sample_retention OR (
-            retention_fridge_temp_celsius IS NOT NULL 
-            AND retention_fridge_temp_celsius BETWEEN 2.0 AND 8.0
-            AND sample_weight_g >= 100
-            AND sample_seal_code IS NOT NULL
-            AND sample_taken_at IS NOT NULL
-        )
-    ),
-    CONSTRAINT chk_step3_sample_retention CHECK (
-        step_number != 3 OR (
-            sample_weight_g >= 100 
-            AND sample_seal_code IS NOT NULL
-            AND sample_taken_at IS NOT NULL
-            AND retention_fridge_temp_celsius IS NOT NULL
-            AND retention_fridge_temp_celsius BETWEEN 2.0 AND 8.0
-        )
-    )
-);
-
-CREATE INDEX idx_food_safety_tenant_id ON food_safety_logs(tenant_id);
-CREATE INDEX idx_food_safety_tenant_date_step ON food_safety_logs(tenant_id, inspection_date, step_number);
-CREATE INDEX idx_food_safety_sample_active ON food_safety_logs(tenant_id, sample_status) 
-    WHERE sample_status = 'RETAINED_ACTIVE';
-CREATE INDEX idx_food_safety_inspector ON food_safety_logs(inspector_id);
-CREATE INDEX idx_food_safety_kitchen_mgr ON food_safety_logs(kitchen_manager_id);
-CREATE INDEX idx_food_safety_school_rep ON food_safety_logs(school_representative_id);
-
--- ============================================================================
--- MODULE 9: GROWTH RECORDS & WHO CHILD GROWTH STANDARDS
--- ============================================================================
-
-CREATE TABLE growth_records (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    child_id UUID NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-    measurement_date DATE NOT NULL CHECK (measurement_date <= CURRENT_DATE),
-    age_in_months INT NOT NULL CHECK (age_in_months BETWEEN 0 AND 84),
-    weight_kg NUMERIC(5,2) NOT NULL CHECK (weight_kg > 0 AND weight_kg < 100),
-    height_cm NUMERIC(5,2) NOT NULL CHECK (height_cm > 30 AND height_cm < 200),
-    bmi NUMERIC(5,2) GENERATED ALWAYS AS (
-        ROUND((weight_kg / ((height_cm / 100.0) * (height_cm / 100.0))), 2)
-    ) STORED,
-    waz NUMERIC(4,2) NULL,
-    haz NUMERIC(4,2) NULL,
-    baz NUMERIC(4,2) NULL,
-    whz NUMERIC(4,2) NULL,
-    weight_classification VARCHAR(50) NOT NULL CHECK (weight_classification IN (
-        'SEVERELY_UNDERWEIGHT', 'UNDERWEIGHT', 'NORMAL_WEIGHT', 'OVERWEIGHT', 'OBESE'
-    )),
-    height_classification VARCHAR(50) NOT NULL CHECK (height_classification IN (
-        'SEVERELY_STUNTED', 'STUNTED', 'NORMAL_HEIGHT', 'TALL'
-    )),
-    bmi_classification VARCHAR(50) NOT NULL CHECK (bmi_classification IN (
-        'SEVERELY_WASTED', 'WASTED', 'NORMAL', 'POSSIBLE_RISK_OVERWEIGHT', 'OVERWEIGHT', 'OBESE'
-    )),
-    overall_nutritional_status VARCHAR(100) NOT NULL,
-    measured_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    health_notes TEXT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_growth_records_child_date UNIQUE (child_id, measurement_date)
-);
-
-CREATE INDEX idx_growth_records_tenant_id ON growth_records(tenant_id);
-CREATE INDEX idx_growth_records_tenant_child ON growth_records(tenant_id, child_id, measurement_date DESC);
-CREATE INDEX idx_growth_records_tenant_date ON growth_records(tenant_id, measurement_date);
-CREATE INDEX idx_growth_records_classification ON growth_records(tenant_id, overall_nutritional_status);
-CREATE INDEX idx_growth_records_measured_by ON growth_records(measured_by);
-
--- WHO Child Growth Reference LMS Lookup Table (Shared System Table)
 CREATE TABLE who_growth_standards (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    indicator VARCHAR(10) NOT NULL CHECK (indicator IN ('WAZ', 'HAZ', 'BAZ', 'WHZ')),
-    gender VARCHAR(10) NOT NULL CHECK (gender IN ('MALE', 'FEMALE')),
-    age_in_months INT NOT NULL CHECK (age_in_months BETWEEN 0 AND 84),
-    l_value NUMERIC(8,4) NOT NULL,
-    m_value NUMERIC(8,4) NOT NULL,
-    s_value NUMERIC(8,4) NOT NULL,
-    sd3_neg NUMERIC(8,2) NOT NULL,
-    sd2_neg NUMERIC(8,2) NOT NULL,
-    sd1_neg NUMERIC(8,2) NOT NULL,
-    sd0 NUMERIC(8,2) NOT NULL,
-    sd1_pos NUMERIC(8,2) NOT NULL,
-    sd2_pos NUMERIC(8,2) NOT NULL,
-    sd3_pos NUMERIC(8,2) NOT NULL,
+    id             BIGSERIAL PRIMARY KEY,
+    indicator      VARCHAR(10) NOT NULL CHECK (indicator IN ('WAZ', 'HAZ', 'BAZ', 'WHZ')),
+    gender         VARCHAR(10) NOT NULL CHECK (gender IN ('MALE', 'FEMALE')),
+    age_in_months  INT NOT NULL CHECK (age_in_months BETWEEN 0 AND 84),
+    l_value        NUMERIC(8,4) NOT NULL,
+    m_value        NUMERIC(8,4) NOT NULL,
+    s_value        NUMERIC(8,4) NOT NULL,
+    sd3_neg        NUMERIC(8,2) NOT NULL,
+    sd2_neg        NUMERIC(8,2) NOT NULL,
+    sd1_neg        NUMERIC(8,2) NOT NULL,
+    sd0            NUMERIC(8,2) NOT NULL,
+    sd1_pos        NUMERIC(8,2) NOT NULL,
+    sd2_pos        NUMERIC(8,2) NOT NULL,
+    sd3_pos        NUMERIC(8,2) NOT NULL,
     CONSTRAINT uq_who_standards UNIQUE (indicator, gender, age_in_months)
 );
 
 CREATE INDEX idx_who_standards_lookup ON who_growth_standards(indicator, gender, age_in_months);
 
 -- ============================================================================
--- MODULE 10: AUDIT LOGS & PARENT FEEDBACKS
+-- TRIGGER: Auto-recalculate dish_nutrition khi dish_recipes thay đổi
 -- ============================================================================
 
--- 1. audit_logs
-CREATE TABLE audit_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    user_email VARCHAR(255) NULL,
-    action VARCHAR(100) NOT NULL,
-    target_entity VARCHAR(100) NULL,
-    target_id VARCHAR(255) NULL,
-    ip_address VARCHAR(45) NULL,
-    details JSONB NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_audit_logs_tenant_id ON audit_logs(tenant_id);
-CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
-CREATE INDEX idx_audit_logs_action ON audit_logs(action);
-CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
-
--- 2. parent_feedbacks
-CREATE TABLE parent_feedbacks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    parent_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    child_id UUID NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-    feedback_date DATE NOT NULL,
-    meal_type VARCHAR(50) NOT NULL DEFAULT 'LUNCH',
-    rating INT NOT NULL DEFAULT 5 CHECK (rating >= 1 AND rating <= 5),
-    title VARCHAR(255) NOT NULL,
-    content TEXT NOT NULL,
-    photos TEXT[] NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'RESPONDED', 'RESOLVED')),
-    status_label VARCHAR(100) NULL,
-    meal_title VARCHAR(255) NULL,
-    parent_relation VARCHAR(50) NOT NULL DEFAULT 'Mẹ',
-    parent_name_custom VARCHAR(255) NULL,
-    child_name_custom VARCHAR(255) NULL,
-    class_name_custom VARCHAR(100) NULL,
-    grade_level_custom VARCHAR(50) NULL,
-    feedback_time_label VARCHAR(100) NULL,
-    priority_note VARCHAR(255) NULL,
-    likes_info VARCHAR(255) NULL,
-    photo_details JSONB NULL,
-    response_header VARCHAR(255) NULL,
-    responded_by_name VARCHAR(150) NULL,
-    push_notification_sent BOOLEAN NOT NULL DEFAULT TRUE,
-    is_drafting BOOLEAN NOT NULL DEFAULT FALSE,
-    display_order INT NOT NULL DEFAULT 999,
-    response_content TEXT NULL,
-    responded_by UUID NULL REFERENCES users(id) ON DELETE SET NULL,
-    responded_at TIMESTAMPTZ NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_parent_feedbacks_tenant ON parent_feedbacks(tenant_id);
-CREATE INDEX idx_parent_feedbacks_parent ON parent_feedbacks(tenant_id, parent_id);
-CREATE INDEX idx_parent_feedbacks_child ON parent_feedbacks(tenant_id, child_id);
-CREATE INDEX idx_parent_feedbacks_status ON parent_feedbacks(tenant_id, status);
-
--- ============================================================================
--- AUTOMATED TRIGGERS FOR TIMESTAMPS
--- ============================================================================
-
-CREATE TRIGGER trg_tenants_updated_at BEFORE UPDATE ON tenants FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_roles_updated_at BEFORE UPDATE ON roles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_refresh_tokens_updated_at BEFORE UPDATE ON refresh_tokens FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_classes_updated_at BEFORE UPDATE ON classes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_children_updated_at BEFORE UPDATE ON children FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_child_allergies_updated_at BEFORE UPDATE ON child_allergies FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_foods_updated_at BEFORE UPDATE ON foods FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_dishes_updated_at BEFORE UPDATE ON dishes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_recipe_items_updated_at BEFORE UPDATE ON recipe_items FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_nutrition_rules_updated_at BEFORE UPDATE ON nutrition_rules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_menus_updated_at BEFORE UPDATE ON menus FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_menu_dishes_updated_at BEFORE UPDATE ON menu_dishes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_snack_services_updated_at BEFORE UPDATE ON snack_services FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_snack_registrations_updated_at BEFORE UPDATE ON snack_registrations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_transactions_updated_at BEFORE UPDATE ON transactions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_food_safety_logs_updated_at BEFORE UPDATE ON food_safety_logs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_growth_records_updated_at BEFORE UPDATE ON growth_records FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER trg_parent_feedbacks_updated_at BEFORE UPDATE ON parent_feedbacks FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- ============================================================================
--- AUTOMATED TRIGGER FOR DISH NUTRITION RECALCULATION
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION recalculate_dish_nutrients()
+CREATE OR REPLACE FUNCTION recalculate_dish_nutrition()
 RETURNS TRIGGER AS $$
 DECLARE
-    target_dish_id UUID;
-    v_energy NUMERIC(8,2);
-    v_protein NUMERIC(8,2);
-    v_fat NUMERIC(8,2);
-    v_carb NUMERIC(8,2);
-    v_calcium NUMERIC(8,2);
-    v_iron NUMERIC(8,2);
-    v_zinc NUMERIC(8,2);
+    target_dish_id BIGINT;
 BEGIN
     IF TG_OP = 'DELETE' THEN
         target_dish_id := OLD.dish_id;
@@ -902,270 +683,135 @@ BEGIN
         target_dish_id := NEW.dish_id;
     END IF;
 
-    SELECT 
-        COALESCE(ROUND(SUM((f.energy_kcal * ri.net_weight_per_portion_g) / 100.0), 2), 0),
-        COALESCE(ROUND(SUM((f.protein_g * ri.net_weight_per_portion_g) / 100.0), 2), 0),
-        COALESCE(ROUND(SUM((f.fat_g * ri.net_weight_per_portion_g) / 100.0), 2), 0),
-        COALESCE(ROUND(SUM((f.carb_g * ri.net_weight_per_portion_g) / 100.0), 2), 0),
-        COALESCE(ROUND(SUM((f.calcium_mg * ri.net_weight_per_portion_g) / 100.0), 2), 0),
-        COALESCE(ROUND(SUM((f.iron_mg * ri.net_weight_per_portion_g) / 100.0), 2), 0),
-        COALESCE(ROUND(SUM((f.zinc_mg * ri.net_weight_per_portion_g) / 100.0), 2), 0)
-    INTO 
-        v_energy, v_protein, v_fat, v_carb, v_calcium, v_iron, v_zinc
-    FROM recipe_items ri
-    JOIN foods f ON ri.food_id = f.id
-    WHERE ri.dish_id = target_dish_id;
-
-    UPDATE dishes
-    SET 
-        total_calories = v_energy,
-        total_protein_g = v_protein,
-        total_fat_g = v_fat,
-        total_carb_g = v_carb,
-        total_calcium_mg = v_calcium,
-        total_iron_mg = v_iron,
-        total_zinc_mg = v_zinc,
-        updated_at = CURRENT_TIMESTAMP
-    WHERE dishes.id = target_dish_id;
+    INSERT INTO dish_nutrition (dish_id, energy_kcal, protein_g, fat_g, carb_g, fiber_g, calcium_mg, iron_mg, zinc_mg)
+    SELECT
+        target_dish_id,
+        COALESCE(ROUND(SUM((fi.energy_kcal_100g * dr.net_weight_g) / 100.0), 2), 0),
+        COALESCE(ROUND(SUM((fi.protein_g         * dr.net_weight_g) / 100.0), 2), 0),
+        COALESCE(ROUND(SUM((fi.fat_g             * dr.net_weight_g) / 100.0), 2), 0),
+        COALESCE(ROUND(SUM((fi.carb_g            * dr.net_weight_g) / 100.0), 2), 0),
+        COALESCE(ROUND(SUM((fi.fiber_g           * dr.net_weight_g) / 100.0), 2), 0),
+        COALESCE(ROUND(SUM((fi.calcium_mg        * dr.net_weight_g) / 100.0), 2), 0),
+        COALESCE(ROUND(SUM((fi.iron_mg           * dr.net_weight_g) / 100.0), 2), 0),
+        COALESCE(ROUND(SUM((fi.zinc_mg           * dr.net_weight_g) / 100.0), 2), 0)
+    FROM dish_recipes dr
+    JOIN food_ingredients fi ON dr.ingredient_id = fi.id
+    WHERE dr.dish_id = target_dish_id
+    ON CONFLICT (dish_id) DO UPDATE SET
+        energy_kcal = EXCLUDED.energy_kcal,
+        protein_g   = EXCLUDED.protein_g,
+        fat_g       = EXCLUDED.fat_g,
+        carb_g      = EXCLUDED.carb_g,
+        fiber_g     = EXCLUDED.fiber_g,
+        calcium_mg  = EXCLUDED.calcium_mg,
+        iron_mg     = EXCLUDED.iron_mg,
+        zinc_mg     = EXCLUDED.zinc_mg;
 
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_recalculate_dish_nutrients
-AFTER INSERT OR UPDATE OR DELETE ON recipe_items
-FOR EACH ROW EXECUTE FUNCTION recalculate_dish_nutrients();
+CREATE TRIGGER trg_recalculate_dish_nutrition
+AFTER INSERT OR UPDATE OR DELETE ON dish_recipes
+FOR EACH ROW EXECUTE FUNCTION recalculate_dish_nutrition();
 
 -- ============================================================================
--- STORED PROCEDURE: DETECT MENU ALLERGY CONFLICTS
+-- SEED: Default roles
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION detect_menu_allergy_conflicts(p_menu_id UUID)
-RETURNS TABLE (
-    child_id UUID,
-    child_name VARCHAR,
-    class_name VARCHAR,
-    dish_id UUID,
-    dish_name VARCHAR,
-    allergen_detected TEXT,
-    severity VARCHAR
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT DISTINCT
-        c.id AS child_id,
-        c.full_name AS child_name,
-        cls.name AS class_name,
-        d.id AS dish_id,
-        d.name AS dish_name,
-        COALESCE(ac.name_vi, ca.custom_allergen_name) AS allergen_detected,
-        ca.severity AS severity
-    FROM menu_dishes md
-    JOIN dishes d ON md.dish_id = d.id
-    JOIN recipe_items ri ON d.id = ri.dish_id
-    JOIN foods f ON ri.food_id = f.id
-    JOIN menus m ON md.menu_id = m.id
-    JOIN classes cls ON cls.tenant_id = m.tenant_id 
-         AND (
-             m.target_age_group = 'ALL_AGES' 
-             OR cls.grade_level = m.target_age_group
-             OR (m.target_age_group = 'TODDLER_18_36M' AND cls.grade_level IN ('TODDLER_1_2Y', 'TODDLER_2_3Y'))
-         )
-    JOIN children c ON c.class_id = cls.id AND c.status = 'ACTIVE'
-    JOIN child_allergies ca ON ca.child_id = c.id AND ca.is_active = TRUE
-    LEFT JOIN allergen_catalogs ac ON ca.allergen_id = ac.id
-    WHERE md.menu_id = p_menu_id
-      AND (
-          (ac.code IS NOT NULL AND ac.code = ANY(f.allergens))
-          OR (ac.name_vi IS NOT NULL AND f.name ILIKE ('%' || ac.name_vi || '%'))
-          OR (ca.custom_allergen_name IS NOT NULL AND f.name ILIKE ('%' || ca.custom_allergen_name || '%'))
-      );
-END;
-$$ LANGUAGE plpgsql STABLE;
+INSERT INTO roles (code, name) VALUES
+    ('SCHOOL_MANAGER', 'Ban Giám hiệu'),
+    ('NUTRITIONIST',   'Chuyên viên Dinh dưỡng'),
+    ('TEACHER',        'Giáo viên'),
+    ('KITCHEN_STAFF',  'Nhân viên Bếp'),
+    ('PARENT',         'Phụ huynh');
 
 -- ============================================================================
--- ROW LEVEL SECURITY (RLS) ENFORCEMENT & POLICIES
+-- SEED: Default allergens
 -- ============================================================================
 
--- 1. tenants
-ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tenants FORCE ROW LEVEL SECURITY;
-CREATE POLICY tenants_select_policy ON tenants FOR SELECT
-    USING (id = get_current_tenant_id() OR is_current_super_admin());
+INSERT INTO allergens (code, name, description) VALUES
+    ('MILK',       'Sữa bò',       'Dị ứng protein sữa bò'),
+    ('EGG',        'Trứng',        'Dị ứng trứng gà / vịt'),
+    ('PEANUT',     'Đậu phộng',    'Dị ứng đậu phộng'),
+    ('TREE_NUT',   'Hạt cây',      'Dị ứng hạt cây (hạnh nhân, điều, óc chó…)'),
+    ('SEAFOOD',    'Hải sản',      'Dị ứng tôm, cua, cá…'),
+    ('WHEAT',      'Lúa mì',       'Dị ứng gluten / lúa mì'),
+    ('SOY',        'Đậu nành',     'Dị ứng đậu nành'),
+    ('SESAME',     'Mè (vừng)',    'Dị ứng mè');
 
-CREATE OR REPLACE VIEW v_public_tenants AS
-SELECT id, code, name, domain, status
-FROM tenants
-WHERE status = 'ACTIVE' AND deleted_at IS NULL;
-CREATE POLICY tenants_modify_policy ON tenants FOR ALL
-    USING (id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (id = get_current_tenant_id() OR is_current_super_admin());
+-- ============================================================================
+-- SEED: Default dish categories
+-- ============================================================================
 
--- 2. users
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE users FORCE ROW LEVEL SECURITY;
-CREATE POLICY users_policy ON users FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
+INSERT INTO dish_categories (code, name, display_order, is_required_in_meal) VALUES
+    ('MAIN',            'Món chính',      1, TRUE),
+    ('SOUP',            'Canh / Súp',     2, TRUE),
+    ('RICE',            'Cơm / Cháo',    3, TRUE),
+    ('SIDE',            'Món phụ',        4, FALSE),
+    ('DESSERT',         'Tráng miệng',   5, FALSE),
+    ('SNACK_MORNING',   'Xế sáng',       6, FALSE),
+    ('SNACK_AFTERNOON', 'Xế chiều',      7, FALSE),
+    ('DRINK',           'Thức uống',      8, FALSE);
 
--- 3. roles (Shared System Roles + Tenant Custom Roles)
-ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE roles FORCE ROW LEVEL SECURITY;
-CREATE POLICY roles_select_policy ON roles FOR SELECT
-    USING (tenant_id IS NULL OR tenant_id = get_current_tenant_id() OR is_current_super_admin());
-CREATE POLICY roles_modify_policy ON roles FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
+-- ============================================================================
+-- SEED: Default nutrition conversion factors (4-9-4)
+-- ============================================================================
 
--- 4. user_roles
-ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_roles FORCE ROW LEVEL SECURITY;
-CREATE POLICY user_roles_policy ON user_roles FOR ALL
-    USING ((tenant_id IS NOT NULL AND tenant_id = get_current_tenant_id()) OR is_current_super_admin())
-    WITH CHECK ((tenant_id IS NOT NULL AND tenant_id = get_current_tenant_id()) OR is_current_super_admin());
+INSERT INTO nutrition_conversion_factors (nutrient_code, kcal_per_gram, description) VALUES
+    ('PROTEIN', 4.00, 'Đạm: 1g = 4 kcal'),
+    ('FAT',     9.00, 'Béo: 1g = 9 kcal'),
+    ('CARB',    4.00, 'Bột đường: 1g = 4 kcal');
 
--- 5. refresh_tokens
-ALTER TABLE refresh_tokens ENABLE ROW LEVEL SECURITY;
-ALTER TABLE refresh_tokens FORCE ROW LEVEL SECURITY;
-CREATE POLICY refresh_tokens_policy ON refresh_tokens FOR ALL
-    USING ((tenant_id IS NOT NULL AND tenant_id = get_current_tenant_id()) OR is_current_super_admin())
-    WITH CHECK ((tenant_id IS NOT NULL AND tenant_id = get_current_tenant_id()) OR is_current_super_admin());
+-- ============================================================================
+-- SEED: Default nutrition rule codes
+-- ============================================================================
 
--- 6. classes
-ALTER TABLE classes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE classes FORCE ROW LEVEL SECURITY;
-CREATE POLICY classes_policy ON classes FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
+INSERT INTO nutrition_rule_codes (code, severity, description) VALUES
+    ('CALORIE_DEFICIT',       'ERROR',   'Thiếu năng lượng so với chuẩn'),
+    ('CALORIE_EXCESS',        'WARNING', 'Vượt năng lượng cho phép'),
+    ('PROTEIN_OUT_OF_RANGE',  'WARNING', 'Tỷ lệ đạm ngoài khoảng cho phép'),
+    ('FAT_OUT_OF_RANGE',      'WARNING', 'Tỷ lệ béo ngoài khoảng cho phép'),
+    ('CARB_OUT_OF_RANGE',     'WARNING', 'Tỷ lệ bột đường ngoài khoảng cho phép'),
+    ('CALCIUM_DEFICIT',       'WARNING', 'Thiếu canxi'),
+    ('IRON_DEFICIT',          'WARNING', 'Thiếu sắt'),
+    ('REPEAT_DISH_IN_4_WEEKS','INFO',    'Trùng món trong chu kỳ 4 tuần'),
+    ('ALLERGEN_CONFLICT',     'ERROR',   'Xung đột dị ứng phát hiện');
 
--- 7. children
-ALTER TABLE children ENABLE ROW LEVEL SECURITY;
-ALTER TABLE children FORCE ROW LEVEL SECURITY;
-CREATE POLICY children_policy ON children FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
+-- ============================================================================
+-- 11. NHÓM ĐA NGÔN NGỮ (I18N / LOCALIZATION)
+-- ============================================================================
 
--- 8. child_allergies
-ALTER TABLE child_allergies ENABLE ROW LEVEL SECURITY;
-ALTER TABLE child_allergies FORCE ROW LEVEL SECURITY;
-CREATE POLICY child_allergies_policy ON child_allergies FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
+-- languages: Danh sách ngôn ngữ hệ thống hỗ trợ
+CREATE TABLE languages (
+    id              BIGSERIAL PRIMARY KEY,
+    code            VARCHAR(10) NOT NULL UNIQUE,          -- ISO 639-1 (vi, en, ja, ko…)
+    name_native     VARCHAR(100) NOT NULL,                -- Tên ngôn ngữ bằng chính ngôn ngữ đó
+    name_english    VARCHAR(100) NOT NULL,                -- Tên tiếng Anh
+    flag_icon       VARCHAR(10),                          -- Emoji cờ quốc gia (🇻🇳, 🇬🇧…)
+    direction       VARCHAR(3) NOT NULL DEFAULT 'LTR'     -- LTR (Left-to-Right) hoặc RTL
+                        CHECK (direction IN ('LTR', 'RTL')),
+    is_default      BOOLEAN NOT NULL DEFAULT FALSE,       -- Ngôn ngữ mặc định hệ thống
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,        -- Có đang bật không
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
--- 9. foods (Shared National FCT + Tenant Custom Foods)
-ALTER TABLE foods ENABLE ROW LEVEL SECURITY;
-ALTER TABLE foods FORCE ROW LEVEL SECURITY;
-CREATE POLICY foods_select_policy ON foods FOR SELECT
-    USING (tenant_id IS NULL OR tenant_id = get_current_tenant_id() OR is_current_super_admin());
-CREATE POLICY foods_modify_policy ON foods FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
+CREATE INDEX idx_languages_code ON languages(code);
+CREATE INDEX idx_languages_active ON languages(is_active);
 
--- 10. dishes
-ALTER TABLE dishes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE dishes FORCE ROW LEVEL SECURITY;
-CREATE POLICY dishes_policy ON dishes FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
+-- ui_translations: Bản dịch các key UI (tùy chọn mở rộng sau)
+CREATE TABLE ui_translations (
+    id              BIGSERIAL PRIMARY KEY,
+    language_id     BIGINT NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
+    namespace       VARCHAR(50) NOT NULL DEFAULT 'common', -- Nhóm key (common, menu, auth, growth…)
+    translation_key VARCHAR(255) NOT NULL,                  -- Key dịch (e.g. 'btn.save', 'label.student_name')
+    translation_value TEXT NOT NULL,                        -- Giá trị đã dịch
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_translation_lang_ns_key UNIQUE (language_id, namespace, translation_key)
+);
 
--- 11. recipe_items
-ALTER TABLE recipe_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE recipe_items FORCE ROW LEVEL SECURITY;
-CREATE POLICY recipe_items_policy ON recipe_items FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 12. nutrition_rules (Shared Statutory Circular 28 + Tenant Custom Rules)
-ALTER TABLE nutrition_rules ENABLE ROW LEVEL SECURITY;
-ALTER TABLE nutrition_rules FORCE ROW LEVEL SECURITY;
-CREATE POLICY nutrition_rules_select_policy ON nutrition_rules FOR SELECT
-    USING (tenant_id IS NULL OR tenant_id = get_current_tenant_id() OR is_current_super_admin());
-CREATE POLICY nutrition_rules_modify_policy ON nutrition_rules FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 13. menus
-ALTER TABLE menus ENABLE ROW LEVEL SECURITY;
-ALTER TABLE menus FORCE ROW LEVEL SECURITY;
-CREATE POLICY menus_policy ON menus FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 14. menu_dishes
-ALTER TABLE menu_dishes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE menu_dishes FORCE ROW LEVEL SECURITY;
-CREATE POLICY menu_dishes_policy ON menu_dishes FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 15. rule_violations_log
-ALTER TABLE rule_violations_log ENABLE ROW LEVEL SECURITY;
-ALTER TABLE rule_violations_log FORCE ROW LEVEL SECURITY;
-CREATE POLICY rule_violations_log_policy ON rule_violations_log FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 16. snack_services
-ALTER TABLE snack_services ENABLE ROW LEVEL SECURITY;
-ALTER TABLE snack_services FORCE ROW LEVEL SECURITY;
-CREATE POLICY snack_services_policy ON snack_services FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 17. snack_registrations
-ALTER TABLE snack_registrations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE snack_registrations FORCE ROW LEVEL SECURITY;
-CREATE POLICY snack_registrations_policy ON snack_registrations FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 18. transactions
-ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE transactions FORCE ROW LEVEL SECURITY;
-CREATE POLICY transactions_policy ON transactions FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 19. daily_meal_attendance
-ALTER TABLE daily_meal_attendance ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_meal_attendance FORCE ROW LEVEL SECURITY;
-CREATE POLICY daily_meal_attendance_policy ON daily_meal_attendance FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 20. meal_consumption_status
-ALTER TABLE meal_consumption_status ENABLE ROW LEVEL SECURITY;
-ALTER TABLE meal_consumption_status FORCE ROW LEVEL SECURITY;
-CREATE POLICY meal_consumption_status_policy ON meal_consumption_status FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 21. food_safety_logs
-ALTER TABLE food_safety_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE food_safety_logs FORCE ROW LEVEL SECURITY;
-CREATE POLICY food_safety_logs_policy ON food_safety_logs FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 22. growth_records
-ALTER TABLE growth_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE growth_records FORCE ROW LEVEL SECURITY;
-CREATE POLICY growth_records_policy ON growth_records FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 23. audit_logs
-ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE audit_logs FORCE ROW LEVEL SECURITY;
-CREATE POLICY audit_logs_policy ON audit_logs FOR ALL
-    USING (tenant_id IS NULL OR tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id IS NULL OR tenant_id = get_current_tenant_id() OR is_current_super_admin());
-
--- 24. parent_feedbacks
-ALTER TABLE parent_feedbacks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE parent_feedbacks FORCE ROW LEVEL SECURITY;
-CREATE POLICY parent_feedbacks_policy ON parent_feedbacks FOR ALL
-    USING (tenant_id = get_current_tenant_id() OR is_current_super_admin())
-    WITH CHECK (tenant_id = get_current_tenant_id() OR is_current_super_admin());
+CREATE INDEX idx_ui_translations_lang ON ui_translations(language_id);
+CREATE INDEX idx_ui_translations_key ON ui_translations(translation_key);
 
 COMMIT;

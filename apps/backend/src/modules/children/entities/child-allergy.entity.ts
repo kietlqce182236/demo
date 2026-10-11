@@ -3,62 +3,46 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { Child } from './child.entity';
+import { BigIntTransformer } from '../../../database/base.entity';
 import { AllergenCatalog } from './allergen-catalog.entity';
+import { Child } from './child.entity';
+import { User } from '../../auth/entities/user.entity';
 
-@Entity('child_allergies')
+@Entity('student_allergies')
 export class ChildAllergy {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
 
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  tenantId: string;
+  @Column({ name: 'student_id', type: 'bigint', transformer: BigIntTransformer })
+  studentId: number;
 
-  @Column({ name: 'child_id', type: 'uuid' })
-  childId: string;
+  @Column({ name: 'allergen_id', type: 'bigint', transformer: BigIntTransformer })
+  allergenId: number;
+
+  @Column({ length: 20, default: 'MEDIUM' })
+  severity: string;
+
+  @Column({ type: 'text', nullable: true })
+  note: string;
+
+  @Column({ name: 'declared_by', type: 'bigint', transformer: BigIntTransformer, nullable: true })
+  declaredBy: number;
+
+  @CreateDateColumn({ name: 'declared_at', type: 'timestamptz' })
+  declaredAt: Date;
 
   @ManyToOne(() => Child, (child) => child.allergies, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'child_id' })
+  @JoinColumn({ name: 'student_id' })
   child: Child;
 
-  @Column({ name: 'allergen_id', type: 'uuid', nullable: true })
-  allergenId: string;
-
-  @ManyToOne(() => AllergenCatalog, { onDelete: 'SET NULL' })
+  @ManyToOne(() => AllergenCatalog, { eager: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'allergen_id' })
   allergen: AllergenCatalog;
 
-  @Column({ name: 'custom_allergen_name', length: 150, nullable: true })
-  customAllergenName: string;
-
-  @Column({ name: 'allergy_type', length: 50, default: 'ALLERGY' })
-  allergyType: string; // 'ALLERGY' | 'INTOLERANCE' | 'RELIGIOUS_RESTRICTION' | 'MEDICAL_RESTRICTION'
-
-  @Column({ length: 50, default: 'MODERATE' })
-  severity: string; // 'MILD' | 'MODERATE' | 'SEVERE' | 'ANAPHYLACTIC'
-
-  @Column({ type: 'text', nullable: true })
-  symptoms: string;
-
-  @Column({ name: 'reaction_treatment', type: 'text', nullable: true })
-  reactionTreatment: string;
-
-  @Column({ name: 'diagnosed_date', type: 'date', nullable: true })
-  diagnosedDate: string;
-
-  @Column({ name: 'medical_certificate_url', type: 'text', nullable: true })
-  medicalCertificateUrl: string;
-
-  @Column({ name: 'is_active', type: 'boolean', default: true })
-  isActive: boolean;
-
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
-  updatedAt: Date;
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'declared_by' })
+  declarer: User;
 }

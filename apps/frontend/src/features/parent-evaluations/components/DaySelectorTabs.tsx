@@ -33,7 +33,7 @@ export const DaySelectorTabs: React.FC<DaySelectorTabsProps> = ({
 
         {/* Day Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          {days.map((day) => {
+          {(Array.isArray(days) ? days : []).map((day) => {
             const isSelected = day.date === selectedDate;
             return (
               <button

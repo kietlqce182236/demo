@@ -1,58 +1,24 @@
-import { IsString, IsNotEmpty, IsArray, ValidateNested, IsNumber, IsOptional } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class CreateSampleItemDto {
-  @IsString()
+export class SealSampleDto {
+  @ApiProperty({ example: 'Thịt bò xào đậu cô ve' })
   @IsNotEmpty()
-  dishId: string;
-
   @IsString()
-  @IsNotEmpty()
   dishName: string;
 
-  @IsNumber()
-  quantityGrams: number;
-}
-
-export class Step1Dto {
-  @IsString()
+  @ApiProperty({ example: '2025-09-08' })
   @IsNotEmpty()
-  mealDate: string;
-
   @IsString()
-  @IsNotEmpty()
-  mealTime: string;
+  date: string;
 
-  @IsString()
+  @ApiPropertyOptional({ example: 'MẪU-20250908-01' })
   @IsOptional()
+  @IsString()
+  sampleCode?: string;
+
+  @ApiPropertyOptional({ example: 'Nhiệt độ lưu trữ 4°C, niêm phong kín' })
+  @IsOptional()
+  @IsString()
   note?: string;
-
-  @IsString()
-  @IsOptional()
-  photoBase64?: string;
-}
-
-export class Step2Dto {
-  @IsString()
-  @IsOptional()
-  note?: string;
-
-  @IsString()
-  @IsOptional()
-  photoBase64?: string;
-}
-
-export class Step3Dto {
-  @IsString()
-  @IsOptional()
-  note?: string;
-
-  @IsString()
-  @IsOptional()
-  photoBase64?: string;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateSampleItemDto)
-  items: CreateSampleItemDto[];
 }

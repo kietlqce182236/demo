@@ -3,8 +3,8 @@ import { Utensils, Calendar, Star, Send, ShieldCheck, Heart, Scale, Sparkles, Ch
 import { ChildProfile, TodayMealData } from '../types';
 
 interface QuickMealEvaluationFormProps {
-  child: ChildProfile;
-  todayMeal: TodayMealData;
+  child?: ChildProfile;
+  todayMeal?: TodayMealData;
   onSubmit: (data: {
     rating: number;
     content: string;
@@ -86,14 +86,14 @@ export const QuickMealEvaluationForm: React.FC<QuickMealEvaluationFormProps> = (
                 Đánh giá nhanh bữa ăn hôm nay
               </h2>
               <p className="text-xs text-slate-500">
-                {child.name || 'Bé Nguyễn Bảo Nam'} • {child.className || 'Lớp Thỏ Trắng'}
+                {child?.name || 'Bé Nguyễn Bảo Nam'} • {child?.className || 'Lớp Thỏ Trắng'}
               </p>
             </div>
           </div>
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100/90 text-slate-700 rounded-full text-xs font-semibold shrink-0">
             <Calendar className="w-3.5 h-3.5 text-slate-500" />
-            <span>{todayMeal.dateLabel || 'Trưa Thứ Ba, 29/10/2024'}</span>
+            <span>{todayMeal?.dateLabel || 'Trưa Thứ Ba, 29/10/2024'}</span>
           </div>
         </div>
 
@@ -108,7 +108,7 @@ export const QuickMealEvaluationForm: React.FC<QuickMealEvaluationFormProps> = (
                 className="w-full h-36 object-cover transition-transform duration-300 group-hover:scale-105"
               />
               <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/75 backdrop-blur-xs text-white text-[11px] font-medium rounded-md shadow-xs">
-                {todayMeal.timeLabel || 'Khay ăn thực tế lúc 10:45'}
+                {todayMeal?.timeLabel || 'Khay ăn thực tế lúc 10:45'}
               </div>
             </div>
 
@@ -116,7 +116,7 @@ export const QuickMealEvaluationForm: React.FC<QuickMealEvaluationFormProps> = (
             <div className="sm:col-span-7 space-y-1.5 text-xs">
               <div className="flex items-center gap-1.5 text-teal-800 font-bold uppercase tracking-wider text-[11px]">
                 <span>📋</span>
-                <span>{todayMeal.session || 'THỰC ĐƠN BỮA TRƯA'}</span>
+                <span>{todayMeal?.session || 'THỰC ĐƠN BỮA TRƯA'}</span>
               </div>
 
               <div className="space-y-1 text-slate-700 font-medium">

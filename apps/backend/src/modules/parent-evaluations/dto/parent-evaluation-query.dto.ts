@@ -1,43 +1,51 @@
 import { IsOptional, IsString, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
-export class ParentEvaluationQueryDto {
+export class ParentEvaluationQueryParams {
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   search?: string;
 
+  @ApiPropertyOptional({ enum: ['PENDING', 'RESPONDED', 'RESOLVED', 'ALL'] })
   @IsOptional()
   @IsString()
-  status?: string; // 'ALL' | 'PENDING' | 'RESPONDED' | 'HAS_PHOTO'
+  status?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   rating?: number;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  mealType?: string; // 'ALL' | 'LUNCH' | 'AFTERNOON_SNACK' | 'BREAKFAST' | 'STANDARD'
+  mealType?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  gradeLevel?: string; // 'ALL' | 'KINDERGARTEN_3_4Y' | 'KINDERGARTEN_4_5Y' | 'KINDERGARTEN_5_6Y' | 'TODDLER_2_3Y'
+  gradeLevel?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   className?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  sortBy?: string; // 'NEWEST' | 'OLDEST' | 'RATING_HIGH' | 'RATING_LOW'
+  sortBy?: string;
 
+  @ApiPropertyOptional({ default: 1 })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
   page?: number = 1;
 
+  @ApiPropertyOptional({ default: 20 })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
-  limit?: number = 4;
+  limit?: number = 20;
 }

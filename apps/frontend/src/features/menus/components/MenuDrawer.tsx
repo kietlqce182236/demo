@@ -91,6 +91,20 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
     return weekNo;
   }
 
+  /**
+   * =========================================================================================
+   * [LUỒNG TẠO THỰC ĐƠN - BƯỚC 2/6: THU THẬP & VALIDATE DỮ LIỆU TẠI DRAWER (FRONTEND COMPONENT)]
+   * =========================================================================================
+   * - File này: `apps/frontend/src/features/menus/components/MenuDrawer.tsx`
+   * - Được gọi từ: File 1 `WeeklyMenuManagementPage.tsx` (qua prop `onSubmit={handleSaveMenu}`).
+   * - Nhiệm vụ:
+   *   1. Thu thập dữ liệu form: `title`, `targetAgeGroup`, `startDate`, `endDate`, `menuCycleType`.
+   *   2. Validate Client-side: Kiểm tra rỗng, ngày bắt đầu <= ngày kết thúc.
+   *   3. Chạy hàm `findOverlappingMenu()` kiểm tra xung đột với các menu hiện có trong `existingMenus`.
+   * - GỌI FILE TIẾP THEO:
+   *   -> Chuyển giao `payload` về lại cho File 1 `WeeklyMenuManagementPage.tsx` thông qua `await onSubmit(payload)`.
+   * =========================================================================================
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -113,6 +127,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
     try {
       setIsSubmitting(true);
       setError(null);
+      // GỌI NGƯỢC VỀ: onSubmit() được định nghĩa tại handleSaveMenu trong WeeklyMenuManagementPage.tsx
       await onSubmit({
         title: title.trim(),
         targetAgeGroup,

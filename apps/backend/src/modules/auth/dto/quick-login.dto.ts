@@ -1,20 +1,13 @@
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-/**
- * DTO cho đăng nhập nhanh theo vai trò (development/testing).
- */
 export class QuickLoginDto {
-  @ApiProperty({
-    example: 'NUTRITIONIST',
-    description: 'Role code: PRINCIPAL | NUTRITIONIST | KITCHEN_MANAGER | TEACHER | PARENT',
-  })
+  @ApiProperty({ example: 'SCHOOL_MANAGER', description: 'Mã vai trò (SCHOOL_MANAGER, NUTRITIONIST, TEACHER, KITCHEN_STAFF, PARENT)' })
+  @IsNotEmpty({ message: 'Mã vai trò không được để trống' })
   @IsString()
-  @IsNotEmpty({ message: 'Role code không được để trống' })
   roleCode: string;
 
-  @ApiProperty({ example: 'a0000000-0000-0000-0000-000000000001' })
-  @IsUUID('all', { message: 'Tenant ID phải là UUID hợp lệ' })
-  @IsNotEmpty({ message: 'Tenant ID không được để trống' })
-  tenantId: string;
+  @ApiPropertyOptional({ example: '1', description: 'Mã trường (tenantId)' })
+  @IsOptional()
+  tenantId?: string;
 }

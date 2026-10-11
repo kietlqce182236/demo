@@ -1,29 +1,55 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, Min, Max } from 'class-validator';
+import { IsOptional, IsString, IsNumber } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class AdjustDishDto {
+  @ApiPropertyOptional({ example: 2, description: 'Thứ trong tuần: 1..7 hoặc 2..6' })
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
-  @Min(1)
-  @Max(7)
-  dayOfWeek: number; // 1 = Thứ 2, ..., 5 = Thứ 6
+  dayOfWeek?: number;
 
-  @IsString()
-  @IsNotEmpty()
-  mealTime: string; // BREAKFAST, MORNING_SNACK, LUNCH, AFTERNOON_SNACK, LATE_SNACK
-
-  @IsString()
-  @IsNotEmpty()
-  dishId: string;
-
-  @IsNumber()
+  @ApiPropertyOptional({ example: 'LUNCH', enum: ['BREAKFAST', 'MORNING_SNACK', 'LUNCH', 'AFTERNOON_SNACK', 'LATE_SNACK'] })
   @IsOptional()
-  @Min(1)
-  portionSizeG?: number = 100;
-
   @IsString()
-  @IsOptional()
-  substituteDishId?: string;
+  mealType?: string;
 
-  @IsString()
+  @ApiPropertyOptional({ example: 'LUNCH' })
   @IsOptional()
+  @IsString()
+  mealTime?: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  oldDishId?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  dishId?: number;
+
+  @ApiPropertyOptional({ example: 5 })
+  @IsOptional()
+  @Type(() => Number)
+  newDishId?: number;
+
+  @ApiPropertyOptional({ example: 5 })
+  @IsOptional()
+  @Type(() => Number)
+  substituteDishId?: number;
+
+  @ApiPropertyOptional({ example: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  portionSizeG?: number;
+
+  @ApiPropertyOptional({ example: 'Ghi chú chế độ ăn riêng' })
+  @IsOptional()
+  @IsString()
   specialDietNotes?: string;
+
+  @ApiPropertyOptional({ example: true, description: 'Giữ nguyên món ăn gốc cho trẻ bình thường khi thêm món thay thế' })
+  @IsOptional()
+  keepOriginalDish?: boolean;
 }

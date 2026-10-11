@@ -1,105 +1,34 @@
-import { IsNotEmpty, IsOptional, IsString, IsNumber, IsBoolean, IsArray, IsIn } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class UpdateChildEvaluationDto {
+export class UpdateMealEvaluationDto {
+  @ApiProperty({ example: '2025-09-08' })
   @IsNotEmpty()
   @IsString()
   date: string;
 
+  @ApiPropertyOptional({ example: 'LUNCH' })
   @IsOptional()
   @IsString()
-  mealType?: string; // 'LUNCH' | 'AFTERNOON_SNACK'
+  mealType?: string;
 
+  @ApiProperty({ example: 'FULL', enum: ['FULL', 'PARTIAL', 'NONE'] })
   @IsNotEmpty()
-  @IsIn(['ALL', 'HALF', 'NONE', 'QUARTER', 'DOUBLE_PORTION'])
+  @IsString()
   portionConsumed: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   waterIntake?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   notes?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   syncStatus?: string;
-}
-
-export class BatchUpdatePortionDto {
-  @IsNotEmpty()
-  @IsString()
-  classId: string;
-
-  @IsNotEmpty()
-  @IsString()
-  date: string;
-
-  @IsOptional()
-  @IsString()
-  mealType?: string;
-
-  @IsOptional()
-  @IsArray()
-  childIds?: string[]; // If empty, apply to all active children in class
-
-  @IsNotEmpty()
-  @IsIn(['ALL', 'HALF', 'NONE'])
-  portionConsumed: string;
-}
-
-export class UpdateSensoryEvaluationDto {
-  @IsNotEmpty()
-  @IsString()
-  classId: string;
-
-  @IsNotEmpty()
-  @IsString()
-  date: string;
-
-  @IsOptional()
-  @IsString()
-  mealType?: string;
-
-  @IsOptional()
-  @IsNumber()
-  softnessScore?: number;
-
-  @IsOptional()
-  @IsNumber()
-  temperatureScore?: number;
-
-  @IsOptional()
-  @IsNumber()
-  excitementScore?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  foodSafetyChecked?: boolean;
-
-  @IsOptional()
-  @IsString()
-  chefFeedback?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  isLocked?: boolean;
-}
-
-export class LockAndSendEvaluationDto {
-  @IsNotEmpty()
-  @IsString()
-  classId: string;
-
-  @IsNotEmpty()
-  @IsString()
-  date: string;
-
-  @IsOptional()
-  @IsString()
-  mealType?: string;
-
-  @IsOptional()
-  @IsString()
-  chefFeedback?: string;
 }

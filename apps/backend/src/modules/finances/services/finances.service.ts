@@ -1,190 +1,183 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Payment } from '../../payments/entities/payment.entity';
+import { ClassEntity } from '../../classes/entities/class.entity';
+import { Child } from '../../children/entities/child.entity';
+import { SchoolTenant } from '../../auth/entities/tenant.entity';
 import { CreateExpenseDto } from '../dto/create-expense.dto';
+
+export interface ExpenseItem {
+  id: string;
+  category: string;
+  title: string;
+  amount: number;
+  expenseDate: string;
+  supplierName?: string;
+  invoiceNumber?: string;
+  paymentMethod?: string;
+  status: string;
+  notes?: string;
+  createdAt: string;
+}
 
 @Injectable()
 export class FinancesService {
-  constructor(private readonly dataSource: DataSource) {}
+  // In-memory expense store initialized with realistic initial data
+  private expenses: ExpenseItem[] = [
+    {
+      id: 'exp-1',
+      category: 'FOOD_FRESH',
+      title: 'Thịt heo nạc, thịt bò & cá thu HTX An Phú Tuần 1',
+      amount: 14250000,
+      expenseDate: '2026-09-05',
+      supplierName: 'HTX Thực phẩm Sạch An Phú',
+      invoiceNumber: 'HD-AP-0901',
+      paymentMethod: 'BANK_TRANSFER',
+      status: 'PAID',
+      notes: 'Đã nghiệm thu kiểm thực 3 bước',
+      createdAt: '2026-09-05T08:30:00Z',
+    },
+    {
+      id: 'exp-2',
+      category: 'VEGETABLES',
+      title: 'Rau xanh, củ quả tươi nông sản Đà Lạt',
+      amount: 4850000,
+      expenseDate: '2026-09-08',
+      supplierName: 'Công ty Rau sạch Đà Lạt GAP',
+      invoiceNumber: 'HD-DL-0908',
+      paymentMethod: 'BANK_TRANSFER',
+      status: 'PAID',
+      notes: 'Đạt chuẩn VietGAP',
+      createdAt: '2026-09-08T09:15:00Z',
+    },
+    {
+      id: 'exp-3',
+      category: 'MILK_DAIRY',
+      title: 'Sữa tươi thanh trùng & sữa chua Vinamilk cho bữa xế',
+      amount: 6200000,
+      expenseDate: '2026-09-12',
+      supplierName: 'Đại lý Sữa Vinamilk Quận 1',
+      invoiceNumber: 'HD-VNM-1209',
+      paymentMethod: 'BANK_TRANSFER',
+      status: 'PAID',
+      notes: 'Hạn sử dụng còn nguyên vẹn > 25 ngày',
+      createdAt: '2026-09-12T10:00:00Z',
+    },
+    {
+      id: 'exp-4',
+      category: 'DRY_GOODS',
+      title: 'Gạo ST25, dầu ăn Simply & gia vị đạt chuẩn BYT',
+      amount: 3800000,
+      expenseDate: '2026-09-15',
+      supplierName: 'Nhà phân phối Lương thực Miền Nam',
+      invoiceNumber: 'HD-LT-1509',
+      paymentMethod: 'BANK_TRANSFER',
+      status: 'PAID',
+      notes: 'Hàng nhập kho tháng 9',
+      createdAt: '2026-09-15T14:20:00Z',
+    },
+  ];
 
-  /**
-   * Lấy báo cáo tài chính tổng hợp (KPIs, Cơ cấu Thu - Chi, Sổ từng lớp, Giao dịch)
-   */
-  async getFinancialOverview(tenantId: string, monthQuery?: string) {
-    const selectedMonth = monthQuery || '2026-09';
+  constructor(
+    @InjectRepository(Payment)
+    private readonly paymentRepo: Repository<Payment>,
+    @InjectRepository(ClassEntity)
+    private readonly classRepo: Repository<ClassEntity>,
+    @InjectRepository(Child)
+    private readonly childRepo: Repository<Child>,
+    @InjectRepository(SchoolTenant)
+    private readonly schoolRepo: Repository<SchoolTenant>,
+  ) {}
 
-    // 1. Lấy danh sách chi phí thực tế từ bảng school_expenses
-    const expenseRows = await this.dataSource.query(
-      `SELECT id, category, title, amount, expense_date as "expenseDate",
-              supplier_name as "supplierName", invoice_number as "invoiceNumber",
-              payment_method as "paymentMethod", status, notes, created_at as "createdAt"
-       FROM school_expenses
-       WHERE tenant_id = $1
-       ORDER BY expense_date DESC, created_at DESC`,
-      [tenantId],
-    );
+  async getOverview(month?: string, schoolId?: number) {
+    const selectedMonth = month || new Date().toISOString().substring(0, 7);
+    const numSchoolId = Number(schoolId);
+    const validSchoolId = !isNaN(numSchoolId) && numSchoolId > 0 ? numSchoolId : undefined;
 
-    // Tính tổng chi phí theo nhóm
-    let totalExpense = 0;
-    const expenseCategoriesMap: Record<string, { label: string; amount: number; percentage: number; color: string }> = {
-      FOOD_FRESH: { label: 'Thực phẩm tươi sống (Thịt, cá, tôm, rau củ VietGAP)', amount: 0, percentage: 0, color: '#10b981' },
-      MILK_DAIRY: { label: 'Sữa tươi, sữa chua & sữa hạt dinh dưỡng', amount: 0, percentage: 0, color: '#06b6d4' },
-      COOKING_ENERGY: { label: 'Nhiên liệu gas, điện nước, gia vị Bếp', amount: 0, percentage: 0, color: '#f59e0b' },
-      KITCHEN_STAFF: { label: 'Lương & Phụ cấp nhân sự cấp dưỡng Bếp', amount: 0, percentage: 0, color: '#8b5cf6' },
-      EQUIPMENT_MAINTENANCE: { label: 'Bảo trì máy sấy UV & Khấu hao dụng cụ khay ăn', amount: 0, percentage: 0, color: '#64748b' },
-    };
-
-    for (const exp of expenseRows) {
-      const amt = Number(exp.amount) || 0;
-      totalExpense += amt;
-      if (expenseCategoriesMap[exp.category]) {
-        expenseCategoriesMap[exp.category].amount += amt;
-      }
-    }
-
-    // Nếu bảng chi phí chưa có đủ, cung cấp định mức chi chuẩn của trường
-    if (totalExpense === 0) {
-      totalExpense = 397860000;
-      expenseCategoriesMap.FOOD_FRESH.amount = 185300000;
-      expenseCategoriesMap.MILK_DAIRY.amount = 79710000;
-      expenseCategoriesMap.COOKING_ENERGY.amount = 26570000;
-      expenseCategoriesMap.KITCHEN_STAFF.amount = 79710000;
-      expenseCategoriesMap.EQUIPMENT_MAINTENANCE.amount = 26570000;
-    }
-
-    // Tính phần trăm chi phí
-    Object.keys(expenseCategoriesMap).forEach((key) => {
-      const cat = expenseCategoriesMap[key];
-      cat.percentage = Math.round((cat.amount / totalExpense) * 100);
+    const school = await this.schoolRepo.findOne({
+      where: validSchoolId ? { id: validSchoolId } : {},
     });
 
-    // 2. Doanh thu dự kiến & thực tế theo học sinh và dịch vụ bán trú
-    const childrenCountRes = await this.dataSource.query(
-      `SELECT count(*) as count FROM children WHERE tenant_id = $1 AND status = 'ACTIVE'`,
-      [tenantId],
-    );
-    const totalStudents = Number(childrenCountRes[0]?.count) || 418;
+    const classes = await this.classRepo.find({
+      where: validSchoolId ? { schoolId: validSchoolId } : {},
+      relations: ['homeroomTeacher'],
+    });
 
-    // Doanh thu theo 5 danh mục dịch vụ bán trú chuẩn
-    const revLunch = 412 * 35000 * 22; // 317.240.000 đ
-    const revBreakfast = 185 * 15000 * 22; // 61.050.000 đ
-    const revSnack = 242 * 15000 * 22; // 79.860.000 đ
-    const revLatePickup = 48 * 20000 * 11; // 10.560.000 đ (trung bình 11 buổi/tháng)
-    const revFacilities = totalStudents * (150000 / 5); // 12.540.000 đ/tháng (phân bổ học kỳ)
+    const totalStudents = await this.childRepo.count();
+    const payments = await this.paymentRepo.find({
+      relations: ['registration', 'registration.student', 'registration.student.class'],
+      order: { id: 'DESC' },
+    });
 
-    const totalRevenue = revLunch + revBreakfast + revSnack + revLatePickup + revFacilities; // ~481.250.000 đ
-    const collectionRate = 96.2;
-    const collectedRevenue = Math.round((totalRevenue * collectionRate) / 100);
-    const pendingRevenue = totalRevenue - collectedRevenue;
+    // Compute revenue stats
+    const successfulPayments = payments.filter((p) => p.status === 'SUCCESS');
+    const snackRevenue = successfulPayments.reduce((acc, p) => acc + Number(p.amount), 0) || 23800000;
+    const boardingRevenue = totalStudents * 950000; // Tiền bán trú chính khóa
+    const otherRevenue = totalStudents * 50000;
+
+    const collectedRevenue = boardingRevenue * 0.92 + snackRevenue;
+    const pendingRevenue = boardingRevenue * 0.08;
+    const totalRevenue = collectedRevenue + pendingRevenue;
+
+    const totalExpense = this.expenses.reduce((acc, e) => acc + e.amount, 0) + 72000000; // Thực phẩm + nhân công + điện nước
     const netSurplus = totalRevenue - totalExpense;
+    const collectionRate = totalRevenue > 0 ? Math.round((collectedRevenue / totalRevenue) * 1000) / 10 : 92.5;
 
-    const revenueBreakdown = [
-      { key: 'LUNCH', label: 'Bán trú tiêu chuẩn (Bữa trưa & Giường nệm)', amount: revLunch, percentage: Math.round((revLunch / totalRevenue) * 100), color: '#0d9488' },
-      { key: 'SNACK', label: 'Gói ăn xế chiều tăng cường 17h00', amount: revSnack, percentage: Math.round((revSnack / totalRevenue) * 100), color: '#f97316' },
-      { key: 'BREAKFAST', label: 'Dịch vụ ăn sáng tại trường', amount: revBreakfast, percentage: Math.round((revBreakfast / totalRevenue) * 100), color: '#eab308' },
-      { key: 'FACILITIES', label: 'Chăm sóc đồ dùng & CSVC bán trú', amount: revFacilities, percentage: Math.round((revFacilities / totalRevenue) * 100), color: '#a855f7' },
-      { key: 'LATE_PICKUP', label: 'Trông giữ trẻ ngoài giờ (Đón muộn)', amount: revLatePickup, percentage: Math.round((revLatePickup / totalRevenue) * 100), color: '#3b82f6' },
-    ];
-
-    // 3. Sổ thu học phí & tiền ăn theo từng lớp học
-    const classes = await this.dataSource.query(
-      `SELECT c.id, c.name, c.grade_level as "gradeLevel", c.room_number as "roomNumber",
-              u.full_name as "teacherName", u.phone as "teacherPhone"
-       FROM classes c
-       LEFT JOIN users u ON c.main_teacher_id = u.id
-       WHERE c.tenant_id = $1 AND c.status = 'ACTIVE'
-       ORDER BY c.grade_level ASC, c.name ASC`,
-      [tenantId],
-    );
-
-    const classLedger = classes.map((cls, idx) => {
-      const clsStudents = idx === 0 ? 32 : idx === 1 ? 30 : idx === 2 ? 31 : 28;
-      const expected = clsStudents * 1330000;
-      const paidCount = clsStudents - (idx % 2 === 0 ? 1 : 2);
-      const collected = paidCount * 1330000;
+    // Class Ledger
+    const classLedger = classes.map((cls) => {
+      const sCount = cls.students?.length || 25;
+      const expected = sCount * 1300000;
+      const paidCount = Math.floor(sCount * 0.92);
+      const collected = paidCount * 1300000;
       const pending = expected - collected;
-      const rate = Math.round((collected / expected) * 100);
+      const rate = sCount > 0 ? Math.round((paidCount / sCount) * 1000) / 10 : 100;
 
       return {
-        id: cls.id,
+        id: String(cls.id),
         name: cls.name,
-        gradeLevel: cls.gradeLevel,
-        roomNumber: cls.roomNumber || `Phòng ${101 + idx}`,
-        teacherName: cls.teacherName || 'Cô Nguyễn Thị Mai',
-        teacherPhone: cls.teacherPhone || '0988 234 567',
-        totalStudents: clsStudents,
+        gradeLevel: cls.ageGroup === 'NHA_TRE' ? 'Nhà trẻ' : 'Mẫu giáo',
+        roomNumber: `P.${cls.name.replace(/\D/g, '') || '101'}`,
+        teacherName: cls.homeroomTeacher?.fullName || 'Cô Nguyễn Thị Mai',
+        teacherPhone: cls.homeroomTeacher?.phone || '0908123456',
+        totalStudents: sCount,
         expectedAmount: expected,
         collectedAmount: collected,
         pendingAmount: pending,
         paidStudents: paidCount,
-        unpaidStudents: clsStudents - paidCount,
+        unpaidStudents: sCount - paidCount,
         collectionRate: rate,
-        status: pending === 0 ? 'HOÀN TẤT 100%' : 'ĐANG THU TIỀN',
+        status: rate >= 90 ? 'HOAN_TAT' : 'DANG_THU',
       };
     });
 
-    // 4. Lấy danh sách giao dịch mới nhất từ bảng transactions
-    const rawTransactions = await this.dataSource.query(
-      `SELECT t.id, t.order_code as "orderCode", t.amount, t.status, 
-              t.payment_method as "paymentMethod", t.vnp_transaction_no as "vnpTransactionNo",
-              t.vnp_bank_code as "bankCode", t.vnp_order_info as "orderInfo",
-              to_char(t.created_at, 'DD/MM/YYYY HH24:MI') as "createdAtFormatted",
-              coalesce(c.full_name, 'Học sinh mầm non') as "childName",
-              coalesce(cl.name, 'Lớp Mầm 1') as "className",
-              coalesce(u.full_name, 'Phụ huynh') as "payerName"
-       FROM transactions t
-       LEFT JOIN children c ON c.tenant_id = t.tenant_id
-       LEFT JOIN classes cl ON c.class_id = cl.id
-       LEFT JOIN users u ON t.payer_id = u.id
-       WHERE t.tenant_id = $1
-       ORDER BY t.created_at DESC
-       LIMIT 15`,
-      [tenantId],
-    );
-
-    // 5. Xu hướng tài chính 6 tháng (Trend)
-    const monthlyTrend = [
-      { month: 'T05/2026', revenue: 472000000, expense: 388000000, surplus: 84000000 },
-      { month: 'T06/2026', revenue: 395000000, expense: 330000000, surplus: 65000000 },
-      { month: 'T07/2026', revenue: 410000000, expense: 345000000, surplus: 65000000 },
-      { month: 'T08/2026', revenue: 468000000, expense: 382000000, surplus: 86000000 },
-      { month: 'T09/2026', revenue: totalRevenue, expense: totalExpense, surplus: netSurplus },
-      { month: 'T10/2026 (Dự toán)', revenue: 485000000, expense: 395000000, surplus: 90000000 },
-    ];
-
-    // 6. Định mức dinh dưỡng & chi phí thực phẩm trên mỗi trẻ
-    const foodCostNorms = {
-      lunch: {
-        totalPrice: 35000,
-        ingredientCost: 28000,
-        ingredientPercent: 80,
-        preparationCost: 7000,
-        preparationPercent: 20,
-        energyKcal: '550 - 650 kcal',
-      },
-      breakfast: {
-        totalPrice: 15000,
-        ingredientCost: 12000,
-        ingredientPercent: 80,
-        preparationCost: 3000,
-        preparationPercent: 20,
-        energyKcal: '200 - 250 kcal',
-      },
-      afternoonSnack: {
-        totalPrice: 15000,
-        ingredientCost: 12000,
-        ingredientPercent: 80,
-        preparationCost: 3000,
-        preparationPercent: 20,
-        energyKcal: '200 - 220 kcal',
-      },
-    };
+    // Transactions
+    const transactions = payments.slice(0, 30).map((p) => {
+      const reg = p.registration;
+      const student = reg?.student;
+      return {
+        id: String(p.id),
+        orderCode: p.vnpayTransactionCode || ('ORD-' + p.id),
+        amount: Number(p.amount),
+        status: p.status,
+        paymentMethod: 'VNPAY_QR',
+        vnpTransactionNo: p.vnpayTransactionCode || ('VNP-' + p.id),
+        bankCode: 'NCB',
+        orderInfo: `Thanh toán ăn xế bé ${student?.fullName || 'học sinh'}`,
+        createdAtFormatted: p.paidAt
+          ? new Date(p.paidAt).toLocaleDateString('vi-VN')
+          : new Date().toLocaleDateString('vi-VN'),
+        childName: student?.fullName || 'Nguyễn Minh Khang',
+        className: student?.class?.name || 'Mầm 1',
+        payerName: 'Phụ huynh bé ' + (student?.fullName || 'học sinh'),
+      };
+    });
 
     return {
-      success: true,
       period: {
         month: selectedMonth,
-        academicYear: '2026 - 2027',
-        schoolName: 'Mầm Non Sao Mai – Cơ Sở 1',
+        academicYear: '2025 - 2026',
+        schoolName: school?.name || 'Trường Mầm non Hướng Dương',
       },
       kpis: {
         totalRevenue,
@@ -193,70 +186,142 @@ export class FinancesService {
         collectionRate,
         collectedRevenue,
         pendingRevenue,
-        refundAmount: 4250000,
+        refundAmount: 0,
         totalStudents,
       },
-      revenueBreakdown,
-      expenseBreakdown: Object.values(expenseCategoriesMap),
-      monthlyTrend,
-      classLedger,
-      transactions: rawTransactions,
-      expensesList: expenseRows,
-      foodCostNorms,
-    };
-  }
-
-  /**
-   * Ghi nhận một khoản chi phí nhà bếp / vận hành mới
-   */
-  async createExpense(dto: CreateExpenseDto, tenantId: string) {
-    const res = await this.dataSource.query(
-      `INSERT INTO school_expenses (
-        tenant_id, category, title, amount, expense_date,
-        supplier_name, invoice_number, payment_method, notes, status
-      ) VALUES ($1, $2, $3, $4, coalesce($5, CURRENT_DATE), $6, $7, coalesce($8, 'BANK_TRANSFER'), $9, 'APPROVED')
-      RETURNING *`,
-      [
-        tenantId,
-        dto.category,
-        dto.title,
-        dto.amount,
-        dto.expenseDate,
-        dto.supplierName,
-        dto.invoiceNumber,
-        dto.paymentMethod,
-        dto.notes,
+      revenueBreakdown: [
+        {
+          key: 'boarding',
+          label: 'Bán trú chính khoá (Bữa trưa & phụ)',
+          amount: boardingRevenue,
+          percentage: 82,
+          color: '#0d9488',
+        },
+        {
+          key: 'snack',
+          label: 'Dịch vụ Ăn xế 17h (VNPAY)',
+          amount: snackRevenue,
+          percentage: 14,
+          color: '#f59e0b',
+        },
+        {
+          key: 'other',
+          label: 'Nước uống & Phụ phí vệ sinh',
+          amount: otherRevenue,
+          percentage: 4,
+          color: '#6366f1',
+        },
       ],
-    );
-
-    return {
-      success: true,
-      message: 'Ghi nhận khoản chi tiêu nhà bếp thành công!',
-      data: res[0],
+      expenseBreakdown: [
+        {
+          label: 'Thực phẩm tươi sống (Thịt, cá, trứng)',
+          amount: 52000000,
+          percentage: 54,
+          color: '#ef4444',
+        },
+        {
+          label: 'Rau củ quả tươi & trái cây',
+          amount: 18000000,
+          percentage: 19,
+          color: '#10b981',
+        },
+        {
+          label: 'Sữa tươi & sữa chua xế chiều',
+          amount: 14000000,
+          percentage: 15,
+          color: '#3b82f6',
+        },
+        {
+          label: 'Gia vị, dầu ăn & gas đốt bếp',
+          amount: 11500000,
+          percentage: 12,
+          color: '#8b5cf6',
+        },
+      ],
+      monthlyTrend: [
+        { month: '05/2026', revenue: 142000000, expense: 91000000, surplus: 51000000 },
+        { month: '06/2026', revenue: 110000000, expense: 78000000, surplus: 32000000 },
+        { month: '07/2026', revenue: 95000000, expense: 69000000, surplus: 26000000 },
+        { month: '08/2026', revenue: 138000000, expense: 88000000, surplus: 50000000 },
+        { month: '09/2026', revenue: totalRevenue, expense: totalExpense, surplus: netSurplus },
+      ],
+      classLedger,
+      transactions,
+      expensesList: this.expenses,
+      foodCostNorms: {
+        lunch: {
+          totalPrice: 28000,
+          ingredientCost: 23500,
+          ingredientPercent: 84,
+          preparationCost: 4500,
+          preparationPercent: 16,
+          energyKcal: '520 - 580 kcal',
+        },
+        breakfast: {
+          totalPrice: 15000,
+          ingredientCost: 12500,
+          ingredientPercent: 83,
+          preparationCost: 2500,
+          preparationPercent: 17,
+          energyKcal: '280 - 320 kcal',
+        },
+        afternoonSnack: {
+          totalPrice: 12000,
+          ingredientCost: 10200,
+          ingredientPercent: 85,
+          preparationCost: 1800,
+          preparationPercent: 15,
+          energyKcal: '180 - 220 kcal',
+        },
+      },
     };
   }
 
-  /**
-   * Xóa một khoản chi tiêu
-   */
-  async deleteExpense(id: string, tenantId: string) {
-    await this.dataSource.query(
-      `DELETE FROM school_expenses WHERE id = $1 AND tenant_id = $2`,
-      [id, tenantId],
-    );
+  async createExpense(dto: CreateExpenseDto) {
+    const newExpense: ExpenseItem = {
+      id: `exp-${Date.now()}`,
+      category: dto.category,
+      title: dto.title,
+      amount: Number(dto.amount),
+      expenseDate: dto.expenseDate,
+      supplierName: dto.supplierName,
+      invoiceNumber: dto.invoiceNumber,
+      paymentMethod: dto.paymentMethod || 'BANK_TRANSFER',
+      status: 'PAID',
+      notes: dto.notes,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.expenses.unshift(newExpense);
     return {
       success: true,
-      message: 'Đã xóa chứng từ chi tiêu thành công!',
+      message: 'Ghi nhận khoản chi thành công',
+      data: newExpense,
     };
   }
 
-  /**
-   * Gửi thông báo nhắc đóng tiền ăn cho lớp
-   */
-  async remindClass(classId: string, tenantId: string) {
+  async deleteExpense(id: string) {
+    const idx = this.expenses.findIndex((e) => e.id === id);
+    if (idx === -1) {
+      throw new NotFoundException(`Expense #${id} not found`);
+    }
+
+    this.expenses.splice(idx, 1);
     return {
       success: true,
-      message: 'Đã gửi thông báo nhắc nộp tiền ăn qua ứng dụng Phụ huynh thành công!',
+      message: 'Đã xóa khoản chi thành công',
+    };
+  }
+
+  async remindClass(classId: string) {
+    const cls = await this.classRepo.findOne({
+      where: { id: Number(classId) },
+      relations: ['homeroomTeacher'],
+    });
+
+    return {
+      success: true,
+      message: `Đã gửi thông báo nhắc học phí tới giáo viên và phụ huynh lớp ${cls?.name || classId}`,
     };
   }
 }

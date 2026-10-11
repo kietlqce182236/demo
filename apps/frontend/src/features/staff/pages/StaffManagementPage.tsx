@@ -92,7 +92,7 @@ export const StaffManagementPage: React.FC = () => {
     const fetchRoles = async () => {
       try {
         const roles = await staffApi.getStaffRoles();
-        setAvailableRoles(roles);
+        setAvailableRoles(Array.isArray(roles) ? roles : []);
       } catch (err) {
         console.error('Lỗi khi tải vai trò nhân sự:', err);
       }
@@ -131,9 +131,11 @@ export const StaffManagementPage: React.FC = () => {
         sortBy: 'createdAt',
         sortOrder: 'DESC',
       });
-      setStaffList(res.data);
-      setTotalCount(res.meta.total);
-      setTotalPages(res.meta.totalPages || 1);
+      const rawStaff = Array.isArray(res) ? res : (res?.data || []);
+      const staffArray = Array.isArray(rawStaff) ? rawStaff : [];
+      setStaffList(staffArray);
+      setTotalCount((res as any)?.meta?.total ?? staffArray.length);
+      setTotalPages((res as any)?.meta?.totalPages ?? 1);
     } catch (err) {
       console.error('Lỗi khi tải danh sách nhân sự:', err);
       showToast('error', 'Không thể kết nối đến máy chủ để tải danh sách nhân sự.');

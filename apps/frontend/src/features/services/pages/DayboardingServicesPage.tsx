@@ -128,11 +128,12 @@ export const DayboardingServicesPage: React.FC = () => {
     try {
       setLoading(true);
       const res = await apiClient.get('/snack-services/dayboarding');
-      if (res.data?.success) {
-        setSummary(res.data.summary);
-        setServices(res.data.services || []);
-        setClasses(res.data.classes || []);
-        setStudents(res.data.students || []);
+      const data = (res as any)?.data?.data || (res as any)?.data || res;
+      if (data) {
+        setSummary(data.summary || null);
+        setServices(data.services || []);
+        setClasses(data.classes || []);
+        setStudents(data.students || []);
       }
     } catch (err) {
       console.error('Lỗi khi tải dữ liệu dịch vụ bán trú:', err);

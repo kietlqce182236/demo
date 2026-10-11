@@ -1,44 +1,42 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  Unique,
+} from 'typeorm';
+import { BigIntTransformer } from '../../../database/base.entity';
+import { NumericTransformer } from '../../foods/entities/food.entity';
 import { Dish } from './dish.entity';
 import { Food } from '../../foods/entities/food.entity';
 
-@Entity('recipe_items')
+@Entity('dish_recipes')
+@Unique(['dishId', 'ingredientId'])
 export class RecipeItem {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
 
-  @Column({ name: 'tenant_id', type: 'uuid', nullable: true })
-  tenantId: string;
+  @Column({ name: 'dish_id', type: 'bigint', transformer: BigIntTransformer })
+  dishId: number;
 
-  @Column({ name: 'dish_id', type: 'uuid' })
-  dishId: string;
+  @Column({ name: 'ingredient_id', type: 'bigint', transformer: BigIntTransformer })
+  ingredientId: number;
 
-  @Column({ name: 'food_id', type: 'uuid' })
-  foodId: string;
+  @Column({ name: 'gross_weight_g', type: 'numeric', precision: 8, scale: 2, default: 0, transformer: NumericTransformer })
+  grossWeightG: number;
 
-  @Column({ name: 'net_weight_per_portion_g', type: 'numeric', precision: 10, scale: 2 })
-  netWeightPerPortionG: number;
+  @Column({ name: 'net_weight_g', type: 'numeric', precision: 8, scale: 2, default: 0, transformer: NumericTransformer })
+  netWeightG: number;
 
-  @Column({ name: 'gross_weight_per_portion_g', type: 'numeric', precision: 10, scale: 2, nullable: true })
-  grossWeightPerPortionG: number;
+  @Column({ type: 'text', nullable: true })
+  note: string;
 
-  @Column({ name: 'shrinkage_ratio', type: 'numeric', precision: 5, scale: 2, nullable: true })
-  shrinkageRatio: number;
-
-  @Column({ name: 'prep_notes', type: 'text', nullable: true })
-  prepNotes: string;
-
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
-  updatedAt: Date;
-
-  @ManyToOne(() => Dish, dish => dish.recipeItems, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Dish, (d) => d.recipes, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'dish_id' })
   dish: Dish;
 
-  @ManyToOne(() => Food, { onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'food_id' })
-  food: Food;
+  @ManyToOne(() => Food, { eager: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'ingredient_id' })
+  ingredient: Food;
 }

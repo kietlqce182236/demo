@@ -1,65 +1,23 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsNumber,
-  IsArray,
-  ValidateNested,
-  Min,
-  Max,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class ExcelMenuItemDto {
-  @IsNumber()
-  @Min(1)
-  @Max(7)
-  dayOfWeek: number; // 1 = T2, 2 = T3, 3 = T4, 4 = T5, 5 = T6
-
-  @IsString()
-  @IsNotEmpty()
-  mealTime: string; // BREAKFAST, MORNING_SNACK, LUNCH, AFTERNOON_SNACK, LATE_SNACK
-
-  @IsString()
-  @IsNotEmpty()
-  dishName: string;
-
-  @IsString()
+export class ImportExcelDto {
+  @ApiPropertyOptional()
   @IsOptional()
-  dishType?: string; // MAIN_COURSE, SOUP, SIDE_VEGETABLE, RICE_STAPLE, DESSERT, etc.
+  fileContentBase64?: string;
 
-  @IsNumber()
+  @ApiPropertyOptional()
   @IsOptional()
-  portionSizeG?: number = 100;
-
-  @IsNumber()
-  @IsOptional()
-  calories?: number;
-}
-
-export class ImportExcelMenuDto {
   @IsString()
+  fileName?: string;
+
+  @ApiProperty({ example: 'MAU_GIAO' })
   @IsNotEmpty()
-  title: string;
-
   @IsString()
+  ageGroup: string;
+
+  @ApiProperty({ example: '2025-09-08' })
   @IsNotEmpty()
-  startDate: string;
-
   @IsString()
-  @IsNotEmpty()
-  endDate: string;
-
-  @IsString()
-  @IsOptional()
-  targetAgeGroup?: string = 'ALL_AGES';
-
-  @IsNumber()
-  @IsOptional()
-  cycleWeekNumber?: number = 1;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ExcelMenuItemDto)
-  items: ExcelMenuItemDto[];
+  weekStartDate: string;
 }

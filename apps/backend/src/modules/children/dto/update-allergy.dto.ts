@@ -1,9 +1,14 @@
-import { PartialType } from '@nestjs/swagger';
-import { DeclareAllergyDto } from './declare-allergy.dto';
-import { IsOptional, IsBoolean } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
-export class UpdateAllergyDto extends PartialType(DeclareAllergyDto) {
+export class UpdateAllergyDto {
+  @ApiPropertyOptional({ example: 'MEDIUM', enum: ['LOW', 'MEDIUM', 'HIGH'] })
   @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
+  @IsString()
+  severity?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
 }

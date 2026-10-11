@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AllergenCatalog } from '../entities/allergen-catalog.entity';
@@ -17,180 +12,75 @@ export class AllergenRulesService {
     private readonly allergenRepo: Repository<AllergenCatalog>,
   ) {}
 
-  /**
-   * Lấy danh mục các chất gây dị ứng (Master toàn quốc + Tùy chỉnh của trường)
-   */
-  async getAllergens(
-    tenantId: string,
-    options?: {
-      search?: string;
-      includeDeleted?: boolean;
-    },
-  ) {
-    const qb = this.allergenRepo
-      .createQueryBuilder('a')
-      .where('(a.tenantId = :tenantId OR a.tenantId IS NULL)', { tenantId });
-
-    if (options?.includeDeleted) {
-      qb.withDeleted();
-    }
-
-    if (options?.search && options.search.trim() !== '') {
-      const search = `%${options.search.trim().toLowerCase()}%`;
-      qb.andWhere(
-        '(LOWER(a.code) LIKE :search OR LOWER(a.nameVi) LIKE :search OR LOWER(a.commonFoods) LIKE :search)',
-        { search },
-      );
-    }
-
-    qb.orderBy('a.tenantId', 'DESC') // Tùy biến của trường lên trước
-      .addOrderBy('a.code', 'ASC');
-
-    const list = await qb.getMany();
-
-    return list.map((item) => ({
-      ...item,
-      isSystemStandard: item.tenantId === null,
-      isDeleted: item.deletedAt !== null,
+  async findAll() {
+    const items = await this.allergenRepo.find({ order: { name: 'ASC' } });
+    return items.map((a) => ({
+      id: String(a.id),
+      tenantId: null,
+      code: a.code,
+      name: a.name,
+      nameVi: a.name,
+      nameEn: a.code,
+      commonFoods: a.description || `Các món ăn chế biến từ hoặc chứa ${a.name}`,
+      description: a.description || `Nhóm chất dị ứng theo danh mục chuẩn Codex & Bộ Y Tế: ${a.name}`,
+      isActive: true,
+      isSystemStandard: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      deletedAt: null,
     }));
   }
 
-  /**
-   * Lấy chi tiết 1 chất dị ứng
-   */
-  async getAllergenById(id: string, tenantId: string) {
-    const allergen = await this.allergenRepo
-      .createQueryBuilder('a')
-      .withDeleted()
-      .where('a.id = :id AND (a.tenantId = :tenantId OR a.tenantId IS NULL)', { id, tenantId })
-      .getOne();
-
-    if (!allergen) {
-      throw new NotFoundException('Không tìm thấy thông tin chất gây dị ứng này.');
-    }
-
+  async findOne(id: number) {
+    const item = await this.allergenRepo.findOne({ where: { id } });
+    if (!item) throw new NotFoundException('Không tìm thấy danh mục dị ứng');
     return {
-      ...allergen,
-      isSystemStandard: allergen.tenantId === null,
-      isDeleted: allergen.deletedAt !== null,
-    };
-  }
-
-  /**
-   * Thêm chất dị ứng mới vào danh mục
-   */
-  async createAllergen(tenantId: string, dto: CreateAllergenDto) {
-    const code = dto.code.trim().toUpperCase();
-
-    // Kiểm tra trùng mã
-    const existing = await this.allergenRepo
-      .createQueryBuilder('a')
-      .withDeleted()
-      .where('a.code = :code AND (a.tenantId = :tenantId OR a.tenantId IS NULL)', { code, tenantId })
-      .getOne();
-
-    if (existing) {
-      throw new ConflictException(`Mã chất dị ứng "${code}" đã tồn tại trong danh mục.`);
-    }
-
-    const newAllergen = this.allergenRepo.create({
-      tenantId,
-      code,
-      nameVi: dto.nameVi.trim(),
-      nameEn: dto.nameEn ? dto.nameEn.trim() : null,
-      commonFoods: dto.commonFoods ? dto.commonFoods.trim() : null,
-      description: dto.description ? dto.description.trim() : null,
+      id: String(item.id),
+      tenantId: null,
+      code: item.code,
+      name: item.name,
+      nameVi: item.name,
+      nameEn: item.code,
+      commonFoods: item.description || `Các món ăn chế biến từ hoặc chứa ${item.name}`,
+      description: item.description || `Nhóm chất dị ứng theo danh mục chuẩn Codex & Bộ Y Tế: ${item.name}`,
       isActive: true,
+      isSystemStandard: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      deletedAt: null,
+    };
+  }
+
+  async create(dto: CreateAllergenDto) {
+    const name = dto.name || dto.nameVi || 'Chất dị ứng';
+    const description = dto.description || dto.commonFoods || null;
+    const allergen = this.allergenRepo.create({
+      code: dto.code.toUpperCase(),
+      name,
+      description,
     });
-
-    const saved = await this.allergenRepo.save(newAllergen);
-    return {
-      ...saved,
-      isSystemStandard: false,
-      isDeleted: false,
-    };
+    const saved = await this.allergenRepo.save(allergen);
+    return this.findOne(saved.id);
   }
 
-  /**
-   * Cập nhật chất dị ứng
-   */
-  async updateAllergen(id: string, tenantId: string, dto: UpdateAllergenDto) {
+  async update(id: number, dto: UpdateAllergenDto) {
     const allergen = await this.allergenRepo.findOne({ where: { id } });
+    if (!allergen) throw new NotFoundException('Không tìm thấy danh mục dị ứng');
 
-    if (!allergen) {
-      throw new NotFoundException('Không tìm thấy chất dị ứng cần cập nhật.');
+    if (dto.name || dto.nameVi) allergen.name = (dto.name || dto.nameVi)!;
+    if (dto.code) allergen.code = dto.code.toUpperCase();
+    if (dto.description !== undefined || dto.commonFoods !== undefined) {
+      allergen.description = (dto.description ?? dto.commonFoods)!;
     }
 
-    if (allergen.tenantId === null) {
-      throw new ForbiddenException(
-        'Đây là danh mục dị ứng chuẩn quốc tế Codex/BYT, không thể sửa đổi trực tiếp.',
-      );
-    }
-
-    if (allergen.tenantId !== tenantId) {
-      throw new ForbiddenException('Bạn không có quyền chỉnh sửa dữ liệu của trường khác.');
-    }
-
-    Object.assign(allergen, {
-      ...dto,
-      nameVi: dto.nameVi ? dto.nameVi.trim() : allergen.nameVi,
-    });
-
-    const updated = await this.allergenRepo.save(allergen);
-    return {
-      ...updated,
-      isSystemStandard: false,
-      isDeleted: false,
-    };
+    await this.allergenRepo.save(allergen);
+    return this.findOne(id);
   }
 
-  /**
-   * Xóa mềm (Soft Delete) chất dị ứng
-   */
-  async softDeleteAllergen(id: string, tenantId: string) {
+  async remove(id: number) {
     const allergen = await this.allergenRepo.findOne({ where: { id } });
-
-    if (!allergen) {
-      throw new NotFoundException('Không tìm thấy chất dị ứng này.');
-    }
-
-    if (allergen.tenantId === null) {
-      throw new ForbiddenException('Không thể xóa chất dị ứng chuẩn quốc gia.');
-    }
-
-    if (allergen.tenantId !== tenantId) {
-      throw new ForbiddenException('Bạn không có quyền xóa dữ liệu của trường khác.');
-    }
-
-    await this.allergenRepo.softDelete({ id, tenantId });
-    await this.allergenRepo.update({ id, tenantId }, { isActive: false });
-
-    return {
-      success: true,
-      message: `Đã chuyển chất dị ứng "${allergen.nameVi}" vào danh mục lưu trữ (xóa mềm).`,
-    };
-  }
-
-  /**
-   * Khôi phục (Restore) chất dị ứng
-   */
-  async restoreAllergen(id: string, tenantId: string) {
-    const allergen = await this.allergenRepo
-      .createQueryBuilder('a')
-      .withDeleted()
-      .where('a.id = :id AND a.tenantId = :tenantId', { id, tenantId })
-      .getOne();
-
-    if (!allergen) {
-      throw new NotFoundException('Không tìm thấy chất dị ứng trong danh mục lưu trữ.');
-    }
-
-    await this.allergenRepo.restore({ id, tenantId });
-    await this.allergenRepo.update({ id, tenantId }, { isActive: true });
-
-    return {
-      success: true,
-      message: `Đã khôi phục chất dị ứng "${allergen.nameVi}" thành công.`,
-    };
+    if (!allergen) throw new NotFoundException('Không tìm thấy danh mục dị ứng');
+    await this.allergenRepo.remove(allergen);
+    return { success: true, message: 'Đã xóa danh mục dị ứng' };
   }
 }

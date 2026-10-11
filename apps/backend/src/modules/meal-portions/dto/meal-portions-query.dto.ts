@@ -1,19 +1,19 @@
-import { IsOptional, IsInt, IsString } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class MealPortionsQueryDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  weekNumber?: number = 14;
-
+  @ApiPropertyOptional({ example: '2025-09-08' })
   @IsOptional()
   @IsString()
-  schoolYear?: string = 'Năm học 2024 - 2025 - Học kỳ 1';
-}
+  date?: string;
 
-export class ApproveWarehouseExportDto {
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  notes?: string;
+  classId?: string;
+
+  @ApiPropertyOptional({ example: 'LUNCH' })
+  @IsOptional()
+  @IsString()
+  mealType?: string;
 }

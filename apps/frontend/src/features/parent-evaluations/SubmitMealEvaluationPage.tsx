@@ -48,19 +48,25 @@ export const SubmitMealEvaluationPage: React.FC = () => {
     };
   }) => {
     if (!data) return;
+    const currentChild = data.child || (data as any).childProfile || {
+      id: '1',
+      name: 'Bé Nguyễn Bảo Nam',
+      parentName: 'Chị Hoàng Yến',
+      className: 'Lớp Mầm 1',
+    };
     setIsSubmitting(true);
     try {
       const payload: SubmitEvaluationPayload = {
-        childId: data.child.id,
+        childId: currentChild.id,
         evaluationType: 'QUICK_EVALUATION',
         rating: formData.rating,
         content: formData.content,
         isDrafting: formData.isDrafting,
-        parentNameCustom: data.child.parentName,
-        childNameCustom: data.child.name,
-        classNameCustom: data.child.className,
+        parentNameCustom: currentChild.parentName,
+        childNameCustom: currentChild.name,
+        classNameCustom: currentChild.className,
         attributes: formData.attributes,
-        feedbackDate: '2024-10-29',
+        feedbackDate: new Date().toISOString().split('T')[0],
       };
       await parentEvaluationApi.submitEvaluation(payload);
       // Refresh real database data
@@ -79,19 +85,25 @@ export const SubmitMealEvaluationPage: React.FC = () => {
     photos?: string[];
   }) => {
     if (!data) return;
+    const currentChild = data.child || (data as any).childProfile || {
+      id: '1',
+      name: 'Bé Nguyễn Bảo Nam',
+      parentName: 'Chị Hoàng Yến',
+      className: 'Lớp Mầm 1',
+    };
     setIsSubmitting(true);
     try {
       const payload: SubmitEvaluationPayload = {
-        childId: data.child.id,
+        childId: currentChild.id,
         evaluationType: 'SCHOOL_PROPOSAL',
         category: formData.category,
         title: formData.title,
         content: formData.content,
         isAnonymous: formData.isAnonymous,
         photos: formData.photos,
-        parentNameCustom: data.child.parentName,
-        childNameCustom: data.child.name,
-        classNameCustom: data.child.className,
+        parentNameCustom: currentChild.parentName,
+        childNameCustom: currentChild.name,
+        classNameCustom: currentChild.className,
       };
       await parentEvaluationApi.submitEvaluation(payload);
       // Refresh real database data
@@ -132,13 +144,26 @@ export const SubmitMealEvaluationPage: React.FC = () => {
 
   if (!data) return null;
 
+  const child = data.child || (data as any).childProfile || {
+    id: '1',
+    name: 'Bé Nguyễn Bảo Nam',
+    age: 4,
+    className: 'Lớp Mầm 1',
+    gradeLevel: 'Mẫu giáo (4–5T)',
+    weight: 16.5,
+    height: 104.2,
+    allergyWarning: '',
+    parentName: 'Chị Hoàng Yến',
+    parentRole: 'Mẹ bé',
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col antialiased">
       {/* 1. Top Navigation Bar */}
-      <ParentPortalTopNav child={data.child} />
+      <ParentPortalTopNav child={child} />
 
       {/* 2. Sub-Header Child Profile & Allergy Strip */}
-      <ChildInfoStrip child={data.child} />
+      <ChildInfoStrip child={child} />
 
       {/* Main Content Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -149,7 +174,7 @@ export const SubmitMealEvaluationPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
           {/* Left: Quick Meal Evaluation Form */}
           <QuickMealEvaluationForm
-            child={data.child}
+            child={child}
             todayMeal={data.todayMeal}
             onSubmit={handleQuickEvaluationSubmit}
             isSubmitting={isSubmitting}
@@ -157,7 +182,7 @@ export const SubmitMealEvaluationPage: React.FC = () => {
 
           {/* Right: School Proposal & Feedback Form */}
           <SchoolProposalForm
-            child={data.child}
+            child={child}
             onSubmit={handleSchoolProposalSubmit}
             isSubmitting={isSubmitting}
           />
@@ -169,7 +194,7 @@ export const SubmitMealEvaluationPage: React.FC = () => {
         {/* 6. Bottom Feedback Log & Responses History */}
         <SchoolFeedbackHistory
           history={data.history}
-          parentName={data.child.parentName}
+          parentName={child.parentName}
         />
       </main>
 

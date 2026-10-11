@@ -1,24 +1,44 @@
-import { IsString, IsOptional, IsBoolean } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class QueryMenuDto {
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   search?: string;
 
-  @IsString()
+  @ApiPropertyOptional({ enum: ['DRAFT', 'PENDING', 'APPROVED', 'PUBLISHED', 'REJECTED'] })
   @IsOptional()
+  @IsString()
   status?: string;
 
-  @IsString()
+  @ApiPropertyOptional({ enum: ['NHA_TRE', 'MAU_GIAO'] })
   @IsOptional()
+  @IsString()
+  ageGroup?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   targetAgeGroup?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) => (value !== undefined ? Number(value) : undefined))
-  version?: number;
+  @IsString()
+  weekStartDate?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
-  includeDeleted?: boolean = false;
+  includeDeleted?: boolean;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number = 20;
 }

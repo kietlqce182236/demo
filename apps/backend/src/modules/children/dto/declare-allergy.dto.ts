@@ -1,37 +1,19 @@
-import { IsString, IsOptional, IsUUID, IsIn, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsNumber } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class DeclareAllergyDto {
-  @IsOptional()
-  @IsUUID()
-  allergenId?: string;
+  @ApiProperty({ example: 1, description: 'ID dị ứng trong bảng allergens' })
+  @IsNotEmpty({ message: 'Allergen ID không được để trống' })
+  @IsNumber()
+  allergenId: number;
 
+  @ApiProperty({ example: 'HIGH', enum: ['LOW', 'MEDIUM', 'HIGH'] })
+  @IsNotEmpty({ message: 'Mức độ nghiêm trọng không được để trống' })
+  @IsString()
+  severity: string;
+
+  @ApiPropertyOptional({ example: 'Phản ứng sưng môi, phát ban sau 15 phút' })
   @IsOptional()
   @IsString()
-  customAllergenName?: string;
-
-  @IsOptional()
-  @IsString()
-  @IsIn(['ALLERGY', 'INTOLERANCE', 'RELIGIOUS_RESTRICTION', 'MEDICAL_RESTRICTION'])
-  allergyType?: string;
-
-  @IsOptional()
-  @IsString()
-  @IsIn(['MILD', 'MODERATE', 'SEVERE', 'ANAPHYLACTIC'])
-  severity?: string;
-
-  @IsOptional()
-  @IsString()
-  symptoms?: string;
-
-  @IsOptional()
-  @IsString()
-  reactionTreatment?: string;
-
-  @IsOptional()
-  @IsDateString()
-  diagnosedDate?: string;
-
-  @IsOptional()
-  @IsString()
-  medicalCertificateUrl?: string;
+  note?: string;
 }

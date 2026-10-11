@@ -1,36 +1,45 @@
-import { IsOptional, IsUUID, IsString, IsDateString, IsInt, Min } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class QueryGrowthRecordsDto {
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsUUID()
+  @IsString()
   childId?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsUUID()
+  @IsString()
+  studentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   classId?: string;
 
+  @ApiPropertyOptional({ enum: ['NORMAL', 'UNDERWEIGHT', 'OVERWEIGHT', 'OBESE', 'STUNTED'] })
   @IsOptional()
-  @IsDateString()
-  startDate?: string;
+  @IsString()
+  status?: string;
 
-  @IsOptional()
-  @IsDateString()
-  endDate?: string;
-
+  @ApiPropertyOptional({ enum: ['NORMAL', 'UNDERWEIGHT', 'OVERWEIGHT', 'OBESE', 'STUNTED'] })
   @IsOptional()
   @IsString()
   nutritionalStatus?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ default: 1 })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
   page?: number = 1;
 
+  @ApiPropertyOptional({ default: 50 })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  limit?: number = 20;
+  limit?: number = 50;
 }

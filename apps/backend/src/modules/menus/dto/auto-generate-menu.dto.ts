@@ -1,57 +1,63 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsNumber,
-  Min,
-  Max,
-  IsBoolean,
-} from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsNumber } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AutoGenerateMenuDto {
-  @IsString()
+  @ApiPropertyOptional({ example: 'MAU_GIAO' })
   @IsOptional()
+  @IsString()
+  ageGroup?: string;
+
+  @ApiPropertyOptional({ example: 'MAU_GIAO' })
+  @IsOptional()
+  @IsString()
+  targetAgeGroup?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-12' })
+  @IsOptional()
+  @IsString()
+  weekStartDate?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-12' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-16' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @ApiPropertyOptional({ example: 'Thực đơn AI sinh tự động theo chuẩn Thông tư 28' })
+  @IsOptional()
+  @IsString()
   title?: string;
 
-  @IsString()
+  @ApiPropertyOptional({ example: 5 })
   @IsOptional()
-  targetAgeGroup?: string = 'KINDERGARTEN_3_5Y';
-
-  @IsString()
-  @IsNotEmpty()
-  startDate: string;
-
-  @IsString()
-  @IsNotEmpty()
-  endDate: string;
-
   @IsNumber()
-  @IsOptional()
-  @Min(5)
-  @Max(6)
-  daysCount?: number = 5;
+  daysCount?: number;
 
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
   @IsNumber()
-  @IsOptional()
-  @Min(1)
-  @Max(52)
-  cycleWeekNumber?: number = 1;
+  cycleWeekNumber?: number;
 
+  @ApiPropertyOptional({ example: 14 })
+  @IsOptional()
   @IsNumber()
-  @IsOptional()
-  @Min(0)
-  @Max(30)
-  excludePreviousDays?: number = 14;
+  excludePreviousDays?: number;
 
-  @IsString()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
-  referenceMenuId?: string;
-
   @IsBoolean()
-  @IsOptional()
-  includeBreakfast?: boolean = true;
+  includeBreakfast?: boolean;
 
-  @IsBoolean()
+  @ApiPropertyOptional({ example: false })
   @IsOptional()
-  previewOnly?: boolean = false;
+  @IsBoolean()
+  previewOnly?: boolean;
+
+  @ApiPropertyOptional({ description: 'Kế hoạch các ngày đã xem trước để lưu chính xác' })
+  @IsOptional()
+  dailyPlan?: any[];
 }

@@ -3,7 +3,7 @@ import { ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
 import { TodayMealData } from '../types';
 
 interface NutritionStandardBannerProps {
-  todayMeal: TodayMealData;
+  todayMeal?: Partial<TodayMealData>;
   onViewDetails?: () => void;
 }
 
@@ -11,7 +11,7 @@ export const NutritionStandardBanner: React.FC<NutritionStandardBannerProps> = (
   todayMeal,
   onViewDetails,
 }) => {
-  const nutrition = todayMeal.nutritionStandard || {
+  const nutrition = todayMeal?.nutritionStandard || {
     title: 'Dinh dưỡng chuẩn viện dinh dưỡng quốc gia',
     subtitle: 'Tổng năng lượng bữa trưa đạt 580 kcal • Protein: 22g • Canxi: 210mg • Chất xơ: 6.5g',
   };

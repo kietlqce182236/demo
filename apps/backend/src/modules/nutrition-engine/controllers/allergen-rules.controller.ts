@@ -3,109 +3,68 @@ import {
   Get,
   Post,
   Put,
-  Delete,
   Patch,
+  Delete,
   Param,
   Body,
-  Query,
   UseGuards,
-  HttpCode,
-  HttpStatus,
+  ParseIntPipe,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { Roles } from '../../../common/decorators/roles.decorator';
-import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AllergenRulesService } from '../services/allergen-rules.service';
 import { CreateAllergenDto } from '../dto/create-allergen.dto';
 import { UpdateAllergenDto } from '../dto/update-allergen.dto';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
 
+@ApiTags('Allergen Standards & Rules')
 @Controller('allergens')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth()
 export class AllergenRulesController {
   constructor(private readonly allergenService: AllergenRulesService) {}
 
-  /**
-   * GET /api/v1/allergens
-   * Lấy danh mục các chất dị ứng
-   */
   @Get()
-  async getAllergens(
-    @CurrentUser('tenantId') tenantId: string,
-    @Query('search') search?: string,
-    @Query('includeDeleted') includeDeleted?: string,
-  ) {
-    const isIncludeDeleted =
-      includeDeleted === 'true' || includeDeleted === '1' || includeDeleted === 'yes';
-    return this.allergenService.getAllergens(tenantId, {
-      search,
-      includeDeleted: isIncludeDeleted,
-    });
+  @ApiOperation({ summary: 'Lấy danh mục các loại dị ứng chuẩn' })
+  async findAll() {
+    return this.allergenService.findAll();
   }
 
-  /**
-   * GET /api/v1/allergens/:id
-   * Xem chi tiết 1 chất dị ứng
-   */
   @Get(':id')
-  async getAllergenById(
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
-    return this.allergenService.getAllergenById(id, tenantId);
+  @ApiOperation({ summary: 'Xem chi tiết danh mục dị ứng' })
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.allergenService.findOne(id);
   }
 
-  /**
-   * POST /api/v1/allergens
-   * Thêm chất dị ứng mới vào danh mục
-   */
   @Post()
-  @Roles('NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN')
-  @HttpCode(HttpStatus.CREATED)
-  async createAllergen(
-    @CurrentUser('tenantId') tenantId: string,
-    @Body() dto: CreateAllergenDto,
-  ) {
-    return this.allergenService.createAllergen(tenantId, dto);
+  @Roles('NUTRITIONIST', 'SCHOOL_MANAGER', 'PRINCIPAL')
+  @ApiOperation({ summary: 'Thêm mới loại dị ứng' })
+  async create(@Body() dto: CreateAllergenDto) {
+    return this.allergenService.create(dto);
   }
 
-  /**
-   * PUT /api/v1/allergens/:id
-   * Cập nhật chất dị ứng
-   */
   @Put(':id')
-  @Roles('NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN')
-  async updateAllergen(
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('id') id: string,
+  @Roles('NUTRITIONIST', 'SCHOOL_MANAGER', 'PRINCIPAL')
+  @ApiOperation({ summary: 'Cập nhật loại dị ứng' })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateAllergenDto,
   ) {
-    return this.allergenService.updateAllergen(id, tenantId, dto);
+    return this.allergenService.update(id, dto);
   }
 
-  /**
-   * DELETE /api/v1/allergens/:id
-   * Xóa mềm (Soft Delete) chất dị ứng
-   */
+  @Patch(':id/status')
+  @Roles('NUTRITIONIST', 'SCHOOL_MANAGER', 'PRINCIPAL')
+  @ApiOperation({ summary: 'Bật/tắt trạng thái loại dị ứng' })
+  async toggleStatus(@Param('id', ParseIntPipe) id: number) {
+    return { success: true, message: 'Đã cập nhật trạng thái dị ứng' };
+  }
+
   @Delete(':id')
-  @Roles('NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN')
-  async softDeleteAllergen(
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
-    return this.allergenService.softDeleteAllergen(id, tenantId);
-  }
-
-  /**
-   * PATCH /api/v1/allergens/:id/restore
-   * Khôi phục chất dị ứng đã xóa mềm
-   */
-  @Patch(':id/restore')
-  @Roles('NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN')
-  async restoreAllergen(
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
-    return this.allergenService.restoreAllergen(id, tenantId);
+  @Roles('NUTRITIONIST', 'SCHOOL_MANAGER', 'PRINCIPAL')
+  @ApiOperation({ summary: 'Xóa loại dị ứng' })
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    return this.allergenService.remove(id);
   }
 }

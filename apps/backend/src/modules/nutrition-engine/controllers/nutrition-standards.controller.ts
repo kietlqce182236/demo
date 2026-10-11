@@ -3,117 +3,84 @@ import {
   Get,
   Post,
   Put,
-  Delete,
   Patch,
+  Delete,
   Param,
   Body,
-  Query,
   UseGuards,
-  HttpCode,
-  HttpStatus,
+  ParseIntPipe,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { Roles } from '../../../common/decorators/roles.decorator';
-import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NutritionRulesService } from '../services/nutrition-rules.service';
 import { CreateNutritionRuleDto } from '../dto/create-nutrition-rule.dto';
 import { UpdateNutritionRuleDto } from '../dto/update-nutrition-rule.dto';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
 
+@ApiTags('Nutrition Rules & Standards')
 @Controller('nutrition-rules')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN')
+@ApiBearerAuth()
 export class NutritionStandardsController {
   constructor(private readonly rulesService: NutritionRulesService) {}
 
-  /**
-   * GET /api/v1/nutrition-rules
-   * Lấy danh sách quy chuẩn dinh dưỡng áp dụng cho trường
-   */
   @Get()
-  async getNutritionRules(
-    @CurrentUser('tenantId') tenantId: string,
-    @Query('targetAgeGroup') targetAgeGroup?: string,
-    @Query('search') search?: string,
-    @Query('includeDeleted') includeDeleted?: string,
-  ) {
-    const isIncludeDeleted =
-      includeDeleted === 'true' || includeDeleted === '1' || includeDeleted === 'yes';
-    return this.rulesService.getNutritionRules(tenantId, {
-      targetAgeGroup,
-      search,
-      includeDeleted: isIncludeDeleted,
-    });
+  @ApiOperation({ summary: 'Lấy danh sách các chuẩn dinh dưỡng theo nhóm tuổi' })
+  async findAll() {
+    return this.rulesService.findAll();
   }
 
-  /**
-   * GET /api/v1/nutrition-rules/stats
-   * Lấy thống kê số lượng quy chuẩn, tỷ lệ tuân thủ, dị ứng (Top KPI cards)
-   */
   @Get('stats')
-  async getNutritionStats(@CurrentUser('tenantId') tenantId: string) {
-    return this.rulesService.getNutritionStats(tenantId);
+  @ApiOperation({ summary: 'Thống kê quy tắc dinh dưỡng Thông tư 28' })
+  async getStats() {
+    return this.rulesService.getStats();
   }
 
-  /**
-   * GET /api/v1/nutrition-rules/:id
-   * Xem chi tiết 1 quy chuẩn
-   */
+  @Post('sync-rda')
+  @Roles('NUTRITIONIST', 'SCHOOL_MANAGEMENT', 'PRINCIPAL', 'ADMIN')
+  @ApiOperation({ summary: 'Đồng bộ quy chuẩn Quốc gia (VN-RDA 2024 & TT 28)' })
+  async syncRda() {
+    return this.rulesService.syncRdaStandards();
+  }
+
   @Get(':id')
-  async getRuleById(
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
-    return this.rulesService.getRuleById(id, tenantId);
+  @ApiOperation({ summary: 'Xem chi tiết chuẩn dinh dưỡng' })
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.rulesService.findOne(id);
   }
 
-  /**
-   * POST /api/v1/nutrition-rules
-   * Tạo mới quy chuẩn dinh dưỡng
-   */
   @Post()
-  @HttpCode(HttpStatus.CREATED)
-  async createNutritionRule(
-    @CurrentUser('tenantId') tenantId: string,
-    @Body() dto: CreateNutritionRuleDto,
-  ) {
-    return this.rulesService.createNutritionRule(tenantId, dto);
+  @Roles('NUTRITIONIST', 'SCHOOL_MANAGER', 'PRINCIPAL')
+  @ApiOperation({ summary: 'Thêm mới quy tắc chuẩn dinh dưỡng' })
+  async create(@Body() dto: CreateNutritionRuleDto) {
+    return this.rulesService.create(dto);
   }
 
-  /**
-   * PUT /api/v1/nutrition-rules/:id
-   * Cập nhật quy chuẩn dinh dưỡng
-   */
   @Put(':id')
-  async updateNutritionRule(
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('id') id: string,
+  @Roles('NUTRITIONIST', 'SCHOOL_MANAGER', 'PRINCIPAL')
+  @ApiOperation({ summary: 'Cập nhật chỉ tiêu dinh dưỡng' })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateNutritionRuleDto,
   ) {
-    return this.rulesService.updateNutritionRule(id, tenantId, dto);
+    return this.rulesService.update(id, dto);
   }
 
-  /**
-   * DELETE /api/v1/nutrition-rules/:id
-   * Xóa mềm (Soft Delete) quy chuẩn dinh dưỡng
-   */
+  @Patch(':id/status')
+  @Roles('NUTRITIONIST', 'SCHOOL_MANAGER', 'PRINCIPAL')
+  @ApiOperation({ summary: 'Bật/tắt trạng thái áp dụng quy tắc' })
+  async toggleStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('isActive') isActive: boolean,
+  ) {
+    return this.rulesService.update(id, { status: isActive ? 'ACTIVE' : 'INACTIVE' });
+  }
+
   @Delete(':id')
-  async softDeleteNutritionRule(
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
-    return this.rulesService.softDeleteNutritionRule(id, tenantId);
-  }
-
-  /**
-   * PATCH /api/v1/nutrition-rules/:id/restore
-   * Khôi phục quy chuẩn dinh dưỡng đã xóa mềm
-   */
-  @Patch(':id/restore')
-  async restoreNutritionRule(
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
-    return this.rulesService.restoreNutritionRule(id, tenantId);
+  @Roles('NUTRITIONIST', 'SCHOOL_MANAGER', 'PRINCIPAL')
+  @ApiOperation({ summary: 'Xóa quy tắc dinh dưỡng' })
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    return this.rulesService.remove(id);
   }
 }

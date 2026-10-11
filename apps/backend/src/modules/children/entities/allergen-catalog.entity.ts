@@ -1,25 +1,17 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { BigIntTransformer } from '../../../database/base.entity';
 
-@Entity('allergen_catalogs')
+@Entity('allergens')
 export class AllergenCatalog {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
 
-  @Column({ length: 50, unique: true })
+  @Column({ length: 100 })
+  name: string;
+
+  @Column({ length: 30, unique: true })
   code: string;
-
-  @Column({ name: 'name_vi', length: 150 })
-  nameVi: string;
-
-  @Column({ name: 'name_en', length: 150 })
-  nameEn: string;
-
-  @Column({ name: 'common_foods', type: 'text', nullable: true })
-  commonFoods: string;
 
   @Column({ type: 'text', nullable: true })
   description: string;
-
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-  createdAt: Date;
 }

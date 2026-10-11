@@ -1,79 +1,80 @@
 import { Injectable } from '@nestjs/common';
 
-export interface IngredientWeight {
-  energyKcal100g: number;
-  proteinG100g: number;
-  lipidG100g: number;
-  glucidG100g: number;
-  calciumMg100g?: number;
-  ironMg100g?: number;
-  netWeightG: number;
-}
-
-export interface NutritionSummary {
-  totalEnergyKcal: number;
-  totalProteinG: number;
-  totalLipidG: number;
-  totalGlucidG: number;
-  proteinCalories: number;
-  lipidCalories: number;
-  glucidCalories: number;
-  proteinRatioPercent: number; // Tỷ lệ P (%)
-  lipidRatioPercent: number;   // Tỷ lệ L (%)
-  glucidRatioPercent: number;  // Tỷ lệ G (%)
+export interface NutrientsSummary {
+  energyKcal: number;
+  proteinG: number;
+  fatG: number;
+  carbG: number;
+  fiberG: number;
+  calciumMg: number;
+  ironMg: number;
+  zincMg: number;
+  proteinPct: number;
+  fatPct: number;
+  carbPct: number;
 }
 
 @Injectable()
 export class NutritionCalculatorService {
-  /**
-   * Tính toán tổng dinh dưỡng và tỷ lệ P:L:G từ danh sách định lượng nguyên liệu
-   * Hệ số chuyển đổi năng lượng chuẩn Viện Dinh Dưỡng:
-   * 1g Protein = 4 kcal
-   * 1g Lipid = 9 kcal
-   * 1g Glucid = 4 kcal
-   */
-  calculateMealNutrition(ingredients: IngredientWeight[]): NutritionSummary {
-    let totalEnergyKcal = 0;
-    let totalProteinG = 0;
-    let totalLipidG = 0;
-    let totalGlucidG = 0;
+  calculateMacros(dishesNutrition: Array<{
+    energyKcal: number;
+    proteinG: number;
+    fatG: number;
+    carbG: number;
+    fiberG?: number;
+    calciumMg?: number;
+    ironMg?: number;
+    zincMg?: number;
+  }>): NutrientsSummary {
+    let energyKcal = 0;
+    let proteinG = 0;
+    let fatG = 0;
+    let carbG = 0;
+    let fiberG = 0;
+    let calciumMg = 0;
+    let ironMg = 0;
+    let zincMg = 0;
 
-    for (const item of ingredients) {
-      const factor = item.netWeightG / 100.0;
-      totalEnergyKcal += (item.energyKcal100g || 0) * factor;
-      totalProteinG += (item.proteinG100g || 0) * factor;
-      totalLipidG += (item.lipidG100g || 0) * factor;
-      totalGlucidG += (item.glucidG100g || 0) * factor;
+    for (const d of dishesNutrition) {
+      energyKcal += d.energyKcal || 0;
+      proteinG += d.proteinG || 0;
+      fatG += d.fatG || 0;
+      carbG += d.carbG || 0;
+      fiberG += d.fiberG || 0;
+      calciumMg += d.calciumMg || 0;
+      ironMg += d.ironMg || 0;
+      zincMg += d.zincMg || 0;
     }
 
-    const proteinCalories = totalProteinG * 4;
-    const lipidCalories = totalLipidG * 9;
-    const glucidCalories = totalGlucidG * 4;
-    const totalMacroCalories = proteinCalories + lipidCalories + glucidCalories;
+    const proteinKcal = proteinG * 4;
+    const fatKcal = fatG * 9;
+    const carbKcal = carbG * 4;
+    const totalMacroKcal = proteinKcal + fatKcal + carbKcal;
 
-    const proteinRatioPercent = totalMacroCalories > 0
-      ? Number(((proteinCalories / totalMacroCalories) * 100).toFixed(1))
-      : 0;
+    let proteinPct = 0;
+    let fatPct = 0;
+    let carbPct = 0;
 
-    const lipidRatioPercent = totalMacroCalories > 0
-      ? Number(((lipidCalories / totalMacroCalories) * 100).toFixed(1))
-      : 0;
+    if (totalMacroKcal > 0) {
+      proteinPct = Math.round((proteinKcal / totalMacroKcal) * 1000) / 10;
+      fatPct = Math.round((fatKcal / totalMacroKcal) * 1000) / 10;
+      carbPct = Math.round((carbKcal / totalMacroKcal) * 1000) / 10;
+    }
 
-    const glucidRatioPercent = totalMacroCalories > 0
-      ? Number(((glucidCalories / totalMacroCalories) * 100).toFixed(1))
-      : 0;
+    const round1 = (v: number) => Math.round(v * 10) / 10;
 
     return {
-      totalEnergyKcal: Number(totalEnergyKcal.toFixed(1)),
-      totalProteinG: Number(totalProteinG.toFixed(1)),
-      totalLipidG: Number(totalLipidG.toFixed(1)),
-      totalGlucidG: Number(totalGlucidG.toFixed(1)),
-      proteinCalories: Number(proteinCalories.toFixed(1)),
-      lipidCalories: Number(lipidCalories.toFixed(1)),
-      glucidCalories: Number(glucidCalories.toFixed(1)),
-      proteinRatioPercent,
-      lipidRatioPercent,
-      glucidRatioPercent,
+      energyKcal: round1(energyKcal),
+      proteinG: round1(proteinG),
+      fatG: round1(fatG),
+      carbG: round1(carbG),
+      fiberG: round1(fiberG),
+      calciumMg: round1(calciumMg),
+      ironMg: round1(ironMg),
+      zincMg: round1(zincMg),
+      proteinPct,
+      fatPct,
+      carbPct,
     };
   }
 }

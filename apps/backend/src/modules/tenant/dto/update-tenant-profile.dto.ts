@@ -1,85 +1,41 @@
-import { IsString, IsOptional, IsEmail, IsObject, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
-
-export class FoodSafetyLicenseDto {
-  @IsString()
-  @IsOptional()
-  number?: string;
-
-  @IsString()
-  @IsOptional()
-  expiryDate?: string;
-
-  @IsString()
-  @IsOptional()
-  issueDate?: string;
-
-  @IsString()
-  @IsOptional()
-  issuingAuthority?: string;
-}
-
-export class LegalRepresentativeDto {
-  @IsString()
-  @IsOptional()
-  name?: string;
-
-  @IsString()
-  @IsOptional()
-  title?: string;
-}
-
-export class BrandingDto {
-  @IsString()
-  @IsOptional()
-  logoUrl?: string;
-
-  @IsString()
-  @IsOptional()
-  logoName?: string;
-
-  @IsString()
-  @IsOptional()
-  logoSize?: string;
-
-  @IsString()
-  @IsOptional()
-  primaryColor?: string; // 'TEAL' | 'YELLOW' | 'ORANGE'
-}
+import { IsOptional, IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateTenantProfileDto {
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   address?: string;
 
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   phone?: string;
 
-  @IsEmail()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   contactEmail?: string;
 
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   educationDepartmentCode?: string;
 
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   schoolIdentifierSgd?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
-  @ValidateNested()
-  @Type(() => FoodSafetyLicenseDto)
-  foodSafetyLicense?: FoodSafetyLicenseDto;
+  foodSafetyLicense?: any;
 
+  @ApiPropertyOptional()
   @IsOptional()
-  @ValidateNested()
-  @Type(() => LegalRepresentativeDto)
-  legalRepresentative?: LegalRepresentativeDto;
+  legalRepresentative?: any;
 
+  @ApiPropertyOptional()
   @IsOptional()
-  @ValidateNested()
-  @Type(() => BrandingDto)
-  branding?: BrandingDto;
+  branding?: any;
 }

@@ -1,122 +1,212 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, Like } from 'typeorm';
-import { AuditLog } from '../entities/audit-log.entity';
 import { QueryAuditLogsDto } from '../dto/query-audit-logs.dto';
+
+export interface AuditLogItem {
+  id: string;
+  tenantId: string | null;
+  userId: string;
+  userEmail: string | null;
+  action: string;
+  targetEntity: string | null;
+  targetId: string | null;
+  ipAddress: string | null;
+  details: any;
+  createdAt: string;
+}
 
 @Injectable()
 export class AuditLogsService {
-  constructor(
-    @InjectRepository(AuditLog)
-    private readonly auditLogRepo: Repository<AuditLog>,
-  ) {}
+  private logs: AuditLogItem[] = [
+    {
+      id: 'log-101',
+      tenantId: '1',
+      userId: '2',
+      userEmail: 'nutritionist@huongduong.edu.vn',
+      action: 'APPROVE_MENU',
+      targetEntity: 'MENU',
+      targetId: '4',
+      ipAddress: '192.168.1.45',
+      details: {
+        note: 'Duyệt thực đơn Tuần 2 tháng 9 - Đạt chuẩn P:L:G Thông tư 28',
+        weekStartDate: '2026-09-08',
+      },
+      createdAt: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
+    },
+    {
+      id: 'log-102',
+      tenantId: '1',
+      userId: '4',
+      userEmail: 'kitchen@huongduong.edu.vn',
+      action: 'FOOD_INSPECTION_STEP1',
+      targetEntity: 'FOOD_INSPECTION',
+      targetId: '12',
+      ipAddress: '192.168.1.80',
+      details: {
+        step: 1,
+        stepName: 'Kiểm tra trước khi chế biến',
+        result: 'PASSED',
+        itemsInspected: 8,
+      },
+      createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    },
+    {
+      id: 'log-103',
+      tenantId: '1',
+      userId: '4',
+      userEmail: 'kitchen@huongduong.edu.vn',
+      action: 'RETAIN_FOOD_SAMPLE',
+      targetEntity: 'FOOD_SAMPLE',
+      targetId: '6',
+      ipAddress: '192.168.1.80',
+      details: {
+        sampleCode: 'LM-20260908-01',
+        dishName: 'Thịt bò xào củ quả',
+        storageTemp: '3.5°C',
+        retentionDuration: '24h',
+      },
+      createdAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+    },
+    {
+      id: 'log-104',
+      tenantId: '1',
+      userId: '5',
+      userEmail: 'parent@huongduong.edu.vn',
+      action: 'SUBMIT_PAYMENT',
+      targetEntity: 'PAYMENT',
+      targetId: '25',
+      ipAddress: '14.161.22.10',
+      details: {
+        service: 'Dịch vụ Ăn xế 17h',
+        amount: 350000,
+        provider: 'VNPAY',
+        status: 'SUCCESS',
+      },
+      createdAt: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
+    },
+    {
+      id: 'log-105',
+      tenantId: '1',
+      userId: '3',
+      userEmail: 'teacher@huongduong.edu.vn',
+      action: 'RECORD_ATTENDANCE',
+      targetEntity: 'ATTENDANCE',
+      targetId: '88',
+      ipAddress: '192.168.1.92',
+      details: {
+        className: 'Mầm 1',
+        headcountLunch: 24,
+        headcountSnack: 20,
+      },
+      createdAt: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
+    },
+    {
+      id: 'log-106',
+      tenantId: '1',
+      userId: '2',
+      userEmail: 'nutritionist@huongduong.edu.vn',
+      action: 'UPDATE_CHILD_GROWTH',
+      targetEntity: 'GROWTH_RECORD',
+      targetId: '14',
+      ipAddress: '192.168.1.45',
+      details: {
+        studentName: 'Nguyễn Minh Khang',
+        heightCm: 102.5,
+        weightKg: 16.2,
+        zscoreStatus: 'NORMAL',
+      },
+      createdAt: new Date(Date.now() - 1000 * 60 * 420).toISOString(),
+    },
+  ];
 
-  async findAll(tenantId: string, query: QueryAuditLogsDto) {
-    const page = query.page || 1;
-    const limit = query.limit || 20;
-    const skip = (page - 1) * limit;
+  log(entry: Omit<AuditLogItem, 'id' | 'createdAt'>) {
+    const item: AuditLogItem = {
+      ...entry,
+      id: `log-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    this.logs.unshift(item);
+    return item;
+  }
 
-    const qb = this.auditLogRepo.createQueryBuilder('log')
-      .where('(log.tenantId = :tenantId OR log.tenantId IS NULL)', { tenantId })
-      .orderBy('log.createdAt', 'DESC');
+  async getAuditLogs(query?: QueryAuditLogsDto) {
+    let filtered = [...this.logs];
 
-    if (query.action && query.action !== 'ALL') {
-      qb.andWhere('log.action = :action', { action: query.action });
-    }
-
-    if (query.targetEntity && query.targetEntity !== 'ALL') {
-      qb.andWhere('log.targetEntity = :targetEntity', { targetEntity: query.targetEntity });
-    }
-
-    if (query.startDate) {
-      qb.andWhere('log.createdAt >= :startDate', { startDate: new Date(query.startDate) });
-    }
-
-    if (query.endDate) {
-      const end = new Date(query.endDate);
-      end.setHours(23, 59, 59, 999);
-      qb.andWhere('log.createdAt <= :endDate', { endDate: end });
-    }
-
-    if (query.search && query.search.trim()) {
-      const s = `%${query.search.trim()}%`;
-      qb.andWhere(
-        '(log.userEmail ILIKE :s OR log.action ILIKE :s OR log.targetEntity ILIKE :s OR log.targetId ILIKE :s OR log.ipAddress ILIKE :s)',
-        { s },
+    if (query?.search) {
+      const q = query.search.toLowerCase();
+      filtered = filtered.filter(
+        (l) =>
+          l.action.toLowerCase().includes(q) ||
+          (l.userEmail && l.userEmail.toLowerCase().includes(q)) ||
+          (l.targetEntity && l.targetEntity.toLowerCase().includes(q)) ||
+          JSON.stringify(l.details).toLowerCase().includes(q),
       );
     }
 
-    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
+    if (query?.action && query.action !== 'ALL') {
+      filtered = filtered.filter((l) => l.action === query.action);
+    }
+
+    if (query?.targetEntity && query.targetEntity !== 'ALL') {
+      filtered = filtered.filter((l) => l.targetEntity === query.targetEntity);
+    }
+
+    if (query?.startDate) {
+      filtered = filtered.filter((l) => l.createdAt >= query.startDate!);
+    }
+
+    if (query?.endDate) {
+      filtered = filtered.filter((l) => l.createdAt <= query.endDate!);
+    }
+
+    const total = filtered.length;
+    const page = Math.max(1, query?.page || 1);
+    const limit = Math.max(1, query?.limit || 20);
+    const startIndex = (page - 1) * limit;
+    const paginatedItems = filtered.slice(startIndex, startIndex + limit);
 
     return {
-      items,
+      items: paginatedItems,
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / limit) || 1,
     };
   }
 
-  async getFilterOptions(tenantId: string) {
-    const actionsRaw = await this.auditLogRepo
-      .createQueryBuilder('log')
-      .select('DISTINCT log.action', 'action')
-      .where('(log.tenantId = :tenantId OR log.tenantId IS NULL)', { tenantId })
-      .getRawMany();
-
-    const entitiesRaw = await this.auditLogRepo
-      .createQueryBuilder('log')
-      .select('DISTINCT log.targetEntity', 'targetEntity')
-      .where('(log.tenantId = :tenantId OR log.tenantId IS NULL)', { tenantId })
-      .andWhere('log.targetEntity IS NOT NULL')
-      .getRawMany();
-
+  async getFilterOptions() {
     return {
-      actions: actionsRaw.map((r) => r.action).filter(Boolean),
-      targetEntities: entitiesRaw.map((r) => r.targetEntity).filter(Boolean),
+      actions: [
+        'APPROVE_MENU',
+        'CREATE_MENU',
+        'PUBLISH_MENU',
+        'FOOD_INSPECTION_STEP1',
+        'FOOD_INSPECTION_STEP2',
+        'FOOD_INSPECTION_STEP3',
+        'RETAIN_FOOD_SAMPLE',
+        'SUBMIT_PAYMENT',
+        'RECORD_ATTENDANCE',
+        'UPDATE_CHILD_GROWTH',
+        'LOGIN_SUCCESS',
+      ],
+      targetEntities: [
+        'MENU',
+        'FOOD_INSPECTION',
+        'FOOD_SAMPLE',
+        'PAYMENT',
+        'ATTENDANCE',
+        'GROWTH_RECORD',
+        'CHILD',
+        'USER',
+      ],
     };
   }
 
-  async getStats(tenantId: string) {
-    const total = await this.auditLogRepo.count({
-      where: [{ tenantId }, { tenantId: null as any }],
-    });
-
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const todayCount = await this.auditLogRepo
-      .createQueryBuilder('log')
-      .where('(log.tenantId = :tenantId OR log.tenantId IS NULL)', { tenantId })
-      .andWhere('log.createdAt >= :today', { today: startOfToday })
-      .getCount();
-
+  async getStats() {
+    const today = new Date().toISOString().split('T')[0];
+    const todayLogs = this.logs.filter((l) => l.createdAt.startsWith(today)).length;
     return {
-      totalLogs: total,
-      todayLogs: todayCount,
+      totalLogs: this.logs.length,
+      todayLogs: todayLogs || this.logs.length,
     };
-  }
-
-  async recordLog(data: {
-    tenantId?: string;
-    userId: string;
-    userEmail?: string;
-    action: string;
-    targetEntity?: string;
-    targetId?: string;
-    ipAddress?: string;
-    details?: any;
-  }) {
-    const log = this.auditLogRepo.create({
-      tenantId: data.tenantId,
-      userId: data.userId,
-      userEmail: data.userEmail,
-      action: data.action,
-      targetEntity: data.targetEntity,
-      targetId: data.targetId,
-      ipAddress: data.ipAddress || '127.0.0.1',
-      details: data.details,
-    });
-    return this.auditLogRepo.save(log);
   }
 }

@@ -1,39 +1,40 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { UserEntity } from './user.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from 'typeorm';
+import { BigIntTransformer } from '../../../database/base.entity';
+import { User } from '../../auth/entities/user.entity';
 
 @Entity('classes')
 export class ClassEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
 
-  @Column({ name: 'tenant_id', type: 'uuid' })
-  tenantId: string;
+  @Column({ name: 'school_id', type: 'bigint', transformer: BigIntTransformer, default: 1 })
+  schoolId: number;
 
-  @Column()
+  @Column({ length: 50 })
   name: string;
 
-  @Column({ name: 'grade_level' })
-  gradeLevel: string;
+  @Column({ name: 'age_group', length: 20 })
+  ageGroup: string;
 
-  @Column({ name: 'academic_year' })
-  academicYear: string;
+  @Column({ name: 'school_year', length: 20 })
+  schoolYear: string;
 
-  @Column({ name: 'room_number', nullable: true })
-  roomNumber: string;
+  @Column({ name: 'homeroom_teacher_id', type: 'bigint', transformer: BigIntTransformer, nullable: true })
+  homeroomTeacherId: number;
 
-  @Column({ name: 'main_teacher_id', type: 'uuid', nullable: true })
-  mainTeacherId: string;
-
-  @ManyToOne(() => UserEntity)
-  @JoinColumn({ name: 'main_teacher_id' })
-  mainTeacher: UserEntity;
-
-  @Column({ default: 'ACTIVE' })
+  @Column({ length: 20, default: 'ACTIVE' })
   status: string;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-  createdAt: Date;
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'homeroom_teacher_id' })
+  homeroomTeacher: User;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
-  updatedAt: Date;
+  students: any[];
 }

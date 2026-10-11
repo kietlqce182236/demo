@@ -78,11 +78,12 @@ export const SnackServicesPage: React.FC = () => {
     try {
       setLoading(true);
       const res = await fetchSnackServices(search, statusFilter, gradeFilter);
-      if (res.success) {
-        setServices(res.data);
-        setSummary(res.summary);
-        setTotalCount(res.totalCount);
-      }
+      const dataPayload = (res as any)?.data || (res as any)?.items || (Array.isArray(res) ? res : []);
+      const summaryPayload = (res as any)?.summary;
+      const countPayload = (res as any)?.totalCount || dataPayload.length;
+      setServices(dataPayload);
+      if (summaryPayload) setSummary(summaryPayload);
+      setTotalCount(countPayload);
     } catch (err) {
       console.error('Error fetching snack services:', err);
     } finally {
@@ -169,7 +170,7 @@ export const SnackServicesPage: React.FC = () => {
   };
 
   // Filtered invoices
-  const filteredInvoices = invoices.filter((inv) => {
+  const filteredInvoices = (Array.isArray(invoices) ? invoices : []).filter((inv) => {
     const matchSearch =
       inv.childName?.toLowerCase().includes(invoiceSearch.toLowerCase()) ||
       inv.orderCode?.toLowerCase().includes(invoiceSearch.toLowerCase()) ||
@@ -534,7 +535,7 @@ export const SnackServicesPage: React.FC = () => {
 
           {/* 5 Package Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {services.map((item) => {
+            {(Array.isArray(services) ? services : []).map((item) => {
               const isOpen = item.status === 'OPEN';
               const isUpcoming = item.status === 'UPCOMING';
               const isClosed = item.status === 'CLOSED';
@@ -745,7 +746,7 @@ export const SnackServicesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {rosterData?.items && rosterData.items.length > 0 ? (
+                {Array.isArray(rosterData?.items) && rosterData.items.length > 0 ? (
                   rosterData.items.map((it) => (
                     <tr key={it.id} className="hover:bg-slate-50/60 transition">
                       <td className="py-3 px-4">

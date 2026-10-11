@@ -1,25 +1,38 @@
-import { IsString, IsOptional, IsNumber, Min, Max } from 'class-validator';
+import { IsOptional, IsString, IsArray } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateMenuDto {
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   title?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  @IsOptional()
-  targetAgeGroup?: string;
+  weekStartDate?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  @IsOptional()
-  startDate?: string;
+  weekEndDate?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  @IsOptional()
-  endDate?: string;
+  ageGroup?: string;
 
-  @IsNumber()
+  @ApiPropertyOptional()
   @IsOptional()
-  @Min(1)
-  @Max(52)
-  cycleWeekNumber?: number;
+  cycleId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  days?: any[];
 }

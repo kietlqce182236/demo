@@ -1,32 +1,47 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsUUID } from 'class-validator';
-
-export enum GradeLevel {
-  INFANT_0_1Y = 'INFANT_0_1Y',
-  TODDLER_1_2Y = 'TODDLER_1_2Y',
-  TODDLER_2_3Y = 'TODDLER_2_3Y',
-  KINDERGARTEN_3_4Y = 'KINDERGARTEN_3_4Y',
-  KINDERGARTEN_4_5Y = 'KINDERGARTEN_4_5Y',
-  KINDERGARTEN_5_6Y = 'KINDERGARTEN_5_6Y',
-}
+import { IsNotEmpty, IsOptional, IsString, IsNumber } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateClassDto {
+  @ApiProperty({ example: 'Lớp Mầm 1' })
+  @IsNotEmpty({ message: 'Tên lớp không được để trống' })
   @IsString()
-  @IsNotEmpty()
   name: string;
 
-  @IsEnum(GradeLevel)
-  @IsNotEmpty()
-  gradeLevel: GradeLevel;
-
-  @IsString()
-  @IsNotEmpty()
-  academicYear: string;
-
-  @IsString()
+  @ApiPropertyOptional({ example: 'NHA_TRE', enum: ['NHA_TRE', 'MAU_GIAO'] })
   @IsOptional()
+  @IsString()
+  ageGroup?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  gradeLevel?: string;
+
+  @ApiPropertyOptional({ example: '2025-2026' })
+  @IsOptional()
+  @IsString()
+  schoolYear?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  academicYear?: string;
+
+  @ApiPropertyOptional({ example: 7 })
+  @IsOptional()
+  homeroomTeacherId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  mainTeacherId?: any;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   roomNumber?: string;
 
-  @IsString()
+  @ApiPropertyOptional({ default: 'ACTIVE' })
   @IsOptional()
-  mainTeacherId?: string;
+  @IsString()
+  status?: string;
 }

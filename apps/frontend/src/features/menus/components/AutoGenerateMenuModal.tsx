@@ -213,6 +213,7 @@ export const AutoGenerateMenuModal: React.FC<AutoGenerateMenuModalProps> = ({
         excludePreviousDays,
         includeBreakfast,
         previewOnly: false,
+        dailyPlan: previewData?.dailySummary,
       };
 
       const newMenu = await weeklyMenusApi.autoGenerateMenu(payload);

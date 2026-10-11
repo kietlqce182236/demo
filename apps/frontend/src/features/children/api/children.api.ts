@@ -132,4 +132,14 @@ export const childrenApi = {
     const res = await apiClient.post<{ success: boolean; message: string }>('/children/rescan-allergies');
     return res.data;
   },
+
+  importChildren: async (items: any[]): Promise<{
+    success: boolean;
+    message: string;
+    importedCount: number;
+    errors: string[];
+  }> => {
+    const res = await apiClient.post('/children/import', { items });
+    return res.data;
+  },
 };

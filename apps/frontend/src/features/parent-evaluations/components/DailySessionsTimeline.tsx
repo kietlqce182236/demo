@@ -16,12 +16,12 @@ import { Link } from 'react-router-dom';
 import { MealSessionRecord } from '../types';
 
 interface DailySessionsTimelineProps {
-  sessions: MealSessionRecord[];
+  sessions?: MealSessionRecord[];
   onHeartReaction: (attendanceId: string) => Promise<void>;
 }
 
 export const DailySessionsTimeline: React.FC<DailySessionsTimelineProps> = ({
-  sessions,
+  sessions = [],
   onHeartReaction,
 }) => {
   const [heartAttendanceIds, setHeartAttendanceIds] = useState<Set<string>>(new Set());
@@ -73,7 +73,7 @@ export const DailySessionsTimeline: React.FC<DailySessionsTimelineProps> = ({
       </div>
 
       <div className="space-y-4">
-        {sessions.map((session, index) => {
+        {(Array.isArray(sessions) ? sessions : []).map((session, index) => {
           const isLunch = session.mealType === 'LUNCH';
           const hasHearted =
             heartAttendanceIds.has(session.attendanceId) ||

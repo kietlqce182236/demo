@@ -1,47 +1,48 @@
-import { Entity, PrimaryGeneratedColumn, Column, Unique } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { BigIntTransformer } from '../../../database/base.entity';
+import { NumericTransformer } from '../../foods/entities/food.entity';
 
 @Entity('who_growth_standards')
-@Unique(['indicator', 'gender', 'ageInMonths'])
 export class WhoGrowthStandard {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
 
-  @Column({ type: 'varchar', length: 10 })
-  indicator: string; // 'WAZ', 'HAZ', 'BAZ', 'WHZ'
+  @Column({ length: 10 })
+  indicator: string;
 
-  @Column({ type: 'varchar', length: 10 })
-  gender: string; // 'MALE', 'FEMALE'
+  @Column({ length: 10 })
+  gender: string;
 
-  @Column({ type: 'int', name: 'age_in_months' })
+  @Column({ name: 'age_in_months' })
   ageInMonths: number;
 
-  @Column({ type: 'numeric', precision: 8, scale: 4, name: 'l_value' })
+  @Column({ name: 'l_value', type: 'numeric', precision: 8, scale: 4, transformer: NumericTransformer })
   lValue: number;
 
-  @Column({ type: 'numeric', precision: 8, scale: 4, name: 'm_value' })
+  @Column({ name: 'm_value', type: 'numeric', precision: 8, scale: 4, transformer: NumericTransformer })
   mValue: number;
 
-  @Column({ type: 'numeric', precision: 8, scale: 4, name: 's_value' })
+  @Column({ name: 's_value', type: 'numeric', precision: 8, scale: 4, transformer: NumericTransformer })
   sValue: number;
 
-  @Column({ type: 'numeric', precision: 8, scale: 2, name: 'sd3_neg' })
+  @Column({ name: 'sd3_neg', type: 'numeric', precision: 8, scale: 2, transformer: NumericTransformer })
   sd3Neg: number;
 
-  @Column({ type: 'numeric', precision: 8, scale: 2, name: 'sd2_neg' })
+  @Column({ name: 'sd2_neg', type: 'numeric', precision: 8, scale: 2, transformer: NumericTransformer })
   sd2Neg: number;
 
-  @Column({ type: 'numeric', precision: 8, scale: 2, name: 'sd1_neg' })
+  @Column({ name: 'sd1_neg', type: 'numeric', precision: 8, scale: 2, transformer: NumericTransformer })
   sd1Neg: number;
 
-  @Column({ type: 'numeric', precision: 8, scale: 2, name: 'sd0' })
+  @Column({ name: 'sd0', type: 'numeric', precision: 8, scale: 2, transformer: NumericTransformer })
   sd0: number;
 
-  @Column({ type: 'numeric', precision: 8, scale: 2, name: 'sd1_pos' })
+  @Column({ name: 'sd1_pos', type: 'numeric', precision: 8, scale: 2, transformer: NumericTransformer })
   sd1Pos: number;
 
-  @Column({ type: 'numeric', precision: 8, scale: 2, name: 'sd2_pos' })
+  @Column({ name: 'sd2_pos', type: 'numeric', precision: 8, scale: 2, transformer: NumericTransformer })
   sd2Pos: number;
 
-  @Column({ type: 'numeric', precision: 8, scale: 2, name: 'sd3_pos' })
+  @Column({ name: 'sd3_pos', type: 'numeric', precision: 8, scale: 2, transformer: NumericTransformer })
   sd3Pos: number;
 }

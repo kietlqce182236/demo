@@ -1,25 +1,17 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { SnackServiceEntity } from './entities/snack-service.entity';
-import { SnackServicePeriodEntity } from './entities/snack-service-period.entity';
-import { SnackServicesService } from './snack-services.service';
-import { SnackServicesController } from '../../controller/snack-services.controller';
-
-import { ClassEntity } from '../classes/entities/class.entity';
+import { SnackServicePeriod } from './entities/snack-service-period.entity';
+import { SnackRegistration } from './entities/snack-registration.entity';
 import { Child } from '../children/entities/child.entity';
+import { SnackServicesService } from './snack-services.service';
+import { SnackServicesController } from './snack-services.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      SnackServiceEntity,
-      SnackServicePeriodEntity,
-      ClassEntity,
-      Child,
-    ]),
+    TypeOrmModule.forFeature([SnackServicePeriod, SnackRegistration, Child]),
   ],
   controllers: [SnackServicesController],
   providers: [SnackServicesService],
-  exports: [SnackServicesService],
+  exports: [SnackServicesService, TypeOrmModule],
 })
 export class SnackServicesModule {}
-

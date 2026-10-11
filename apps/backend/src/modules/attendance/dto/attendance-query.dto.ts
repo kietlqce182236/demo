@@ -1,25 +1,35 @@
-import { IsOptional, IsString, IsDateString, IsEnum } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AttendanceQueryDto {
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   classId?: string;
 
-  @IsOptional()
-  @IsDateString()
-  date?: string;
-
+  @ApiPropertyOptional({ example: '2025-09-08' })
   @IsOptional()
   @IsString()
-  mealFilter?: 'ALL' | 'LUNCH' | 'SNACK' | 'ABSENT' | 'PRESENT';
+  date?: string;
 
+  @ApiPropertyOptional({ example: 'LUNCH' })
+  @IsOptional()
+  @IsString()
+  mealFilter?: string;
+
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   search?: string;
 
+  @ApiPropertyOptional({ default: 1 })
   @IsOptional()
-  page?: number;
+  @Type(() => Number)
+  page?: number = 1;
 
+  @ApiPropertyOptional({ default: 50 })
   @IsOptional()
-  limit?: number;
+  @Type(() => Number)
+  limit?: number = 50;
 }

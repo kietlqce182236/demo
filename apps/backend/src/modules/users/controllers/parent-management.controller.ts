@@ -3,81 +3,86 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
-  Body,
   Param,
+  Body,
   Query,
-  Req,
   UseGuards,
-  HttpCode,
-  HttpStatus,
+  ParseIntPipe,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ParentManagementService } from '../services/parent-management.service';
+import { QueryParentDto } from '../dto/parent/query-parent.dto';
+import { CreateParentDto } from '../dto/parent/create-parent.dto';
+import { UpdateParentDto } from '../dto/parent/update-parent.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
-import { ParentManagementService } from '../services/parent-management.service';
-import { CreateParentDto } from '../dto/parent/create-parent.dto';
-import { UpdateParentDto } from '../dto/parent/update-parent.dto';
-import { QueryParentDto } from '../dto/parent/query-parent.dto';
 
+@ApiTags('Parent Management')
 @Controller('users/parents')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth()
 export class ParentManagementController {
   constructor(private readonly parentService: ParentManagementService) {}
 
-  private resolveTenantId(req: Request): string {
-    return (
-      (req.headers['x-tenant-id'] as string) ||
-      (req as any).tenantId ||
-      'a0000000-0000-0000-0000-000000000001'
-    );
-  }
-
   @Get()
-  @Roles('PRINCIPAL', 'SUPER_ADMIN', 'SCHOOL_MANAGEMENT')
-  async getParents(@Req() req: Request, @Query() query: QueryParentDto) {
-    const tenantId = this.resolveTenantId(req);
-    return this.parentService.getParentList(tenantId, query);
+  @ApiOperation({ summary: 'Lấy danh sách tài khoản phụ huynh học sinh' })
+  async findAll(@Query() query: QueryParentDto) {
+    return this.parentService.findAll(query);
   }
 
   @Get('stats')
-  @Roles('PRINCIPAL', 'SUPER_ADMIN', 'SCHOOL_MANAGEMENT')
-  async getStats(@Req() req: Request) {
-    const tenantId = this.resolveTenantId(req);
-    return this.parentService.getParentStats(tenantId);
+  @ApiOperation({ summary: 'Thống kê tình hình tài khoản phụ huynh' })
+  async getStats() {
+    return this.parentService.getStats();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Xem chi tiết phụ huynh' })
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.parentService.findOne(id);
   }
 
   @Post()
-  @Roles('PRINCIPAL', 'SUPER_ADMIN', 'SCHOOL_MANAGEMENT')
-  @HttpCode(HttpStatus.CREATED)
-  async createParent(@Req() req: Request, @Body() dto: CreateParentDto) {
-    const tenantId = this.resolveTenantId(req);
-    return this.parentService.createParent(tenantId, dto);
+  @Roles('SCHOOL_MANAGER', 'PRINCIPAL', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Tạo tài khoản phụ huynh mới' })
+  async create(@Body() dto: CreateParentDto) {
+    return this.parentService.create(dto);
+  }
+
+  @Patch(':id')
+  @Roles('SCHOOL_MANAGER', 'PRINCIPAL', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Cập nhật thông tin phụ huynh' })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateParentDto,
+  ) {
+    return this.parentService.update(id, dto);
   }
 
   @Put(':id')
-  @Roles('PRINCIPAL', 'SUPER_ADMIN', 'SCHOOL_MANAGEMENT')
-  async updateParent(
-    @Req() req: Request,
-    @Param('id') id: string,
+  @Roles('SCHOOL_MANAGER', 'PRINCIPAL', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Cập nhật toàn bộ thông tin phụ huynh' })
+  async updatePut(
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateParentDto,
   ) {
-    const tenantId = this.resolveTenantId(req);
-    return this.parentService.updateParent(tenantId, id, dto);
-  }
-
-  @Delete(':id')
-  @Roles('PRINCIPAL', 'SUPER_ADMIN', 'SCHOOL_MANAGEMENT')
-  async deleteParent(@Req() req: Request, @Param('id') id: string) {
-    const tenantId = this.resolveTenantId(req);
-    return this.parentService.deleteParent(tenantId, id);
+    return this.parentService.update(id, dto);
   }
 
   @Post(':id/restore')
-  @Roles('PRINCIPAL', 'SUPER_ADMIN', 'SCHOOL_MANAGEMENT')
-  async restoreParent(@Req() req: Request, @Param('id') id: string) {
-    const tenantId = this.resolveTenantId(req);
-    return this.parentService.restoreParent(tenantId, id);
+  @Roles('SCHOOL_MANAGER', 'PRINCIPAL', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Khôi phục tài khoản phụ huynh' })
+  async restore(@Param('id', ParseIntPipe) id: number) {
+    return this.parentService.restore(id);
+  }
+
+  @Delete(':id')
+  @Roles('SCHOOL_MANAGER', 'PRINCIPAL', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Xóa tài khoản phụ huynh' })
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    return this.parentService.remove(id);
   }
 }

@@ -1,27 +1,40 @@
-import { IsOptional, IsString, IsEnum } from 'class-validator';
-import { GradeLevel } from './create-class.dto';
-import { ClassStatus } from './update-class.dto';
+import { IsOptional, IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class FilterClassDto {
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   search?: string;
 
-  @IsEnum(GradeLevel)
+  @ApiPropertyOptional({ enum: ['NHA_TRE', 'MAU_GIAO'] })
   @IsOptional()
-  gradeLevel?: GradeLevel;
-
-  @IsEnum(ClassStatus)
-  @IsOptional()
-  status?: ClassStatus;
-
   @IsString()
-  @IsOptional()
-  academicYear?: string;
-  
-  @IsOptional()
-  page?: number;
+  ageGroup?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
-  limit?: number;
+  @IsString()
+  schoolYear?: string;
+
+  @ApiPropertyOptional({ enum: ['ACTIVE', 'INACTIVE'] })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  limit?: any;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  page?: any;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  gradeLevel?: any;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  academicYear?: any;
 }

@@ -28,6 +28,25 @@ import { ParentPortalTopNav } from '../../parent-evaluations/components/ParentPo
 import { parentEvaluationApi } from '../../parent-evaluations/api/parentEvaluationApi';
 import { childrenApi, AllergenCatalogItem, ChildItem, ChildAllergyItem } from '../api/children.api';
 
+/**
+ * ============================================================================
+ * TRANG DÀNH CHO PHỤ HUYNH: KHAI BÁO DỊ ỨNG & CHẾ ĐỘ KIÊNG CỮ CỦA TRẺ
+ * ============================================================================
+ * 
+ * [LUỒNG TRẢI NGHIỆM NGƯỜI DÙNG - USER EXPERIENCE FLOW]:
+ * 1. Chọn bé trong danh sách con của phụ huynh (nếu phụ huynh có nhiều bé).
+ * 2. Xem danh sách dị ứng/kiêng cữ đang có hiệu lực và lịch sử thay đổi (Audit Trail).
+ * 3. Mở Modal Thêm mới hoặc Sửa hồ sơ kiêng cữ:
+ *    - Chọn loại hình: Dị ứng thực phẩm / Bất dung nạp / Kiêng cữ tôn giáo (ăn chay) / Kiêng cữ bệnh lý.
+ *    - Chọn nhanh từ danh mục 12 nhóm dị nguyên chuẩn (Tôm cua, Đậu phộng, Trứng, Sữa...) hoặc tự nhập.
+ *    - Chọn mức độ nguy cơ: Nhẹ -> Trung bình -> Nặng -> Sốc phản vệ khẩn cấp.
+ *    - Nhấp chọn nhanh các thẻ Triệu chứng thường gặp và Hướng dẫn xử trí khẩn cấp (vd: siro Aerius, EpiPen).
+ *    - Đính kèm minh chứng y khoa & ngày chẩn đoán.
+ * 4. Nhấn Lưu:
+ *    - Gọi API `POST /children/:id/allergies` hoặc `PUT /children/allergies/:allergyId`.
+ *    - Hệ thống tự động kích hoạt Stored Procedure quét thực đơn tuần đang áp dụng.
+ *    - Phát WebSocket Alert tới Bếp (KDS) và gắn nhãn Tem Đỏ trên bảng điểm danh của GVCN.
+ */
 const COMMON_SYMPTOM_TAGS = [
   'Mẩn đỏ, ngứa quanh miệng',
   'Sưng mí mắt, phù môi',

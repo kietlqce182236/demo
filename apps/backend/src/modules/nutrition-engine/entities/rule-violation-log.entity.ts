@@ -1,71 +1,23 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { BigIntTransformer } from '../../../database/base.entity';
 
-@Entity('rule_violations_log')
+@Entity('menu_rule_violations')
 export class RuleViolationLog {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
 
-  @Column({ type: 'uuid', name: 'tenant_id' })
-  tenantId: string;
+  @Column({ name: 'menu_version_id', type: 'bigint', transformer: BigIntTransformer })
+  menuVersionId: number;
 
-  @Column({ type: 'uuid', name: 'rule_id', nullable: true })
-  ruleId: string | null;
+  @Column({ name: 'rule_code', length: 50 })
+  ruleCode: string;
 
-  @Column({ type: 'uuid', name: 'menu_id', nullable: true })
-  menuId: string | null;
-
-  @Column({ type: 'uuid', name: 'dish_id', nullable: true })
-  dishId: string | null;
-
-  @Column({ type: 'uuid', name: 'child_id', nullable: true })
-  childId: string | null;
-
-  /**
-   * CALORIE_DEFICIT | CALORIE_EXCESS | PROTEIN_OUT_OF_RANGE | FAT_OUT_OF_RANGE
-   * CARB_OUT_OF_RANGE | CALCIUM_DEFICIT | IRON_DEFICIT | ALLERGEN_CONFLICT
-   * INCOMPATIBLE_FOODS | REPEAT_DISH_IN_CYCLE
-   */
-  @Column({ type: 'varchar', length: 50, name: 'violation_code' })
-  violationCode: string;
-
-  /**
-   * INFO | WARNING | CRITICAL | FATAL_BLOCKER
-   */
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ length: 20, default: 'WARNING' })
   severity: string;
-
-  @Column({ type: 'date', name: 'target_date', nullable: true })
-  targetDate: string | null;
-
-  @Column({ type: 'varchar', length: 50, name: 'meal_type', nullable: true })
-  mealType: string | null;
 
   @Column({ type: 'text' })
   message: string;
 
-  @Column({ type: 'jsonb', default: {} })
-  details: Record<string, any>;
-
-  /**
-   * OPEN | ACKNOWLEDGED | RESOLVED | OVERRIDDEN
-   */
-  @Column({ type: 'varchar', length: 50, default: 'OPEN' })
-  status: string;
-
-  @Column({ type: 'uuid', name: 'resolved_by', nullable: true })
-  resolvedBy: string | null;
-
-  @Column({ type: 'timestamptz', name: 'resolved_at', nullable: true })
-  resolvedAt: Date | null;
-
-  @Column({ type: 'text', name: 'resolution_comment', nullable: true })
-  resolutionComment: string | null;
-
-  @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

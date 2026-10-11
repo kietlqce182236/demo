@@ -81,8 +81,9 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
         }),
       ]);
 
+      const menusList = Array.isArray(menusRes) ? menusRes : ((menusRes as any)?.items || (menusRes as any)?.data || []);
       setStats(statsRes);
-      setMenus(menusRes);
+      setMenus(menusList);
 
       // Ưu tiên chọn:
       // 1. preferredMenuId nếu được chỉ định
@@ -93,15 +94,15 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
       let target: WeeklyMenu | undefined;
 
       if (preferredMenuId) {
-        target = menusRes.find((m) => m.id === preferredMenuId);
+        target = menusList.find((m: any) => m.id === preferredMenuId);
       }
 
       if (!target) {
         target =
-          menusRes.find((m) => m.status === 'SUBMITTED_FOR_REVIEW') ||
-          menusRes.find((m) => m.status === 'APPROVED') ||
-          menusRes.find((m) => m.status === 'ACTIVE') ||
-          menusRes[0];
+          menusList.find((m: any) => m.status === 'SUBMITTED_FOR_REVIEW') ||
+          menusList.find((m: any) => m.status === 'APPROVED') ||
+          menusList.find((m: any) => m.status === 'ACTIVE') ||
+          menusList[0];
       }
 
       if (target) {

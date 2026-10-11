@@ -1,32 +1,19 @@
-import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { Roles } from '../../../common/decorators/roles.decorator';
-import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MenuScannerService } from '../services/menu-scanner.service';
 import { EvaluateMenuDto } from '../dto/evaluate-menu.dto';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 
+@ApiTags('Nutrition Rule Engine Scanner')
 @Controller('rule-engine')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class MenuScannerController {
-  constructor(private readonly menuScanner: MenuScannerService) {}
+  constructor(private readonly scannerService: MenuScannerService) {}
 
-  /**
-   * POST /api/v1/rule-engine/evaluate-menu
-   * Quét và kiểm tra thực đơn tự động bằng Rule Engine:
-   * - Năng lượng & Tỷ lệ P:L:G
-   * - Vi chất & Giới hạn muối/đường
-   * - Quét xung đột dị ứng với học sinh trong trường
-   * - Kiểm tra lặp món
-   * - Chấm điểm tuân thủ & Đề xuất món thay thế
-   */
   @Post('evaluate-menu')
-  @Roles('NUTRITIONIST', 'PRINCIPAL', 'SUPER_ADMIN')
-  @HttpCode(HttpStatus.OK)
-  async evaluateMenu(
-    @CurrentUser('tenantId') tenantId: string,
-    @Body() dto: EvaluateMenuDto,
-  ) {
-    return this.menuScanner.scanMenuCompliance(tenantId, dto);
+  @ApiOperation({ summary: 'Thẩm định thực đơn theo Thông tư 28/2016/TT-BGDĐT & cân bằng P:L:G' })
+  async evaluateMenu(@Body() dto: EvaluateMenuDto) {
+    return this.scannerService.evaluateMenu(dto);
   }
 }

@@ -11,7 +11,7 @@ import {
 export const attendanceApi = {
   getClasses: async (): Promise<ClassItem[]> => {
     const res = await apiClient.get('/attendance/classes');
-    return res.data;
+    return Array.isArray(res.data) ? res.data : (res.data?.items || res.data?.data || []);
   },
 
   getSchoolHeadcountSummary: async (date?: string): Promise<SchoolHeadcountSummaryResponse> => {

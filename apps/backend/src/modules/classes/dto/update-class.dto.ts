@@ -1,14 +1,47 @@
-import { PartialType } from '@nestjs/swagger';
-import { CreateClassDto } from './create-class.dto';
-import { IsEnum, IsOptional } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
-export enum ClassStatus {
-  ACTIVE = 'ACTIVE',
-  ARCHIVED = 'ARCHIVED',
-}
-
-export class UpdateClassDto extends PartialType(CreateClassDto) {
-  @IsEnum(ClassStatus)
+export class UpdateClassDto {
+  @ApiPropertyOptional()
   @IsOptional()
-  status?: ClassStatus;
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  ageGroup?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  gradeLevel?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  schoolYear?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  academicYear?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  homeroomTeacherId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  mainTeacherId?: any;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  roomNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  status?: string;
 }

@@ -3,7 +3,7 @@ import { Star, Clock, CheckCircle2, Quote } from 'lucide-react';
 import { PortalStatsData } from '../types';
 
 interface HeroEvaluationHeaderProps {
-  stats: PortalStatsData;
+  stats?: Partial<PortalStatsData>;
 }
 
 export const HeroEvaluationHeader: React.FC<HeroEvaluationHeaderProps> = ({ stats }) => {
@@ -53,12 +53,12 @@ export const HeroEvaluationHeader: React.FC<HeroEvaluationHeaderProps> = ({ stat
             </div>
             <div className="my-1.5">
               <span className="text-2xl lg:text-3xl font-black text-slate-900">
-                {stats.satisfactionRating?.toFixed(1) || '4.9'}
+                {stats?.satisfactionRating?.toFixed(1) || '4.9'}
               </span>
               <span className="text-sm font-bold text-slate-500"> / 5.0</span>
             </div>
             <p className="text-[11px] text-slate-500 font-medium">
-              Từ {stats.totalReviewsCount || 485} phụ huynh gửi phản hồi
+              Từ {stats?.totalReviewsCount || 485} phụ huynh gửi phản hồi
             </p>
           </div>
 
@@ -70,11 +70,11 @@ export const HeroEvaluationHeader: React.FC<HeroEvaluationHeaderProps> = ({ stat
             </div>
             <div className="my-1.5">
               <span className="text-2xl lg:text-3xl font-black text-emerald-700">
-                {stats.responseRatePercent || 100}%
+                {stats?.responseRatePercent || 100}%
               </span>
             </div>
             <p className="text-[11px] text-slate-500 font-medium">
-              {stats.responseTimeSubtitle || 'Tiếp nhận & giải trình minh bạch'}
+              {stats?.responseTimeSubtitle || 'Tiếp nhận & giải trình minh bạch'}
             </p>
           </div>
         </div>

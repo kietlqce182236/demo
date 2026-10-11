@@ -1,34 +1,14 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsBoolean, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateStudentEnrollmentDto {
-  @ApiProperty({ description: 'ID học sinh' })
+  @ApiProperty({ example: 1 })
+  @IsNotEmpty()
+  @IsNumber()
+  studentId: number;
+
+  @ApiProperty({ example: 'PAID', enum: ['PAID', 'PENDING', 'CANCELLED'] })
   @IsNotEmpty()
   @IsString()
-  childId: string;
-
-  @ApiPropertyOptional({ description: 'Đăng ký bán trú tiêu chuẩn (trưa + ngủ trưa)' })
-  @IsOptional()
-  @IsBoolean()
-  isDayboarding?: boolean;
-
-  @ApiPropertyOptional({ description: 'Đăng ký ăn sáng tại trường' })
-  @IsOptional()
-  @IsBoolean()
-  isBreakfast?: boolean;
-
-  @ApiPropertyOptional({ description: 'Đăng ký ăn xế chiều 17h' })
-  @IsOptional()
-  @IsBoolean()
-  isSnack17h?: boolean;
-
-  @ApiPropertyOptional({ description: 'Đăng ký trông trẻ ngoài giờ (đón muộn)' })
-  @IsOptional()
-  @IsBoolean()
-  isLatePickup?: boolean;
-
-  @ApiPropertyOptional({ description: 'Ghi chú chế độ ăn kiêng / dị ứng riêng' })
-  @IsOptional()
-  @IsString()
-  dietaryNotes?: string;
+  status: string;
 }

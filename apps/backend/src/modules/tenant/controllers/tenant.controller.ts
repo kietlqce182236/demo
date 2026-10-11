@@ -1,70 +1,65 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Post,
-  Body,
-  UseGuards,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Post, Body, Query, Param, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TenantService } from '../services/tenant.service';
 import { UpdateTenantProfileDto } from '../dto/update-tenant-profile.dto';
 import { UploadLogoDto } from '../dto/upload-logo.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
-import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
+import { Public } from '../../../common/decorators/public.decorator';
 
+@ApiTags('Tenant & School Management')
 @Controller('tenant')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class TenantController {
   constructor(private readonly tenantService: TenantService) {}
 
-  /**
-   * Xem thông tin cấu hình trường học
-   * Cho phép Hiệu trưởng, Quản trị viên, Chuyên viên Dinh dưỡng xem
-   */
   @Get('profile')
-  @Roles('PRINCIPAL', 'SUPER_ADMIN', 'NUTRITIONIST')
-  async getProfile(@CurrentTenant() tenantId: string) {
-    return this.tenantService.getTenantProfile(tenantId);
+  @ApiOperation({ summary: 'Lấy thông tin cấu hình trường mầm non & pháp lý ATTP' })
+  async getProfile() {
+    return this.tenantService.getProfile();
   }
 
-  /**
-   * Cập nhật thông tin trường học & pháp lý ATTP
-   * Chỉ Hiệu trưởng / Ban Giám Hiệu và SuperAdmin được phép chỉnh sửa
-   */
   @Patch('profile')
-  @Roles('PRINCIPAL', 'SUPER_ADMIN')
-  async updateProfile(
-    @CurrentTenant() tenantId: string,
-    @Body() dto: UpdateTenantProfileDto,
-  ) {
-    return this.tenantService.updateTenantProfile(tenantId, dto);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_MANAGER', 'PRINCIPAL', 'SUPER_ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cập nhật thông tin trường mầm non (Dành cho BGH)' })
+  async updateProfile(@Body() dto: UpdateTenantProfileDto) {
+    return this.tenantService.updateProfile(dto);
   }
 
-  /**
-   * Tải lên Logo trường học với kiểm duyệt định dạng và dung lượng
-   * Chỉ Hiệu trưởng / Ban Giám Hiệu được quyền cập nhật nhận diện
-   */
   @Post('upload-logo')
-  @Roles('PRINCIPAL', 'SUPER_ADMIN')
-  @HttpCode(HttpStatus.OK)
-  async uploadLogo(
-    @CurrentTenant() tenantId: string,
-    @Body() dto: UploadLogoDto,
-  ) {
-    return this.tenantService.uploadLogo(tenantId, dto);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_MANAGER', 'PRINCIPAL', 'SUPER_ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Tải lên logo trường mầm non' })
+  async uploadLogo(@Body() dto: UploadLogoDto) {
+    return this.tenantService.uploadLogo(dto);
   }
 
-  /**
-   * Đồng bộ dữ liệu với Cơ sở dữ liệu ngành của Bộ GD&ĐT
-   */
   @Post('sync-education-db')
-  @Roles('PRINCIPAL', 'SUPER_ADMIN')
-  @HttpCode(HttpStatus.OK)
-  async syncEducationDb(@CurrentTenant() tenantId: string) {
-    return this.tenantService.syncEducationDb(tenantId);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_MANAGER', 'PRINCIPAL', 'SUPER_ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Đồng bộ cơ sở dữ liệu ngành GD&ĐT' })
+  async syncEducationDb() {
+    return this.tenantService.syncEducationDb();
+  }
+
+  @Public()
+  @Get('languages')
+  @ApiOperation({ summary: 'Lấy danh sách các ngôn ngữ được hỗ trợ (i18n)' })
+  async getLanguages() {
+    return this.tenantService.getLanguages();
+  }
+
+  @Public()
+  @Get('translations/:langCode')
+  @ApiOperation({ summary: 'Lấy từ điển bản dịch UI theo ngôn ngữ (i18n)' })
+  async getTranslations(
+    @Param('langCode') langCode: string,
+    @Query('namespace') namespace?: string,
+  ) {
+    return this.tenantService.getTranslations(langCode, namespace);
   }
 }

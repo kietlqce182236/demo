@@ -238,8 +238,15 @@ export interface ChildMenuConsumptionData {
     fatG: number;
     carbG: number;
     fiberG: number;
-    calciumMg: number;
+    calciumMg?: number;
+    standardPercent?: number;
   };
   sessions: MealSessionRecord[];
   weeklySummary: WeeklyConsumptionItem[];
+  childId?: string;
+  childName?: string;
+  className?: string;
+  date?: string;
+  meals?: any[];
+  overallNote?: string;
 }

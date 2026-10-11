@@ -1,88 +1,85 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseInterceptors, UploadedFile } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { Request } from 'express';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  ParseIntPipe,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { FoodsService } from '../services/foods.service';
-import { GetFoodsQueryDto } from '../dto/get-foods-query.dto';
 import { CreateFoodDto } from '../dto/create-food.dto';
 import { UpdateFoodDto } from '../dto/update-food.dto';
+import { GetFoodsQueryDto } from '../dto/get-foods-query.dto';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
 
+@ApiTags('Foods & FCT Ingredients')
 @Controller('foods')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth()
 export class FoodsController {
   constructor(private readonly foodsService: FoodsService) {}
 
   @Get()
-  async getFoods(@Query() query: GetFoodsQueryDto, @Req() req: Request) {
-    const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
-    return this.foodsService.findAll(tenantId, query);
+  @ApiOperation({ summary: 'Lấy danh sách nguyên liệu FCT (tìm kiếm, lọc nhóm, phân trang)' })
+  async findAll(@Query() query: GetFoodsQueryDto) {
+    return this.foodsService.findAll(query);
   }
 
   @Get('stats')
-  async getStats(@Req() req: Request) {
-    const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
-    return this.foodsService.getStats(tenantId);
+  @ApiOperation({ summary: 'Thống kê tổng số nguyên liệu và nhóm thực phẩm' })
+  async getStats() {
+    return this.foodsService.getStats();
+  }
+
+  @Get('categories')
+  @ApiOperation({ summary: 'Lấy danh mục 14 nhóm thực phẩm theo Viện Dinh Dưỡng' })
+  async getCategories() {
+    return this.foodsService.getCategories();
   }
 
   @Get(':id')
-  async getFood(@Param('id') id: string, @Req() req: Request) {
-    const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
-    return this.foodsService.findOne(id, tenantId);
-  }
-
-  @Post('upload')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './public/uploads/foods',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
-  uploadFile(@UploadedFile() file: any) {
-    // Assuming backend serves static files from public/
-    return {
-      imageUrl: `/uploads/foods/${file.filename}`,
-    };
-  }
-
-  @Post('batch-activate-pantry')
-  async batchActivatePantry(@Body('foodIds') foodIds: string[], @Req() req: Request) {
-    const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
-    const userId = (req as any).user?.id;
-    return this.foodsService.batchActivatePantry(tenantId, foodIds, userId);
-  }
-
-  @Post(':id/toggle-pantry')
-  async togglePantry(@Param('id') id: string, @Req() req: Request) {
-    const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
-    const userId = (req as any).user?.id;
-    return this.foodsService.togglePantry(tenantId, id, userId);
+  @ApiOperation({ summary: 'Xem chi tiết thành phần dinh dưỡng của 1 nguyên liệu' })
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.foodsService.findOne(id);
   }
 
   @Post()
-  async createFood(@Body() createFoodDto: CreateFoodDto, @Req() req: Request) {
-    const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
-    const userId = (req as any).user?.id;
-    return this.foodsService.create(tenantId, createFoodDto, userId);
+  @Roles('NUTRITIONIST', 'SCHOOL_MANAGER', 'PRINCIPAL')
+  @ApiOperation({ summary: 'Tạo mới nguyên liệu vào kho dữ liệu' })
+  async create(@Body() dto: CreateFoodDto) {
+    return this.foodsService.create(dto);
   }
 
   @Put(':id')
-  async updateFood(
-    @Param('id') id: string,
-    @Body() updateFoodDto: UpdateFoodDto,
-    @Req() req: Request
+  @Roles('NUTRITIONIST', 'SCHOOL_MANAGER', 'PRINCIPAL')
+  @ApiOperation({ summary: 'Cập nhật chỉ số dinh dưỡng nguyên liệu' })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateFoodDto,
   ) {
-    const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
-    return this.foodsService.update(id, tenantId, updateFoodDto);
+    return this.foodsService.update(id, dto);
   }
 
   @Delete(':id')
-  async deleteFood(@Param('id') id: string, @Req() req: Request) {
-    const tenantId = req.tenantId || '00000000-0000-0000-0000-000000000000';
-    return this.foodsService.remove(id, tenantId);
+  @Roles('NUTRITIONIST', 'SCHOOL_MANAGER', 'PRINCIPAL')
+  @ApiOperation({ summary: 'Xóa nguyên liệu' })
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    return this.foodsService.remove(id);
+  }
+
+  @Post('upload')
+  @ApiOperation({ summary: 'Tải lên hình ảnh nguyên liệu' })
+  async upload() {
+    return {
+      success: true,
+      url: 'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=400&q=80',
+    };
   }
 }

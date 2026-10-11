@@ -1,14 +1,29 @@
-import { IsNotEmpty, IsUUID, IsOptional, IsString } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ApplySubstituteDishDto {
-  @ApiProperty({ description: 'ID của món thay thế an toàn (null nếu muốn hủy)', required: false })
-  @IsOptional()
-  @IsString({ message: 'ID món thay thế không hợp lệ' })
-  substituteDishId?: string | null;
+  @ApiProperty({ example: 1 })
+  @IsNotEmpty()
+  @IsNumber()
+  studentId: number;
 
-  @ApiProperty({ description: 'Ghi chú chế độ ăn đặc biệt / dị ứng', required: false })
+  @ApiProperty({ example: '2025-09-08' })
+  @IsNotEmpty()
+  @IsString()
+  date: string;
+
+  @ApiProperty({ example: 'LUNCH' })
+  @IsNotEmpty()
+  @IsString()
+  mealType: string;
+
+  @ApiProperty({ example: 4 })
+  @IsNotEmpty()
+  @IsNumber()
+  substituteDishId: number;
+
+  @ApiPropertyOptional({ example: 'Thay thế cho bé dị ứng hải sản' })
   @IsOptional()
   @IsString()
-  notes?: string;
+  reason?: string;
 }

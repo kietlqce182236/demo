@@ -30,7 +30,8 @@ export const NutritionistDashboardPage: React.FC = () => {
     ])
       .then(([statsRes, menusRes]) => {
         setStats(statsRes);
-        setRecentMenus(menusRes.slice(0, 4));
+        const list = Array.isArray(menusRes) ? menusRes : ((menusRes as any)?.items || (menusRes as any)?.data || []);
+        setRecentMenus(list.slice(0, 4));
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -104,7 +105,7 @@ export const NutritionistDashboardPage: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {recentMenus.map((menu) => (
+            {(Array.isArray(recentMenus) ? recentMenus : []).map((menu) => (
               <div
                 key={menu.id}
                 className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 hover:border-emerald-200 transition flex flex-wrap items-center justify-between gap-3"

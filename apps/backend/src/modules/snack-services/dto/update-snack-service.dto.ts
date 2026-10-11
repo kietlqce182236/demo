@@ -1,51 +1,34 @@
+import { IsOptional, IsString, IsNumber } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsNumber, IsBoolean, IsIn, Min } from 'class-validator';
 
 export class UpdateSnackServiceDto {
-  @ApiPropertyOptional({ description: 'Tên gói dịch vụ ăn xế' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Mô tả chi tiết gói dịch vụ' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  description?: string;
+  startDate?: string;
 
-  @ApiPropertyOptional({
-    description: 'Loại dịch vụ',
-    enum: ['AFTER_SCHOOL_SNACK', 'PREMIUM_MILK', 'ORGANIC_FRUIT', 'CUSTOM_NUTRITION', 'DAYBOARDING_STANDARD', 'BREAKFAST', 'LATE_PICKUP', 'FACILITIES_CARE'],
-  })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsIn(['AFTER_SCHOOL_SNACK', 'PREMIUM_MILK', 'ORGANIC_FRUIT', 'CUSTOM_NUTRITION', 'DAYBOARDING_STANDARD', 'BREAKFAST', 'LATE_PICKUP', 'FACILITIES_CARE'])
-  serviceType?: string;
+  @IsString()
+  endDate?: string;
 
-  @ApiPropertyOptional({
-    description: 'Chu kỳ tính phí',
-    enum: ['DAILY', 'PER_MEAL', 'WEEKLY', 'MONTHLY', 'SEMESTER', 'YEARLY'],
-  })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsIn(['DAILY', 'PER_MEAL', 'WEEKLY', 'MONTHLY', 'SEMESTER', 'YEARLY'])
-  billingCycle?: string;
+  @IsString()
+  registrationDeadline?: string;
 
-  @ApiPropertyOptional({ description: 'Đơn giá 1 suất / 1 ngày (VNĐ)' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
-  @Min(0)
-  pricePerUnit?: number;
+  feeAmount?: number;
 
-  @ApiPropertyOptional({ description: 'Trạng thái hoạt động' })
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
-
-  @ApiPropertyOptional({ description: 'Ngày bắt đầu áp dụng (YYYY-MM-DD)' })
+  @ApiPropertyOptional({ enum: ['OPEN', 'CLOSED'] })
   @IsOptional()
   @IsString()
-  availableFrom?: string;
-
-  @ApiPropertyOptional({ description: 'Ngày kết thúc áp dụng (YYYY-MM-DD)' })
-  @IsOptional()
-  @IsString()
-  availableTo?: string;
+  status?: string;
 }

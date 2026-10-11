@@ -1,80 +1,63 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean, IsArray, Min, Max } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsNumber, IsArray } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SubmitEvaluationDto {
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  studentId?: number | string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  childId?: number | string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  menuId?: number | string;
+
+  @ApiPropertyOptional({ example: 'QUICK_EVALUATION', enum: ['QUICK_EVALUATION', 'SCHOOL_PROPOSAL'] })
   @IsOptional()
   @IsString()
-  childId?: string;
+  evaluationType?: string;
 
-  @IsOptional()
-  @IsString()
-  parentId?: string;
-
-  @IsOptional()
-  @IsString()
-  feedbackDate?: string;
-
+  @ApiPropertyOptional({ example: 'TRUA' })
   @IsOptional()
   @IsString()
   mealType?: string;
 
+  @ApiProperty({ example: 5 })
   @IsOptional()
-  @IsString()
-  evaluationType?: 'QUICK_EVALUATION' | 'SCHOOL_PROPOSAL';
-
-  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
-  @Min(1)
-  @Max(5)
-  rating?: number;
+  rating?: number = 5;
 
+  @ApiPropertyOptional({ example: 'Góp ý bữa ăn' })
   @IsOptional()
   @IsString()
   title?: string;
 
-  @IsNotEmpty({ message: 'Nội dung không được để trống' })
-  @IsString()
-  content: string;
-
+  @ApiPropertyOptional({ example: 'Bé ăn rất ngon miệng và thích món súp.' })
   @IsOptional()
   @IsString()
-  parentRelation?: string;
+  content?: string;
 
+  @ApiPropertyOptional({ example: 'Bé ăn rất ngon miệng' })
   @IsOptional()
   @IsString()
-  parentNameCustom?: string;
+  comment?: string;
 
-  @IsOptional()
-  @IsString()
-  childNameCustom?: string;
-
-  @IsOptional()
-  @IsString()
-  classNameCustom?: string;
-
-  @IsOptional()
-  @IsString()
-  gradeLevelCustom?: string;
-
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   category?: string;
 
-  @IsOptional()
-  @IsBoolean()
-  isAnonymous?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  isDrafting?: boolean;
-
-  @IsOptional()
-  attributes?: {
-    tastePreference?: string;
-    allergySafety?: string;
-    portionFit?: string;
-  };
-
+  @ApiPropertyOptional()
   @IsOptional()
   @IsArray()
   photos?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  likesInfo?: string;
 }

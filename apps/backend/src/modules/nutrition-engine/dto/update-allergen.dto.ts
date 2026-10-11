@@ -1,25 +1,39 @@
-import { IsString, MinLength, MaxLength, IsOptional, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsBoolean } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateAllergenDto {
-  @IsString()
-  @MinLength(2)
-  @MaxLength(150)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   nameVi?: string;
 
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   nameEn?: string;
 
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  code?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   commonFoods?: string;
 
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   description?: string;
 
-  @IsBoolean()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsBoolean()
   isActive?: boolean;
 }

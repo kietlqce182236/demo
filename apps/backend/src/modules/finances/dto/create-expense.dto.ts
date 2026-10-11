@@ -1,47 +1,45 @@
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsNumber, IsIn, Min, IsOptional } from 'class-validator';
 
 export class CreateExpenseDto {
-  @ApiProperty({
-    description: 'Danh mục chi phí',
-    enum: ['FOOD_FRESH', 'MILK_DAIRY', 'COOKING_ENERGY', 'KITCHEN_STAFF', 'EQUIPMENT_MAINTENANCE'],
-  })
-  @IsNotEmpty()
-  @IsIn(['FOOD_FRESH', 'MILK_DAIRY', 'COOKING_ENERGY', 'KITCHEN_STAFF', 'EQUIPMENT_MAINTENANCE'])
-  category: string;
-
-  @ApiProperty({ description: 'Nội dung chi tiêu' })
+  @ApiProperty({ example: 'Thịt heo sạch & Rau củ quả HTX Tuần 2' })
   @IsNotEmpty()
   @IsString()
   title: string;
 
-  @ApiProperty({ description: 'Số tiền chi (VNĐ)' })
+  @ApiProperty({ example: 'FOOD_FRESH' })
   @IsNotEmpty()
+  @IsString()
+  category: string;
+
+  @ApiProperty({ example: 4500000 })
+  @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
-  @Min(1000)
   amount: number;
 
-  @ApiPropertyOptional({ description: 'Ngày chi (YYYY-MM-DD)' })
-  @IsOptional()
+  @ApiProperty({ example: '2026-09-15' })
+  @IsNotEmpty()
   @IsString()
-  expenseDate?: string;
+  expenseDate: string;
 
-  @ApiPropertyOptional({ description: 'Tên nhà cung cấp / đối tác' })
+  @ApiPropertyOptional({ example: 'HTX Nông sản sạch Đà Lạt' })
   @IsOptional()
   @IsString()
   supplierName?: string;
 
-  @ApiPropertyOptional({ description: 'Số hóa đơn / chứng từ' })
+  @ApiPropertyOptional({ example: 'HD-2026-09-0012' })
   @IsOptional()
   @IsString()
   invoiceNumber?: string;
 
-  @ApiPropertyOptional({ description: 'Phương thức thanh toán (BANK_TRANSFER / CASH)' })
+  @ApiPropertyOptional({ example: 'BANK_TRANSFER' })
   @IsOptional()
   @IsString()
   paymentMethod?: string;
 
-  @ApiPropertyOptional({ description: 'Ghi chú thêm' })
+  @ApiPropertyOptional({ example: 'Thực phẩm kiểm dịch đầy đủ' })
   @IsOptional()
   @IsString()
   notes?: string;

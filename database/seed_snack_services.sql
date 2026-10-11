@@ -1,17 +1,36 @@
--- Seed file for UC54 - View Snack Services (5 packages matching UI mockup)
-DELETE FROM snack_services WHERE id IN (
-  '55100000-0000-0000-0000-000000000001',
-  '55100000-0000-0000-0000-000000000002',
-  '55100000-0000-0000-0000-000000000003',
-  '55100000-0000-0000-0000-000000000004',
-  '55100000-0000-0000-0000-000000000005'
-);
+-- ============================================================================
+-- KidMeal — Seed Data for Afternoon Snack Services (Dịch vụ Ăn xế 17h)
+-- Áp dụng: TRƯỜNG MẪU GIÁO HƯỚNG DƯƠNG
+-- Thực đơn đồng bộ: 10 tuần trường mầm non (08/09/2025 – 14/11/2025)
+-- ============================================================================
 
-INSERT INTO snack_services (
-  id, tenant_id, name, description, service_type, billing_cycle, price_per_unit, is_active, available_from, available_to
-) VALUES
-('55100000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'Gói Năng Lượng Chiều', 'Sữa hạt Yến mạch & Bánh Tart Táo Nướng Mật Ong chất lượng tiêu chuẩn 210 kcal/trẻ, đảm bảo không chất bảo quản và đường hóa học.', 'AFTER_SCHOOL_SNACK', 'MONTHLY', 15000.00, TRUE, '2024-11-15', '2024-11-25'),
-('55100000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'Gói Dinh Dưỡng Cao Cấp', 'Yogurt Trái Cây & Bánh Đậu Xanh Tươi bổ sung vitamin, khoáng chất và men vi sinh giúp bé tiêu hóa tốt.', 'ORGANIC_FRUIT', 'MONTHLY', 20000.00, TRUE, '2024-11-12', '2024-11-28'),
-('55100000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', 'Gói Tiêu Chuẩn Truyền Thống', 'Chè Hạt Sen Long Nhãn & Sữa Đậu Nành tươi giữ gìn hương vị truyền thống và dinh dưỡng thanh mát.', 'AFTER_SCHOOL_SNACK', 'MONTHLY', 12000.00, TRUE, '2024-11-14', '2024-11-28'),
-('55100000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000001', 'Gói Chăm Sóc Đặc Biệt Bé Nhỏ', 'Pudding Ngũ Cốc Tươi & Nước Ép Lê Rơm chế biến mềm, dễ tiêu dành riêng cho lứa tuổi nhà trẻ mầm.', 'CUSTOM_NUTRITION', 'MONTHLY', 18000.00, TRUE, '2024-12-01', '2024-12-15'),
-('55100000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000001', 'Gói Trái Cây Tươi Mùa Thu', 'Dưa Lưới & Táo Bơm Hạt Chia bổ sung chất xơ tự nhiên và lượng nước giàu vitamin.', 'ORGANIC_FRUIT', 'MONTHLY', 10000.00, FALSE, '2024-10-01', '2024-10-20');
+BEGIN;
+
+-- 1. Kỳ dịch vụ ăn xế (snack_service_periods)
+INSERT INTO snack_service_periods (id, name, start_date, end_date, registration_deadline, fee_amount, status) VALUES
+(1, 'Dịch vụ Ăn xế Tháng 9/2025 - Trường MG Hướng Dương (Tuần 1-3)',  '2025-09-01', '2025-09-30', '2025-08-28', 350000.00, 'CLOSED'),
+(2, 'Dịch vụ Ăn xế Tháng 10/2025 - Trường MG Hướng Dương (Tuần 4-7)', '2025-10-01', '2025-10-31', '2025-09-28', 350000.00, 'CLOSED'),
+(3, 'Dịch vụ Ăn xế Tháng 11/2025 - Trường MG Hướng Dương (Tuần 8-10)','2025-11-01', '2025-11-30', '2025-10-28', 350000.00, 'OPEN')
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  start_date = EXCLUDED.start_date,
+  end_date = EXCLUDED.end_date,
+  fee_amount = EXCLUDED.fee_amount,
+  status = EXCLUDED.status;
+
+-- 2. Đăng ký ăn xế của trẻ (snack_registrations)
+INSERT INTO snack_registrations (id, period_id, student_id, parent_id, status) VALUES
+(1, 3, 1, 13, 'PAID'),      -- Bé Gia Huy (Mầm 1) -> Đã thanh toán
+(2, 3, 2, 14, 'PENDING'),   -- Bé Phương Linh (Mầm 1) -> Chờ thanh toán
+(3, 3, 6, 17, 'PAID')       -- Bé Đăng Khoa (Chồi 1) -> Đã thanh toán
+ON CONFLICT (id) DO UPDATE SET
+  status = EXCLUDED.status;
+
+-- 3. Giao dịch thanh toán VNPAY (payments)
+INSERT INTO payments (id, registration_id, amount, vnpay_transaction_code, status, paid_at, raw_response) VALUES
+(1, 1, 350000.00, 'VNP-HD-20251101-001', 'SUCCESS', '2025-10-29 08:30:00+07', '{"vnp_ResponseCode":"00","vnp_TransactionNo":"14598271","vnp_Amount":"35000000","vnp_BankCode":"NCB"}'),
+(2, 3, 350000.00, 'VNP-HD-20251101-002', 'SUCCESS', '2025-10-29 09:15:20+07', '{"vnp_ResponseCode":"00","vnp_TransactionNo":"14598388","vnp_Amount":"35000000","vnp_BankCode":"NCB"}')
+ON CONFLICT (id) DO UPDATE SET
+  status = EXCLUDED.status;
+
+COMMIT;

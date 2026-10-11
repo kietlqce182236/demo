@@ -41,8 +41,10 @@ export const ExecutiveDashboardPage: React.FC = () => {
         dashboardApi.getExecutiveSummary(),
         attendanceApi.getSchoolHeadcountSummary(headcountDate),
       ]);
-      setData(summary);
-      setHeadcountData(schoolHeadcount);
+      const safeSummary = (summary as any)?.data || summary;
+      const safeHeadcount = (schoolHeadcount as any)?.data || schoolHeadcount;
+      setData(safeSummary);
+      setHeadcountData(safeHeadcount);
     } catch (err) {
       console.error('Error fetching dashboard summary:', err);
     } finally {
@@ -54,7 +56,8 @@ export const ExecutiveDashboardPage: React.FC = () => {
   const reloadHeadcount = async (dateStr: string) => {
     try {
       const res = await attendanceApi.getSchoolHeadcountSummary(dateStr);
-      setHeadcountData(res);
+      const safeHeadcount = (res as any)?.data || res;
+      setHeadcountData(safeHeadcount);
     } catch (e) {
       console.error('Error reloading headcount', e);
     }
@@ -255,7 +258,7 @@ export const ExecutiveDashboardPage: React.FC = () => {
         </div>
 
         {/* 4 Summary Cards */}
-        {headcountData && (
+        {headcountData?.overview && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Card 1: Sĩ số toàn trường */}
             <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70 space-y-2">
@@ -265,20 +268,20 @@ export const ExecutiveDashboardPage: React.FC = () => {
               </span>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl sm:text-3xl font-black text-slate-900">
-                  {headcountData.overview.totalStudents}
+                  {headcountData.overview.totalStudents ?? 0}
                 </span>
                 <span className="text-xs font-bold text-slate-500">
-                  / {headcountData.overview.totalCapacity} tối đa ({headcountData.overview.occupancyPercent}%)
+                  / {headcountData.overview.totalCapacity ?? 180} tối đa ({headcountData.overview.occupancyPercent ?? 0}%)
                 </span>
               </div>
               <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 pt-1">
-                <span>👦 Nam: <strong>{headcountData.overview.boysCount}</strong></span>
-                <span>👧 Nữ: <strong>{headcountData.overview.girlsCount}</strong></span>
+                <span>👦 Nam: <strong>{headcountData.overview.boysCount ?? 0}</strong></span>
+                <span>👧 Nữ: <strong>{headcountData.overview.girlsCount ?? 0}</strong></span>
               </div>
               <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
                 <div
                   className="bg-blue-600 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, headcountData.overview.occupancyPercent)}%` }}
+                  style={{ width: `${Math.min(100, headcountData.overview.occupancyPercent ?? 0)}%` }}
                 ></div>
               </div>
             </div>
@@ -291,10 +294,10 @@ export const ExecutiveDashboardPage: React.FC = () => {
               </span>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl sm:text-3xl font-black text-emerald-800">
-                  {headcountData.overview.presentToday}
+                  {headcountData.overview.presentToday ?? 0}
                 </span>
                 <span className="text-xs font-bold text-emerald-700">
-                  học sinh ({headcountData.overview.attendanceRate}%)
+                  học sinh ({headcountData.overview.attendanceRate ?? 100}%)
                 </span>
               </div>
               <p className="text-[11px] font-semibold text-emerald-700">
@@ -310,12 +313,12 @@ export const ExecutiveDashboardPage: React.FC = () => {
               </span>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl sm:text-3xl font-black text-rose-800">
-                  {headcountData.overview.absentToday}
+                  {headcountData.overview.absentToday ?? 0}
                 </span>
                 <span className="text-xs font-bold text-rose-700">trẻ nghỉ</span>
               </div>
               <p className="text-[11px] font-semibold text-rose-700">
-                {headcountData.overview.absentPermitted} có phép • {headcountData.overview.absentUnpermitted} không phép
+                {headcountData.overview.absentPermitted ?? 0} có phép • {headcountData.overview.absentUnpermitted ?? 0} không phép
               </p>
             </div>
 
@@ -327,15 +330,15 @@ export const ExecutiveDashboardPage: React.FC = () => {
               </span>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl sm:text-3xl font-black text-amber-800">
-                  {headcountData.overview.lunchPortions}
+                  {headcountData.overview.lunchPortions ?? 0}
                 </span>
                 <span className="text-xs font-bold text-amber-700">
-                  suất trưa • {headcountData.overview.snackPortions} suất xế
+                  suất trưa • {headcountData.overview.snackPortions ?? 0} suất xế
                 </span>
               </div>
               <div className="flex items-center justify-between text-[11px] font-semibold text-amber-800">
-                <span>Đã chốt: <strong>{headcountData.overview.classesLockedCount}/{headcountData.overview.totalClasses}</strong> lớp</span>
-                <span>Dị ứng: <strong>{headcountData.overview.allergicCount}</strong> suất riêng</span>
+                <span>Đã chốt: <strong>{headcountData.overview.classesLockedCount ?? 0}/{headcountData.overview.totalClasses ?? 0}</strong> lớp</span>
+                <span>Dị ứng: <strong>{headcountData.overview.allergicCount ?? 0}</strong> suất riêng</span>
               </div>
             </div>
           </div>
@@ -397,7 +400,7 @@ export const ExecutiveDashboardPage: React.FC = () => {
                       <td className="py-3.5 px-4 font-bold text-slate-900">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-black text-xs shrink-0">
-                            {cls.name.substring(0, 2)}
+                            {cls.name ? cls.name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase() : 'LM'}
                           </div>
                           <div>
                             <div>{cls.name}</div>

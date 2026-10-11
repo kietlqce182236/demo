@@ -2,81 +2,71 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
   ManyToOne,
+  OneToOne,
   JoinColumn,
+  Unique,
+  Relation,
 } from 'typeorm';
+import { BigIntTransformer } from '../../../database/base.entity';
+import { NumericTransformer } from '../../foods/entities/food.entity';
 import { Child } from '../../children/entities/child.entity';
 import { User } from '../../auth/entities/user.entity';
 
-@Entity('growth_records')
+@Entity('physical_measurements')
+@Unique(['studentId', 'measuredDate'])
 export class GrowthRecord {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
 
-  @Column({ type: 'uuid', name: 'tenant_id' })
-  tenantId: string;
+  @Column({ name: 'student_id', type: 'bigint', transformer: BigIntTransformer })
+  studentId: number;
 
-  @Column({ type: 'uuid', name: 'child_id' })
-  childId: string;
+  @Column({ name: 'measured_date', type: 'date' })
+  measuredDate: string;
 
-  @ManyToOne(() => Child, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'child_id' })
-  child: Child;
-
-  @Column({ type: 'date', name: 'measurement_date' })
-  measurementDate: string;
-
-  @Column({ type: 'int', name: 'age_in_months' })
-  ageInMonths: number;
-
-  @Column({ type: 'numeric', precision: 5, scale: 2, name: 'weight_kg' })
-  weightKg: number;
-
-  @Column({ type: 'numeric', precision: 5, scale: 2, name: 'height_cm' })
+  @Column({ name: 'height_cm', type: 'numeric', precision: 5, scale: 1, transformer: NumericTransformer })
   heightCm: number;
 
-  @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true })
-  bmi: number;
+  @Column({ name: 'weight_kg', type: 'numeric', precision: 5, scale: 2, transformer: NumericTransformer })
+  weightKg: number;
 
-  @Column({ type: 'numeric', precision: 4, scale: 2, nullable: true })
+  @Column({ name: 'measured_by', type: 'bigint', transformer: BigIntTransformer, nullable: true })
+  measuredBy: number;
+
+  @ManyToOne(() => Child, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'student_id' })
+  student: Child;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'measured_by' })
+  measurer: User;
+
+  @OneToOne(() => GrowthZscore, (z) => z.measurement)
+  zscore: Relation<GrowthZscore>;
+}
+
+@Entity('growth_zscores')
+export class GrowthZscore {
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
+
+  @Column({ name: 'measurement_id', type: 'bigint', transformer: BigIntTransformer })
+  measurementId: number;
+
+  @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true, transformer: NumericTransformer })
   waz: number;
 
-  @Column({ type: 'numeric', precision: 4, scale: 2, nullable: true })
+  @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true, transformer: NumericTransformer })
   haz: number;
 
-  @Column({ type: 'numeric', precision: 4, scale: 2, nullable: true })
+  @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true, transformer: NumericTransformer })
   baz: number;
 
-  @Column({ type: 'numeric', precision: 4, scale: 2, nullable: true })
-  whz: number;
+  @Column({ length: 30, default: 'NORMAL' })
+  classification: string;
 
-  @Column({ type: 'varchar', length: 50, name: 'weight_classification' })
-  weightClassification: string;
-
-  @Column({ type: 'varchar', length: 50, name: 'height_classification' })
-  heightClassification: string;
-
-  @Column({ type: 'varchar', length: 50, name: 'bmi_classification' })
-  bmiClassification: string;
-
-  @Column({ type: 'varchar', length: 100, name: 'overall_nutritional_status' })
-  overallNutritionalStatus: string;
-
-  @Column({ type: 'uuid', name: 'measured_by' })
-  measuredBy: string;
-
-  @ManyToOne(() => User, { onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'measured_by' })
-  measuredByUser: User;
-
-  @Column({ type: 'text', name: 'health_notes', nullable: true })
-  healthNotes: string | null;
-
-  @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ type: 'timestamptz', name: 'updated_at' })
-  updatedAt: Date;
+  @OneToOne(() => GrowthRecord, (m) => m.zscore, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'measurement_id' })
+  measurement: Relation<GrowthRecord>;
 }

@@ -3,13 +3,13 @@ import { History, CheckCircle2, Droplets, Camera, User } from 'lucide-react';
 import { WeeklyConsumptionItem } from '../types';
 
 interface WeeklyConsumptionHistoryTableProps {
-  history: WeeklyConsumptionItem[];
-  childName: string;
+  history?: WeeklyConsumptionItem[];
+  childName?: string;
 }
 
 export const WeeklyConsumptionHistoryTable: React.FC<WeeklyConsumptionHistoryTableProps> = ({
-  history,
-  childName,
+  history = [],
+  childName = 'Bé Bảo Nam',
 }) => {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs mb-6">
@@ -47,7 +47,7 @@ export const WeeklyConsumptionHistoryTable: React.FC<WeeklyConsumptionHistoryTab
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {history.map((row) => (
+            {(Array.isArray(history) ? history : []).map((row) => (
               <tr key={row.date} className="hover:bg-slate-50/60 transition">
                 <td className="py-3 px-3 font-bold text-slate-900 whitespace-nowrap">
                   <div>{row.dayName}</div>

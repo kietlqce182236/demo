@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Sparkles,
   Scale,
@@ -22,6 +23,10 @@ import {
   Info,
   ChefHat,
   Filter,
+  CloudDownload,
+  Database,
+  ExternalLink,
+  X,
 } from 'lucide-react';
 import {
   nutritionEngineApi,
@@ -36,10 +41,19 @@ import {
 } from '../api/nutrition-rule-engine.api';
 import { NutritionRuleDrawer } from '../components/NutritionRuleDrawer';
 import { AllergenDrawer } from '../components/AllergenDrawer';
+import { NutritionistAllergyManagementPage } from './NutritionistAllergyManagementPage';
 
 export const NutritionRulesPage: React.FC = () => {
+  const location = useLocation();
   // Tabs: 'STANDARDS' | 'ALLERGENS' | 'SCANNER'
   const [activeTab, setActiveTab] = useState<'STANDARDS' | 'ALLERGENS' | 'SCANNER'>('STANDARDS');
+
+  // Tự động nhận diện tab ALLERGENS khi người dùng truy cập /allergens hoặc ?tab=ALLERGENS
+  useEffect(() => {
+    if (location.pathname.includes('/allergens') || location.search.includes('tab=ALLERGENS')) {
+      setActiveTab('ALLERGENS');
+    }
+  }, [location.pathname, location.search]);
 
   // Stats
   const [stats, setStats] = useState<NutritionEngineStats | null>(null);
@@ -70,6 +84,10 @@ export const NutritionRulesPage: React.FC = () => {
   // Toast
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Modal Đồng Bộ Chuẩn Quốc Gia VN-RDA 2024
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const showToast = (type: 'success' | 'error', text: string) => {
     setToast({ type, text });
@@ -110,6 +128,21 @@ export const NutritionRulesPage: React.FC = () => {
       setAllergens(data);
     } catch (err) {
       console.error('Lỗi khi tải danh mục dị ứng:', err);
+    }
+  };
+
+  // 4. Đồng bộ Chuẩn Quốc Gia VN-RDA 2024 & TT 28
+  const handleConfirmSyncRda = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await nutritionEngineApi.syncRdaStandards();
+      showToast('success', res.message || 'Đã đồng bộ thành công chuẩn dinh dưỡng Quốc gia vào Database!');
+      await Promise.all([loadRules(), loadStats()]);
+      setIsSyncModalOpen(false);
+    } catch (err: any) {
+      showToast('error', err.response?.data?.message || 'Có lỗi khi đồng bộ quy chuẩn.');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -289,6 +322,7 @@ export const NutritionRulesPage: React.FC = () => {
 
         {/* Nút Hành Động Header */}
         <div className="flex items-center gap-3">
+          {/* Nút Làm Mới */}
           <button
             onClick={() => {
               loadStats();
@@ -296,10 +330,24 @@ export const NutritionRulesPage: React.FC = () => {
               loadAllergens();
             }}
             className="p-2.5 text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 rounded-2xl shadow-xs transition"
-            title="Làm mới dữ liệu"
+            title="Làm mới dữ liệu từ Database"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
+
+          {/* Nút Đồng Bộ Chuẩn Quốc Gia VN-RDA 2024 (Cách 1) */}
+          {activeTab === 'STANDARDS' && (
+            <button
+              onClick={() => setIsSyncModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold rounded-2xl shadow-md shadow-emerald-600/25 transition active:scale-98"
+              title="Đồng bộ quy chuẩn dinh dưỡng từ Viện Dinh Dưỡng Quốc Gia (VN-RDA 2024) và Thông tư 28/2016/TT-BGDĐT"
+            >
+              <CloudDownload className="w-4 h-4" />
+              <span className="hidden sm:inline">Đồng Bộ Chuẩn VN-RDA 2024</span>
+              <span className="sm:hidden">Đồng Bộ RDA</span>
+            </button>
+          )}
+
           {activeTab === 'STANDARDS' && (
             <button
               onClick={() => {
@@ -321,7 +369,7 @@ export const NutritionRulesPage: React.FC = () => {
               className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-2xl shadow-md shadow-rose-600/25 transition active:scale-98"
             >
               <Plus className="w-4 h-4" />
-              <span>Thêm Dị Ứng Mới</span>
+              <span>Thêm Nhóm Chuẩn Codex</span>
             </button>
           )}
           {activeTab === 'SCANNER' && (
@@ -529,6 +577,8 @@ export const NutritionRulesPage: React.FC = () => {
                 className="px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white"
               >
                 <option value="">Tất cả độ tuổi</option>
+                <option value="MAU_GIAO">Mẫu giáo (3 - 6 tuổi)</option>
+                <option value="NHA_TRE">Nhà trẻ (12 - 36 tháng)</option>
                 <option value="TODDLER_18_36M">Nhà trẻ (18 - 36 tháng)</option>
                 <option value="KINDERGARTEN_3_4Y">Mẫu giáo (3 - 4 tuổi)</option>
                 <option value="KINDERGARTEN_4_5Y">Mẫu giáo (4 - 5 tuổi)</option>
@@ -585,7 +635,7 @@ export const NutritionRulesPage: React.FC = () => {
                           <td className="py-3.5 px-5">
                             <div className="flex items-center gap-2.5">
                               <div
-                                className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
+                                className={`w-8 h-8 shrink-0 rounded-xl flex items-center justify-center font-bold text-xs ${
                                   item.isSystemRule
                                     ? 'bg-amber-100 text-amber-800'
                                     : 'bg-teal-100 text-teal-800'
@@ -594,9 +644,11 @@ export const NutritionRulesPage: React.FC = () => {
                                 {item.isSystemRule ? 'BGD' : 'TRƯỜNG'}
                               </div>
                               <div>
-                                <span className="font-bold text-slate-900 block">{item.name}</span>
+                                <span className="font-bold text-slate-900 block">
+                                  {item.name || (item as any).ruleName || `Quy chuẩn TT 28 (${item.targetAgeGroup || (item as any).ageGroup})`}
+                                </span>
                                 <span className="text-[11px] text-slate-400">
-                                  Phạm vi: {item.mealScope === 'FULL_DAY_SCHOOL' ? 'Cả ngày bán trú' : item.mealScope}
+                                  Phạm vi: {item.mealScope === 'FULL_DAY_SCHOOL' || item.mealScope === 'ALL_DAY' || item.mealScope === 'FULL_DAY' ? 'Cả ngày bán trú (100% Calo)' : item.mealScope === 'DAYBOARDING' ? 'Bán trú tại trường (50-60% Calo)' : item.mealScope}
                                 </span>
                               </div>
                             </div>
@@ -605,40 +657,40 @@ export const NutritionRulesPage: React.FC = () => {
                           {/* Nhóm tuổi */}
                           <td className="py-3.5 px-4">
                             <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
-                              {item.targetAgeGroup === 'TODDLER_18_36M'
-                                ? 'Nhà trẻ (18-36th)'
-                                : item.targetAgeGroup === 'KINDERGARTEN_3_4Y'
-                                ? 'Mầm (3-4 tuổi)'
+                              {item.targetAgeGroup === 'TODDLER_18_36M' || item.targetAgeGroup === 'NHA_TRE' || (item as any).ageGroup === 'NHA_TRE'
+                                ? 'Nhà trẻ (12-36 tháng)'
+                                : item.targetAgeGroup === 'KINDERGARTEN_3_4Y' || item.targetAgeGroup === 'MAU_GIAO' || (item as any).ageGroup === 'MAU_GIAO'
+                                ? 'Mẫu giáo (3-6 tuổi)'
                                 : item.targetAgeGroup === 'ALL_AGES'
                                 ? 'Mọi lứa tuổi'
-                                : item.targetAgeGroup}
+                                : (item.targetAgeGroup || (item as any).ageGroup || 'Mẫu giáo (3-6 tuổi)')}
                             </span>
                           </td>
 
                           {/* Calo */}
                           <td className="py-3.5 px-4 font-bold text-slate-800">
-                            {item.minCaloriesKcal} - {item.maxCaloriesKcal} Kcal
+                            {(item.minCaloriesKcal || (item as any).minEnergyKcal || 600)} - {(item.maxCaloriesKcal || (item as any).maxEnergyKcal || 750)} Kcal
                           </td>
 
                           {/* P-L-G */}
                           <td className="py-3.5 px-4">
                             <div className="flex items-center gap-1.5 font-semibold text-[11px]">
                               <span className="text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-                                P: {item.minProteinPercent}-{item.maxProteinPercent}%
+                                P: {item.minProteinPercent ?? (item as any).minProteinPct ?? 13}-{item.maxProteinPercent ?? (item as any).maxProteinPct ?? 20}%
                               </span>
                               <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
-                                L: {item.minFatPercent}-{item.maxFatPercent}%
+                                L: {item.minFatPercent ?? (item as any).minFatPct ?? 25}-{item.maxFatPercent ?? (item as any).maxFatPct ?? 35}%
                               </span>
                               <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                                G: {item.minCarbPercent}-{item.maxCarbPercent}%
+                                G: {item.minCarbPercent ?? (item as any).minCarbPct ?? 52}-{item.maxCarbPercent ?? (item as any).maxCarbPct ?? 60}%
                               </span>
                             </div>
                           </td>
 
                           {/* Vi chất */}
                           <td className="py-3.5 px-4 text-slate-600 text-[11px]">
-                            <div>Ca: ≥ {item.minCalciumMg}mg</div>
-                            <div className="text-slate-400">Ca/P: {item.caPRatioMin} - {item.caPRatioMax}</div>
+                            <div>Ca: ≥ {item.minCalciumMg || 300}mg</div>
+                            <div className="text-slate-400">Ca/P: {item.caPRatioMin || 1.0} - {item.caPRatioMax || 1.5}</div>
                           </td>
 
                           {/* Phân loại */}
@@ -707,123 +759,11 @@ export const NutritionRulesPage: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: QUY TẮC & DANH MỤC DỊ ỨNG                                          */}
+      {/* TAB 2: QUY TẮC & QUẢN LÝ DỊ ỨNG HỌC SINH TOÀN DIỆN                        */}
       {/* ========================================================================= */}
       {activeTab === 'ALLERGENS' && (
-        <div className="space-y-4">
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={allergenSearch}
-                onChange={(e) => setAllergenSearch(e.target.value)}
-                placeholder="Tìm chất dị ứng theo tên, mã hoặc thực phẩm..."
-                className="w-full pl-10 pr-4 py-2 rounded-2xl border border-slate-200 text-xs focus:ring-2 focus:ring-rose-500"
-              />
-            </div>
-
-            <label className="flex items-center gap-2 px-3 py-2 rounded-2xl border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-700 transition">
-              <input
-                type="checkbox"
-                checked={includeDeletedAllergens}
-                onChange={(e) => setIncludeDeletedAllergens(e.target.checked)}
-                className="w-3.5 h-3.5 text-rose-600 rounded-sm"
-              />
-              <span>Xem chất dị ứng đã xóa mềm</span>
-            </label>
-          </div>
-
-          {/* Lưới Thẻ Danh Mục Dị Ứng */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {allergens.map((item) => {
-              const isDeleted = item.isDeleted;
-              return (
-                <div
-                  key={item.id}
-                  className={`bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between ${
-                    isDeleted ? 'bg-slate-50 opacity-70' : ''
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-sm">
-                        <ShieldAlert className="w-5 h-5" />
-                      </div>
-                      <span className="font-mono text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
-                        {item.code}
-                      </span>
-                    </div>
-
-                    <h3 className="text-sm font-bold text-slate-900 mt-3">{item.nameVi}</h3>
-                    {item.nameEn && (
-                      <p className="text-[11px] text-slate-400 italic">{item.nameEn}</p>
-                    )}
-
-                    <div className="mt-3 p-2.5 bg-slate-50 rounded-xl space-y-1">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                        Thực phẩm cảnh báo:
-                      </span>
-                      <p className="text-xs text-slate-700 leading-relaxed line-clamp-2">
-                        {item.commonFoods || 'Chưa cập nhật'}
-                      </p>
-                    </div>
-
-                    {item.description && (
-                      <p className="text-[11px] text-slate-500 mt-2 line-clamp-2">
-                        {item.description}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                    {isDeleted ? (
-                      <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                        <Archive className="w-3 h-3" /> Đã xóa mềm
-                      </span>
-                    ) : item.isSystemStandard ? (
-                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-                        Codex / BYT
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
-                        Trường tùy biến
-                      </span>
-                    )}
-
-                    <div className="flex items-center gap-1">
-                      {isDeleted ? (
-                        <button
-                          onClick={() => handleRestoreAllergen(item)}
-                          className="px-2 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-[11px] font-bold flex items-center gap-1"
-                        >
-                          <RotateCcw className="w-3 h-3" /> Khôi phục
-                        </button>
-                      ) : !item.isSystemStandard ? (
-                        <>
-                          <button
-                            onClick={() => {
-                              setEditingAllergen(item);
-                              setIsAllergenDrawerOpen(true);
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleSoftDeleteAllergen(item)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50"
-                          >
-                            <Archive className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        <div className="space-y-6">
+          <NutritionistAllergyManagementPage embedded={true} />
         </div>
       )}
 
@@ -1129,6 +1069,219 @@ export const NutritionRulesPage: React.FC = () => {
         onClose={() => setIsAllergenDrawerOpen(false)}
         onSubmit={handleAllergenSubmit}
       />
+
+      {/* ========================================================================= */}
+      {/* 6. MODAL ĐỒNG BỘ QUY CHUẨN QUỐC GIA (VN-RDA 2024 & THÔNG TƯ 28)           */}
+      {/* ========================================================================= */}
+      {isSyncModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-7 shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-200 border border-slate-100 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-teal-500/20">
+                  <CloudDownload className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase tracking-wider">
+                      Cổng Dữ Liệu Quốc Gia
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">
+                      VN-RDA 2024.1
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900 mt-1">
+                    Đồng Bộ Quy Chuẩn Dinh Dưỡng Mầm Non Quốc Gia
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Cập nhật và đối soát số liệu từ Viện Dinh Dưỡng Quốc Gia (NIN) & Thông tư 28/2016/TT-BGDĐT (sửa đổi TT 51/2020).
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsSyncModalOpen(false)}
+                disabled={isSyncing}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Source Information Alert Box */}
+            <div className="bg-gradient-to-r from-teal-50/70 via-emerald-50/50 to-slate-50 p-4 rounded-2xl border border-teal-200/80 space-y-2">
+              <div className="flex items-center gap-2 text-teal-900 font-bold text-xs">
+                <ShieldCheck className="w-4 h-4 text-teal-600" />
+                <span>Nguồn Dữ Liệu Chính Thức Đã Thẩm Định Pháp Lý & Y Tế:</span>
+              </div>
+              <ul className="text-xs text-slate-600 space-y-1 pl-6 list-disc">
+                <li>
+                  <strong className="text-slate-800">Thông tư 28/2016/TT-BGDĐT</strong> & <strong>Thông tư 51/2020/TT-BGDĐT</strong> — Bộ Giáo dục & Đào tạo.
+                </li>
+                <li>
+                  <strong className="text-slate-800">Bảng Nhu cầu Dinh dưỡng Khuyến nghị (VN-RDA 2024)</strong> — Viện Dinh Dưỡng Quốc Gia, Bộ Y tế.
+                </li>
+                <li>
+                  Hệ thống Rule Engine sẽ tự động áp dụng 4 bộ định mức này để quét kiểm tra khẩu phần ăn bán trú và cả ngày.
+                </li>
+              </ul>
+            </div>
+
+            {/* Standards Diff Preview Grid */}
+            <div className="space-y-3">
+              <div className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                <span>Chi Tiết 4 Quy Chuẩn Sẽ Được Cập Nhật Vào Database:</span>
+                <span className="text-[11px] text-teal-600 font-semibold normal-case">Tự động ghi đè & kích hoạt</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* 1. Mẫu giáo - Bán trú */}
+                <div className="p-4 rounded-2xl border border-slate-200/90 bg-white shadow-xs space-y-2 hover:border-teal-400 transition">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-slate-900 text-xs">Mẫu giáo (3-6 tuổi)</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800">
+                      Bán trú (50-60%)
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Năng lượng:</span>
+                      <strong className="text-slate-900">615 - 726 Kcal</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Cơ cấu P : L : G:</span>
+                      <strong className="text-teal-700">13-20% : 25-35% : 52-60%</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Canxi / Tỷ lệ Ca:P:</span>
+                      <strong className="text-slate-900">≥ 180 mg • Ca:P 1 - 1.5</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Vi chất & Muối:</span>
+                      <span className="text-slate-700 text-[11px]">Sắt ≥ 2.5mg • Muối &lt; 350mg</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Mẫu giáo - Cả ngày */}
+                <div className="p-4 rounded-2xl border border-slate-200/90 bg-white shadow-xs space-y-2 hover:border-emerald-400 transition">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-slate-900 text-xs">Mẫu giáo (3-6 tuổi)</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      Cả ngày (100%)
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Năng lượng:</span>
+                      <strong className="text-slate-900">1230 - 1320 Kcal</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Cơ cấu P : L : G:</span>
+                      <strong className="text-emerald-700">13-20% : 25-35% : 52-60%</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Canxi / Tỷ lệ Ca:P:</span>
+                      <strong className="text-slate-900">≥ 350 mg • Ca:P 1 - 1.5</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Vi chất & Muối:</span>
+                      <span className="text-slate-700 text-[11px]">Sắt ≥ 4.5mg • Muối &lt; 600mg</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Nhà trẻ - Bán trú */}
+                <div className="p-4 rounded-2xl border border-slate-200/90 bg-white shadow-xs space-y-2 hover:border-amber-400 transition">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-slate-900 text-xs">Nhà trẻ (12-36 tháng)</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                      Bán trú (50-60%)
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Năng lượng:</span>
+                      <strong className="text-slate-900">600 - 735 Kcal</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Cơ cấu P : L : G:</span>
+                      <strong className="text-amber-700">13-20% : 30-40% : 47-57%</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Canxi / Tỷ lệ Ca:P:</span>
+                      <strong className="text-slate-900">≥ 150 mg • Ca:P 1 - 1.5</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Vi chất & Muối:</span>
+                      <span className="text-slate-700 text-[11px]">Sắt ≥ 2.2mg • Muối &lt; 300mg</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Nhà trẻ - Cả ngày */}
+                <div className="p-4 rounded-2xl border border-slate-200/90 bg-white shadow-xs space-y-2 hover:border-indigo-400 transition">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-slate-900 text-xs">Nhà trẻ (12-36 tháng)</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">
+                      Cả ngày (100%)
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Năng lượng:</span>
+                      <strong className="text-slate-900">1000 - 1100 Kcal</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Cơ cấu P : L : G:</span>
+                      <strong className="text-indigo-700">13-20% : 30-40% : 47-57%</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Canxi / Tỷ lệ Ca:P:</span>
+                      <strong className="text-slate-900">≥ 300 mg • Ca:P 1 - 1.5</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Vi chất & Muối:</span>
+                      <span className="text-slate-700 text-[11px]">Sắt ≥ 4.0mg • Muối &lt; 500mg</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsSyncModalOpen(false)}
+                disabled={isSyncing}
+                className="px-5 py-2.5 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSyncRda}
+                disabled={isSyncing}
+                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold rounded-2xl shadow-lg shadow-teal-600/30 transition active:scale-98 disabled:opacity-50"
+              >
+                {isSyncing ? (
+                  <>
+                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Đang Đồng Bộ Vào Database...</span>
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-4 h-4" />
+                    <span>Xác Nhận Đồng Bộ & Lưu Database</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

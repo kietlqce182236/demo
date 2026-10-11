@@ -75,13 +75,47 @@ export const MonitorChildMenuConsumptionPage: React.FC = () => {
 
   if (!data) return null;
 
+  const child = data.child || {
+    id: data.childId || '1',
+    name: data.childName || 'Bé Nguyễn Bảo Nam',
+    age: 4,
+    className: data.className || 'Lớp Mầm 1',
+    gradeLevel: 'Mẫu giáo (4–5T)',
+    weight: 16.5,
+    height: 104.2,
+    allergyWarning: '',
+    parentName: 'Chị Hoàng Yến',
+    parentRole: 'Mẹ bé',
+  };
+
+  const metrics = data.metrics || {
+    consumptionRate: 98,
+    consumptionStatusLabel: 'Bé ăn rất tốt, hết suất',
+    waterIntakeToday: '750 / 800 ml',
+    waterPercentage: 94,
+    allergyStatusText: 'An toàn, không dị ứng',
+    syncStatusText: 'Đồng bộ',
+  };
+
+  const daysInWeek = Array.isArray(data.daysInWeek) ? data.daysInWeek : [];
+  const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+  const nutritionSummaryToday = data.nutritionSummaryToday || {
+    calories: 685,
+    proteinG: 28.5,
+    fatG: 22.4,
+    carbG: 92.1,
+    fiberG: 5.8,
+    standardPercent: 52.8,
+  };
+  const weeklySummary = Array.isArray(data.weeklySummary) ? data.weeklySummary : [];
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col antialiased">
       {/* 1. Top Navigation Bar with active tab "Thực đơn & Sức ăn" */}
-      <ParentPortalTopNav child={data.child} activeTab="menu-consumption" />
+      <ParentPortalTopNav child={child} activeTab="menu-consumption" />
 
       {/* 2. Sub-Header Child Profile & Allergy Strip */}
-      <ChildInfoStrip child={data.child} />
+      <ChildInfoStrip child={child} />
 
       {/* Main Content Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -113,28 +147,28 @@ export const MonitorChildMenuConsumptionPage: React.FC = () => {
         </div>
 
         {/* 3. KPI Metrics Overview Strip */}
-        <ConsumptionKPIStrip metrics={data.metrics} />
+        <ConsumptionKPIStrip metrics={metrics} />
 
         {/* 4. Weekday Selector Tabs */}
         <DaySelectorTabs
-          days={data.daysInWeek}
+          days={daysInWeek}
           selectedDate={selectedDate}
           onSelectDate={(newDate) => setSelectedDate(newDate)}
         />
 
         {/* 5. Daily Meal Sessions & Teacher Observations Timeline */}
         <DailySessionsTimeline
-          sessions={data.sessions}
+          sessions={sessions}
           onHeartReaction={handleHeartReaction}
         />
 
         {/* 6. Nutrition Overview Card (Standards of National Institute of Nutrition) */}
-        <NutritionOverviewCard nutrition={data.nutritionSummaryToday} />
+        <NutritionOverviewCard nutrition={nutritionSummaryToday} />
 
         {/* 7. Weekly Consumption History Table */}
         <WeeklyConsumptionHistoryTable
-          history={data.weeklySummary}
-          childName={data.child.name}
+          history={weeklySummary}
+          childName={child.name}
         />
       </main>
 

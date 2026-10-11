@@ -1,71 +1,56 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+  JoinColumn,
+} from 'typeorm';
+import { BigIntTransformer } from '../../../database/base.entity';
+import { NumericTransformer } from '../../foods/entities/food.entity';
+import { DishCategory } from './dish-category.entity';
 import { RecipeItem } from './recipe-item.entity';
+import { DishNutrition } from './dish-nutrition.entity';
+import { DishAllergen } from './dish-allergen.entity';
 
 @Entity('dishes')
 export class Dish {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
 
-  @Column({ name: 'tenant_id', type: 'uuid', nullable: true })
-  tenantId: string;
+  @Column({ name: 'category_id', type: 'bigint', transformer: BigIntTransformer, nullable: true })
+  categoryId: number;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ length: 150 })
   name: string;
 
-  @Column({ name: 'dish_type', type: 'varchar', length: 50, nullable: true })
-  dishType: string;
+  @Column({ type: 'text', nullable: true })
+  description: string;
 
-  @Column({ name: 'dish_category', type: 'varchar', length: 50, nullable: true })
-  dishCategory: string; // 'SOUP_NOODLE' | 'MAIN_SALTY' | 'SOUP_BROTH' | 'STIR_FRY_STEAM' | 'DESSERT' | 'MILK'
-
-  @Column({ name: 'approval_status', type: 'varchar', length: 30, default: 'APPROVED' })
-  approvalStatus: string; // 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'
-
-  @Column({ name: 'target_age_group', type: 'varchar', length: 50, nullable: true })
-  targetAgeGroup: string;
-
-  @Column({ name: 'photo_url', type: 'text', nullable: true })
-  photoUrl: string;
-
-  @Column({ name: 'cooking_instructions', type: 'text', nullable: true })
-  cookingInstructions: string;
-
-  @Column({ name: 'presentation_notes', type: 'text', nullable: true })
-  presentationNotes: string;
-
-  @Column({ name: 'is_active', type: 'boolean', default: true })
-  isActive: boolean;
-
-  @Column({ name: 'total_calories', type: 'numeric', precision: 10, scale: 2, default: 0 })
-  totalCalories: number;
-
-  @Column({ name: 'total_protein_g', type: 'numeric', precision: 10, scale: 2, default: 0 })
-  totalProteinG: number;
-
-  @Column({ name: 'total_fat_g', type: 'numeric', precision: 10, scale: 2, default: 0 })
-  totalFatG: number;
-
-  @Column({ name: 'total_carb_g', type: 'numeric', precision: 10, scale: 2, default: 0 })
-  totalCarbG: number;
-
-  @Column({ name: 'total_calcium_mg', type: 'numeric', precision: 10, scale: 2, default: 0 })
-  totalCalciumMg: number;
-
-  @Column({ name: 'total_iron_mg', type: 'numeric', precision: 10, scale: 2, default: 0 })
-  totalIronMg: number;
-
-  @Column({ name: 'total_zinc_mg', type: 'numeric', precision: 10, scale: 2, default: 0 })
-  totalZincMg: number;
-
-  @Column({ name: 'standard_serving_size_g', type: 'numeric', precision: 10, scale: 2, default: 0 })
+  @Column({
+    name: 'standard_serving_size_g',
+    type: 'numeric',
+    precision: 8,
+    scale: 2,
+    default: 100,
+    transformer: NumericTransformer,
+  })
   standardServingSizeG: number;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-  createdAt: Date;
+  @Column({ length: 20, default: 'ACTIVE' })
+  status: string;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
-  updatedAt: Date;
+  @ManyToOne(() => DishCategory, (cat) => cat.dishes, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'category_id' })
+  category: DishCategory;
 
-  @OneToMany(() => RecipeItem, recipeItem => recipeItem.dish, { cascade: true })
-  recipeItems: RecipeItem[];
+  @OneToMany(() => RecipeItem, (item) => item.dish)
+  recipes: RecipeItem[];
+
+  @OneToOne(() => DishNutrition, (nutr) => nutr.dish)
+  nutrition: DishNutrition;
+
+  @OneToMany(() => DishAllergen, (da) => da.dish)
+  dishAllergens: DishAllergen[];
 }

@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import * as pg from 'pg';
+
+// Automatically parse PostgreSQL int8 (bigint/BIGSERIAL, OID 20) as JavaScript numbers
+pg.types.setTypeParser(20, (val: string) => (val === null ? null : parseInt(val, 10)));
 
 @Module({
   imports: [
@@ -15,8 +19,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         password: configService.get<string>('database.password'),
         database: configService.get<string>('database.database'),
         autoLoadEntities: true,
-        synchronize: false, // We use SQL migrations / schema.sql
-        logging: configService.get<string>('nodeEnv') === 'development',
+        synchronize: false,
+        logging: configService.get<string>('nodeEnv') === 'development' ? ['error', 'warn'] : false,
+        ssl: false,
       }),
     }),
   ],

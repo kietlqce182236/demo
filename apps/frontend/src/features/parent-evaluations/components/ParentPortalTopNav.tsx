@@ -4,7 +4,7 @@ import { Bell, ChevronDown, Utensils, ShieldAlert, Coffee, CreditCard, MessageSq
 import { ChildProfile } from '../types';
 
 interface ParentPortalTopNavProps {
-  child: ChildProfile;
+  child?: ChildProfile;
   activeTab?: 'menu-consumption' | 'allergies' | 'snacks' | 'tuition' | 'evaluation';
 }
 
@@ -30,7 +30,7 @@ export const ParentPortalTopNav: React.FC<ParentPortalTopNavProps> = ({ child, a
             {/* Child Selector Dropdown */}
             <div className="ml-3 hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition text-xs font-semibold text-slate-700">
               <Baby className="w-4 h-4 text-teal-600" />
-              <span>{child.name ? `Bé ${child.name.split(' ').slice(-2).join(' ')}` : 'Bé Bảo Nam'} - {child.className || 'Lớp Thỏ Trắng'} ({child.gradeLevel || '4–5T'})</span>
+              <span>{child?.name ? `Bé ${child.name.split(' ').slice(-2).join(' ')}` : 'Bé Bảo Nam'} - {child?.className || 'Lớp Thỏ Trắng'} ({child?.gradeLevel || '4–5T'})</span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </div>
           </div>
@@ -106,16 +106,16 @@ export const ParentPortalTopNav: React.FC<ParentPortalTopNavProps> = ({ child, a
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 p-0.5 shadow-xs">
                 <img
                   src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80"
-                  alt={child.parentName || 'Chị Hoàng Yến'}
+                  alt={child?.parentName || 'Chị Hoàng Yến'}
                   className="w-full h-full object-cover rounded-full"
                 />
               </div>
               <div className="text-left hidden sm:block">
                 <p className="text-xs font-bold text-slate-800 leading-tight">
-                  {child.parentName || 'Chị Hoàng Yến'}
+                  {child?.parentName || 'Chị Hoàng Yến'}
                 </p>
                 <p className="text-[11px] text-slate-500 font-medium">
-                  {child.parentRole || 'Mẹ bé Bảo Nam'}
+                  {child?.parentRole || 'Mẹ bé Bảo Nam'}
                 </p>
               </div>
             </div>

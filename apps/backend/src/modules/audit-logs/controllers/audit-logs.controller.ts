@@ -1,42 +1,36 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
-import { Request } from 'express';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { AuditLogsService } from '../services/audit-logs.service';
 import { QueryAuditLogsDto } from '../dto/query-audit-logs.dto';
 
-@Controller('audit-logs')
+@ApiTags('Audit Logs & System Traceability')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('audit-logs')
 export class AuditLogsController {
   constructor(private readonly auditLogsService: AuditLogsService) {}
 
-  private resolveTenantId(req: Request): string {
-    return (
-      (req.headers['x-tenant-id'] as string) ||
-      (req as any).tenantId ||
-      'a0000000-0000-0000-0000-000000000001'
-    );
-  }
-
   @Get()
-  @Roles('PRINCIPAL', 'SUPER_ADMIN', 'SCHOOL_MANAGEMENT')
-  async getAuditLogs(@Req() req: Request, @Query() query: QueryAuditLogsDto) {
-    const tenantId = this.resolveTenantId(req);
-    return this.auditLogsService.findAll(tenantId, query);
+  @ApiOperation({ summary: 'Truy vấn danh sách nhật ký kiểm toán hệ thống' })
+  @Roles('SCHOOL_MANAGEMENT')
+  async getAuditLogs(@Query() query: QueryAuditLogsDto) {
+    return this.auditLogsService.getAuditLogs(query);
   }
 
   @Get('filters')
-  @Roles('PRINCIPAL', 'SUPER_ADMIN', 'SCHOOL_MANAGEMENT')
-  async getFilterOptions(@Req() req: Request) {
-    const tenantId = this.resolveTenantId(req);
-    return this.auditLogsService.getFilterOptions(tenantId);
+  @ApiOperation({ summary: 'Lấy các tùy chọn bộ lọc nhật ký' })
+  @Roles('SCHOOL_MANAGEMENT')
+  async getFilterOptions() {
+    return this.auditLogsService.getFilterOptions();
   }
 
   @Get('stats')
-  @Roles('PRINCIPAL', 'SUPER_ADMIN', 'SCHOOL_MANAGEMENT')
-  async getStats(@Req() req: Request) {
-    const tenantId = this.resolveTenantId(req);
-    return this.auditLogsService.getStats(tenantId);
+  @ApiOperation({ summary: 'Thống kê tổng số lượng nhật ký kiểm toán' })
+  @Roles('SCHOOL_MANAGEMENT')
+  async getStats() {
+    return this.auditLogsService.getStats();
   }
 }

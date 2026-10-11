@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ChefHat,
   AlertOctagon,
@@ -10,7 +10,9 @@ import {
   Flame,
   Truck,
   Search,
+  Calendar,
 } from 'lucide-react';
+import { ClassWeeklyMenuModal } from './ClassWeeklyMenuModal';
 
 interface KdsSummary {
   totalLunchPortions: number;
@@ -81,6 +83,7 @@ interface KdsLivePortionsTabProps {
   selectedStatus: string;
   setSelectedStatus: (val: string) => void;
   onUpdateStatus: (classId: string, status: 'PREPARING' | 'COMPLETED') => void;
+  currentDate?: string;
   isDarkMode?: boolean;
 }
 
@@ -98,8 +101,13 @@ export const KdsLivePortionsTab: React.FC<KdsLivePortionsTabProps> = ({
   selectedStatus,
   setSelectedStatus,
   onUpdateStatus,
+  currentDate = new Date().toISOString().split('T')[0],
   isDarkMode = false,
 }) => {
+  // Modal thực đơn tuần của lớp được chọn
+  const [selectedClassForMenu, setSelectedClassForMenu] = useState<KdsClassItem | null>(null);
+  const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
+
   // Filtered classes
   const filteredClasses = useMemo(() => {
     return classes.filter((c) => {
@@ -622,13 +630,23 @@ export const KdsLivePortionsTab: React.FC<KdsLivePortionsTabProps> = ({
                     : 'border-slate-200/90 bg-white hover:border-amber-300 hover:shadow-md'
                 }`}
               >
-                {/* Card Header: Class name & Room */}
-                <div>
+                {/* Card Header: Class name & Room - Clickable to open Weekly Menu */}
+                <div
+                  onClick={() => {
+                    setSelectedClassForMenu(item);
+                    setIsMenuModalOpen(true);
+                  }}
+                  className="cursor-pointer group"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className={`text-lg font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                          {item.className}
+                        <h4
+                          className={`text-lg font-black tracking-tight group-hover:text-amber-500 transition-colors flex items-center gap-1.5 ${
+                            isDarkMode ? 'text-white' : 'text-slate-900'
+                          }`}
+                        >
+                          <span>{item.className}</span>
                         </h4>
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
@@ -661,15 +679,34 @@ export const KdsLivePortionsTab: React.FC<KdsLivePortionsTabProps> = ({
                     </span>
                   </div>
 
-                  {/* Meal Diet Group */}
-                  <div
-                    className={`mt-3 inline-block text-[11px] font-bold px-2.5 py-1 rounded-lg border ${
-                      isDarkMode
-                        ? 'text-amber-300 bg-amber-950/40 border-amber-500/30'
-                        : 'text-amber-800 bg-amber-50 border-amber-200'
-                    }`}
-                  >
-                    {item.gradeLevelLabel}
+                  {/* Meal Diet Group & Weekly Menu Button */}
+                  <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                    <span
+                      className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${
+                        isDarkMode
+                          ? 'text-amber-300 bg-amber-950/40 border-amber-500/30'
+                          : 'text-amber-800 bg-amber-50 border-amber-200'
+                      }`}
+                    >
+                      {item.gradeLevelLabel}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedClassForMenu(item);
+                        setIsMenuModalOpen(true);
+                      }}
+                      className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition-all active:scale-95 ${
+                        isDarkMode
+                          ? 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700 hover:border-amber-400/50'
+                          : 'bg-amber-50/80 hover:bg-amber-100 text-amber-900 border-amber-200/90 hover:border-amber-300 shadow-xs'
+                      }`}
+                    >
+                      <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Thực đơn tuần</span>
+                    </button>
                   </div>
 
                   {/* Portions Count Numbers */}
@@ -740,7 +777,10 @@ export const KdsLivePortionsTab: React.FC<KdsLivePortionsTabProps> = ({
                   {/* Action buttons */}
                   <div className="grid grid-cols-2 gap-2">
                     <button
-                      onClick={() => onUpdateStatus(item.classId, 'PREPARING')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onUpdateStatus(item.classId, 'PREPARING');
+                      }}
                       disabled={item.kitchenStatus === 'PREPARING' || item.kitchenStatus === 'COMPLETED'}
                       className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl font-black text-xs transition active:scale-95 ${
                         item.kitchenStatus === 'PREPARING'
@@ -757,7 +797,10 @@ export const KdsLivePortionsTab: React.FC<KdsLivePortionsTabProps> = ({
                     </button>
 
                     <button
-                      onClick={() => onUpdateStatus(item.classId, 'COMPLETED')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onUpdateStatus(item.classId, 'COMPLETED');
+                      }}
                       disabled={item.kitchenStatus === 'COMPLETED'}
                       className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl font-black text-xs transition active:scale-95 ${
                         item.kitchenStatus === 'COMPLETED'
@@ -777,6 +820,19 @@ export const KdsLivePortionsTab: React.FC<KdsLivePortionsTabProps> = ({
           })}
         </div>
       </div>
+
+      {/* Modal hiển thị Thực đơn trong tuần của lớp */}
+      <ClassWeeklyMenuModal
+        isOpen={isMenuModalOpen}
+        onClose={() => {
+          setIsMenuModalOpen(false);
+          setSelectedClassForMenu(null);
+        }}
+        classItem={selectedClassForMenu}
+        currentDate={currentDate}
+        allergyAlerts={allergyAlerts}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 };

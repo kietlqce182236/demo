@@ -1,131 +1,149 @@
-import {
-  IsString,
-  MinLength,
-  MaxLength,
-  IsNumber,
-  Min,
-  Max,
-  IsIn,
-  IsOptional,
-  IsBoolean,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, IsNumber, IsBoolean } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateNutritionRuleDto {
-  @IsString()
-  @MinLength(3)
-  @MaxLength(255)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   name?: string;
 
-  @IsString()
-  @IsIn(
-    ['TODDLER_18_36M', 'KINDERGARTEN_3_4Y', 'KINDERGARTEN_4_5Y', 'KINDERGARTEN_5_6Y', 'ALL_AGES'],
-    { message: 'Nhóm tuổi không hợp lệ' },
-  )
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  ageGroup?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   targetAgeGroup?: string;
 
-  @IsString()
-  @IsIn(['FULL_DAY_SCHOOL', 'LUNCH_ONLY', 'SNACK_ONLY', 'PER_MEAL'])
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   mealScope?: string;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
+  minEnergyKcal?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   minCaloriesKcal?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
+  maxEnergyKcal?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   maxCaloriesKcal?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  @Max(100)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
+  minProteinPct?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   minProteinPercent?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  @Max(100)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
+  maxProteinPct?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   maxProteinPercent?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  @Max(100)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
+  minFatPct?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   minFatPercent?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  @Max(100)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
+  maxFatPct?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   maxFatPercent?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  @Max(100)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
+  minCarbPct?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   minCarbPercent?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  @Max(100)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
+  maxCarbPct?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   maxCarbPercent?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
   minCalciumMg?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
   minIronMg?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
   minZincMg?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
   maxSodiumMg?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.5)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
   caPRatioMin?: number;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.5)
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
   caPRatioMax?: number;
 
-  @IsBoolean()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsBoolean()
   isStrict?: boolean;
 
-  @IsBoolean()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  status?: string;
 }

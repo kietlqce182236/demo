@@ -52,10 +52,11 @@ export const TeacherTabletPage: React.FC = () => {
     const loadClasses = async () => {
       try {
         const res = await attendanceApi.getClasses();
-        setClasses(res || []);
-        if (res && res.length > 0 && !selectedClassId) {
+        const classesList = Array.isArray(res) ? res : (res as any)?.items || [];
+        setClasses(classesList);
+        if (classesList.length > 0 && !selectedClassId) {
           // If user has a matching class by homeroom or name, pick it, else pick the first
-          setSelectedClassId(res[0].id);
+          setSelectedClassId(classesList[0].id);
         }
       } catch (err) {
         console.error('Failed to load classes', err);
@@ -91,7 +92,7 @@ export const TeacherTabletPage: React.FC = () => {
         date: selectedDate,
         mealType: 'LUNCH',
       });
-      setEvaluations(res.children || []);
+      setEvaluations(Array.isArray(res?.children) ? res.children : []);
     } catch (err) {
       console.error('Failed to load evaluation list', err);
     }
@@ -273,7 +274,7 @@ export const TeacherTabletPage: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-emerald-600/20">
-              {currentClassName.substring(0, 2)}
+              {currentClassName ? currentClassName.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase() : 'LM'}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -286,7 +287,7 @@ export const TeacherTabletPage: React.FC = () => {
                     onChange={(e) => setSelectedClassId(e.target.value)}
                     className="text-xs px-3 py-1.5 rounded-xl border border-slate-300 bg-white font-bold text-slate-700 hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition"
                   >
-                    {classes.map((cls) => (
+                    {(Array.isArray(classes) ? classes : []).map((cls) => (
                       <option key={cls.id} value={cls.id}>
                         {cls.name} ({cls.totalStudents} bé)
                       </option>
@@ -526,7 +527,7 @@ export const TeacherTabletPage: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {filteredChildren.map((child, idx) => {
+              {(Array.isArray(filteredChildren) ? filteredChildren : []).map((child, idx) => {
                 const isChildAbsent = child.mealOption === 'ABSENT';
                 const hasAllergy = child.dietBadge?.type === 'ALLERGY' || child.dietBadge?.type === 'SPECIAL_CARE';
 
@@ -665,7 +666,7 @@ export const TeacherTabletPage: React.FC = () => {
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {evaluations.map((child, idx) => {
+              {(Array.isArray(evaluations) ? evaluations : []).map((child, idx) => {
                 const hasAllergy = child.menuBadge?.type === 'allergy';
                 const allergyText = child.menuBadge?.label;
 

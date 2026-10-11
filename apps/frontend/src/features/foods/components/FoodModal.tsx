@@ -72,18 +72,20 @@ export const FoodModal: React.FC<FoodModalProps> = ({
       setLoading(true);
       const res = await apiClient.get(`/foods/${id}`);
       setFormData({
-        code: res.data.code,
-        name: res.data.name,
-        category: res.data.category,
-        energyKcal: Number(res.data.energyKcal) || 0,
-        proteinG: Number(res.data.proteinG) || 0,
-        fatG: Number(res.data.fatG) || 0,
-        carbG: Number(res.data.carbG) || 0,
-        calciumMg: Number(res.data.calciumMg) || 0,
-        ironMg: Number(res.data.ironMg) || 0,
-        zincMg: Number(res.data.zincMg) || 0,
-        defaultUnit: res.data.defaultUnit || 'gram',
-        allergens: res.data.allergens || [],
+        code: res.data.code || '',
+        name: res.data.name || '',
+        category: typeof res.data.category === 'object' && res.data.category !== null ? (res.data.category.code || res.data.category.name || '') : (res.data.category || ''),
+        energyKcal: Number(res.data.energyKcal ?? res.data.energyKcal100g ?? 0),
+        proteinG: Number(res.data.proteinG ?? 0),
+        fatG: Number(res.data.fatG ?? 0),
+        carbG: Number(res.data.carbG ?? 0),
+        calciumMg: Number(res.data.calciumMg ?? 0),
+        ironMg: Number(res.data.ironMg ?? 0),
+        zincMg: Number(res.data.zincMg ?? 0),
+        defaultUnit: res.data.unit || res.data.defaultUnit || 'g',
+        allergens: Array.isArray(res.data.allergens)
+          ? res.data.allergens.map((a: any) => typeof a === 'object' && a !== null ? (a.name || a.allergenName || String(a.id)) : String(a))
+          : [],
         imageUrl: res.data.imageUrl || '',
         supplier: res.data.supplier || '',
         description: res.data.description || '',

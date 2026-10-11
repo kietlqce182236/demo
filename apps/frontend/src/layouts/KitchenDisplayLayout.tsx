@@ -107,10 +107,10 @@ export const KitchenDisplayLayout: React.FC = () => {
           setCurrentDate(data.date);
         }
         if (data.summary) setSummary(data.summary);
-        if (data.classes) setClasses(data.classes);
-        if (data.allergyAlerts) setAllergyAlerts(data.allergyAlerts);
+        if (data.classes) setClasses(Array.isArray(data.classes) ? data.classes : []);
+        if (data.allergyAlerts) setAllergyAlerts(Array.isArray(data.allergyAlerts) ? data.allergyAlerts : []);
         if (data.todayMenu) setTodayMenu(data.todayMenu);
-        if (data.rawIngredients) setRawIngredients(data.rawIngredients);
+        if (data.rawIngredients) setRawIngredients(Array.isArray(data.rawIngredients) ? data.rawIngredients : []);
       }
     } catch (err) {
       console.error('Lỗi khi tải dữ liệu KDS:', err);
@@ -547,6 +547,7 @@ export const KitchenDisplayLayout: React.FC = () => {
             selectedStatus={selectedStatus}
             setSelectedStatus={setSelectedStatus}
             onUpdateStatus={handleUpdateStatus}
+            currentDate={currentDate}
             isDarkMode={isDarkMode}
           />
         )}

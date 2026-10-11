@@ -1,56 +1,17 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateMealAttendanceDto {
-  @IsString()
+  @ApiProperty({ example: '2025-09-08' })
   @IsNotEmpty()
+  @IsString()
   date: string;
 
-  @IsString()
+  @ApiProperty({ example: 'PRESENT' })
   @IsNotEmpty()
-  mealOption: 'ALL_DAY' | 'LUNCH_ONLY' | 'SNACK_ONLY' | 'ABSENT';
+  mealOption: any;
 
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @IsOptional()
-  @IsString()
-  kitchenStatus?: 'SYNCED' | 'PENDING' | 'CANCELLED';
-}
-
-export class BatchMarkAllPresentDto {
-  @IsString()
-  @IsNotEmpty()
-  classId: string;
-
-  @IsString()
-  @IsNotEmpty()
-  date: string;
-
-  @IsOptional()
-  @IsString()
-  mealOption?: 'ALL_DAY' | 'LUNCH_ONLY' | 'SNACK_ONLY';
-}
-
-export class SyncFromMorningCheckinDto {
-  @IsString()
-  @IsNotEmpty()
-  classId: string;
-
-  @IsString()
-  @IsNotEmpty()
-  date: string;
-}
-
-export class LockAndSendToKitchenDto {
-  @IsString()
-  @IsNotEmpty()
-  classId: string;
-
-  @IsString()
-  @IsNotEmpty()
-  date: string;
-
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   notes?: string;

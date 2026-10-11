@@ -1,30 +1,33 @@
-import { IsString, IsNotEmpty, MinLength, MaxLength, IsOptional, Matches } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateAllergenDto {
-  @IsString()
-  @IsNotEmpty({ message: 'Mã chất dị ứng không được để trống' })
-  @MinLength(2)
-  @MaxLength(50)
-  @Matches(/^[A-Z0-9_]+$/, {
-    message: 'Mã chất dị ứng phải viết hoa và không dấu (ví dụ: COW_MILK, PEANUT)',
-  })
-  code: string;
-
-  @IsString()
-  @IsNotEmpty({ message: 'Tên tiếng Việt không được để trống' })
-  @MinLength(2)
-  @MaxLength(150)
-  nameVi: string;
-
-  @IsString()
+  @ApiPropertyOptional({ example: 'Sữa bò' })
   @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ example: 'Sữa bò' })
+  @IsOptional()
+  @IsString()
+  nameVi?: string;
+
+  @ApiPropertyOptional({ example: 'Cow Milk' })
+  @IsOptional()
+  @IsString()
   nameEn?: string;
 
+  @ApiProperty({ example: 'MILK' })
   @IsString()
+  code: string;
+
+  @ApiPropertyOptional({ example: 'Sữa tươi, phô mai, sữa chua, bơ' })
   @IsOptional()
+  @IsString()
   commonFoods?: string;
 
-  @IsString()
+  @ApiPropertyOptional({ example: 'Dị ứng protein sữa bò' })
   @IsOptional()
+  @IsString()
   description?: string;
 }

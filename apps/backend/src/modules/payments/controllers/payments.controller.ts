@@ -1,70 +1,83 @@
-import { Controller, Post, Get, Body, Param, Query, Req, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  Param,
+  UseGuards,
+  Req,
+  ParseIntPipe,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
-import { VnpayService, CreateInvoiceDto } from '../services/vnpay.service';
+import { VnpayService } from '../services/vnpay.service';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { Public } from '../../../common/decorators/public.decorator';
 
+@ApiTags('Payments & VNPAY Billing')
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly vnpayService: VnpayService) {}
 
-  private resolveTenantId(req: Request): string {
-    return (
-      (req.headers['x-tenant-id'] as string) ||
-      (req as any).tenantId ||
-      'a0000000-0000-0000-0000-000000000001'
-    );
-  }
-
-  private resolveUserId(req: Request): string {
-    return (req as any).user?.id || '10000000-0000-0000-0000-000000000008';
-  }
-
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Get('invoices')
-  async getInvoices(@Req() req: Request) {
-    return this.vnpayService.getInvoices(this.resolveTenantId(req));
+  @ApiOperation({ summary: 'Lấy danh sách các hóa đơn tiền ăn xế 17h' })
+  async getInvoices() {
+    return this.vnpayService.getInvoices();
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Post('invoices')
-  async createInvoice(@Req() req: Request, @Body() dto: CreateInvoiceDto) {
-    return this.vnpayService.createInvoice(
-      this.resolveTenantId(req),
-      this.resolveUserId(req),
-      dto,
-    );
+  @ApiOperation({ summary: 'Tạo mới phiếu đăng ký / hóa đơn ăn xế' })
+  async createInvoice(@Body() body: any) {
+    return this.vnpayService.createInvoice(body);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Post('create-url')
-  createPaymentUrl(
-    @Body() body: { invoiceId: string; amount: number; orderInfo: string },
+  @ApiOperation({ summary: 'Khởi tạo link thanh toán VNPAY Sandbox có chữ ký HMAC-SHA512' })
+  async createPaymentUrl(
+    @Body() body: { registrationId: number; amount: number; orderInfo: string },
     @Req() req: Request,
   ) {
-    const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
-    const paymentUrl = this.vnpayService.createPaymentUrl({
-      invoiceId: body.invoiceId,
-      amount: body.amount,
-      orderInfo: body.orderInfo,
-      ipAddress,
+    const ipAddr = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+    return this.vnpayService.createPaymentUrl({
+      ...body,
+      ipAddr,
     });
-    return { paymentUrl };
   }
 
+  @Public()
+  @Get('vnpay-return')
+  @ApiOperation({ summary: 'Xác thực kết quả thanh toán khi khách hàng quay lại từ VNPAY' })
+  async vnpayReturn(@Query() query: Record<string, string>) {
+    return this.vnpayService.verifyReturnUrl(query);
+  }
+
+  @Public()
   @Get('vnpay-ipn')
-  @HttpCode(HttpStatus.OK)
-  async handleVnpayIpn(@Query() query: Record<string, any>) {
-    const isValid = this.vnpayService.verifyIpnSignature({ ...query });
-    if (!isValid) {
-      return { RspCode: '97', Message: 'Invalid Checksum' };
-    }
-
-    return this.vnpayService.confirmIpnPayment(query);
+  @ApiOperation({ summary: 'Webhook IPN từ máy chủ VNPAY (Server-to-Server, Idempotent)' })
+  async vnpayIpn(@Query() query: Record<string, string>) {
+    return this.vnpayService.handleIpn(query);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Post('invoices/:id/remind')
-  async remindInvoice(@Param('id') id: string) {
-    return this.vnpayService.remindPayment(id);
+  @ApiOperation({ summary: 'Gửi tin nhắc đóng phí ăn xế cho 1 phụ huynh' })
+  async remindInvoice(@Param('id', ParseIntPipe) id: number) {
+    return this.vnpayService.remindInvoice(id);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Post('invoices/batch-remind')
-  async batchRemindInvoices(@Req() req: Request) {
-    return this.vnpayService.batchRemindPending(this.resolveTenantId(req));
+  @ApiOperation({ summary: 'Gửi nhắc phí hàng loạt cho các phụ huynh chưa thanh toán' })
+  async batchRemind() {
+    return this.vnpayService.batchRemind();
   }
 }

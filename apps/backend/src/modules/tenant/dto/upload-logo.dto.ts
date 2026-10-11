@@ -1,19 +1,23 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UploadLogoDto {
+  @ApiProperty()
+  @IsNotEmpty()
   @IsString()
-  @IsNotEmpty({ message: 'Tên file không được để trống' })
   fileName: string;
 
+  @ApiProperty()
   @IsNumber()
-  @IsNotEmpty({ message: 'Dung lượng file không được để trống' })
-  fileSizeBytes: number; // dung lượng byte
+  fileSizeBytes: number;
 
+  @ApiProperty()
+  @IsNotEmpty()
   @IsString()
-  @IsNotEmpty({ message: 'Định dạng MIME không được để trống' })
   mimeType: string;
 
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   fileContentBase64?: string;
 }

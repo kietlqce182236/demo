@@ -1,28 +1,39 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, IsArray, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateParentDto {
-  @IsEmail({}, { message: 'Email không đúng định dạng' })
-  @IsNotEmpty({ message: 'Email không được để trống' })
+  @ApiProperty({ example: 'phuhuynh.moi@gmail.com' })
+  @IsNotEmpty()
+  @IsString()
   email: string;
 
-  @IsString()
-  @IsNotEmpty({ message: 'Họ và tên không được để trống' })
-  fullName: string;
-
-  @IsOptional()
-  @IsString()
-  phone?: string;
-
+  @ApiPropertyOptional({ example: '123456' })
   @IsOptional()
   @IsString()
   password?: string;
 
+  @ApiProperty({ example: 'Nguyễn Văn Ba' })
+  @IsNotEmpty()
+  @IsString()
+  fullName: string;
+
+  @ApiPropertyOptional({ example: '0909888777' })
   @IsOptional()
   @IsString()
-  status?: string = 'ACTIVE';
+  phone?: string;
 
+  @ApiPropertyOptional({ example: '123 Cách Mạng Tháng 8, Q.3, TP.HCM' })
   @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  childIds?: string[];
+  @IsString()
+  address?: string;
+
+  @ApiPropertyOptional({ example: 'Kỹ sư xây dựng' })
+  @IsOptional()
+  @IsString()
+  occupation?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
 }
