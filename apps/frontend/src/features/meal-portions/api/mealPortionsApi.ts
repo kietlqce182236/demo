@@ -1,4 +1,4 @@
-import { apiClient } from '../../../core/api/axios';
+import { apiClient, API_BASE_URL } from '../../../core/api/axios';
 import { MealPortionPlanResponse } from '../types';
 
 export const mealPortionsApi = {
@@ -11,7 +11,6 @@ export const mealPortionsApi = {
   },
 
   approveWarehouseExport: async (planId: string): Promise<{
-    success: boolean;
     message: string;
     isWarehouseExported: boolean;
     exportedAt: string;
@@ -21,7 +20,6 @@ export const mealPortionsApi = {
   },
 
   getExportExcelUrl: (planId: string): string => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
-    return `${baseUrl}/meal-portions/${planId}/export-excel`;
+    return `${API_BASE_URL}/meal-portions/${planId}/export-excel`;
   },
 };

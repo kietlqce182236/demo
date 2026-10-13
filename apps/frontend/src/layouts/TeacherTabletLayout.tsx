@@ -2,9 +2,11 @@ import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { UtensilsCrossed, Calendar, ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../core/stores/auth.store';
+import { useSchoolBranding } from '../core/hooks/useSchoolBranding';
 
 export const TeacherTabletLayout: React.FC = () => {
   const { user } = useAuthStore();
+  const schoolBranding = useSchoolBranding();
   const isPrincipal = user?.roles?.includes('PRINCIPAL') || user?.roles?.includes('SUPER_ADMIN');
 
   const todayFormatted = new Intl.DateTimeFormat('vi-VN', {
@@ -19,13 +21,29 @@ export const TeacherTabletLayout: React.FC = () => {
       {/* Tablet Topbar */}
       <header className="h-16 md:h-18 bg-emerald-700 text-white px-4 md:px-6 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-3">
-          <div className="bg-white/20 p-2 rounded-xl">
-            <UtensilsCrossed className="w-6 h-6 text-white" />
+          <div className="w-11 h-11 bg-white/20 p-0.5 rounded-xl flex items-center justify-center overflow-hidden shrink-0">
+            {schoolBranding.logoUrl ? (
+              <img
+                src={schoolBranding.logoUrl}
+                alt={schoolBranding.name}
+                className="w-full h-full object-cover rounded-lg"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <UtensilsCrossed className="w-6 h-6 text-white" />
+            )}
           </div>
           <div>
-            <h1 className="text-base md:text-lg font-black tracking-tight">
-              Cổng Tablet Giáo Viên – Sĩ Số & Bán Trú
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base md:text-lg font-black tracking-tight">
+                Cổng Tablet Giáo Viên
+              </h1>
+              <span className="text-[10px] bg-emerald-850/80 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-emerald-200 border border-emerald-500/40 truncate max-w-[200px]" title={schoolBranding.name}>
+                {schoolBranding.name}
+              </span>
+            </div>
             <p className="text-xs text-emerald-200 font-medium">
               {user?.fullName ? `Giáo viên: ${user.fullName}` : 'Giáo viên phụ trách'}
             </p>

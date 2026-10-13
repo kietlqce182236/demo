@@ -228,7 +228,7 @@ export const AttendanceHistoryPage: React.FC = () => {
       <AttendanceSubTabs activeTab="history" onTabChange={handleTabChange} />
 
       {/* Main Content Container */}
-      <main className="flex-1 max-w-[1440px] w-full mx-auto px-6 py-6 space-y-6">
+      <main className="flex-1 max-w-[1440px] w-full mx-auto px-6 py-6 pb-32 space-y-6">
         {/* Header & Title */}
         <HistoryHeader
           classNameTitle={selectedClass?.name || historyData?.classInfo.name || 'Lớp Mầm 1 (3-4 tuổi)'}

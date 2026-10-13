@@ -198,7 +198,7 @@ export const MealCoordinationNotesPage: React.FC = () => {
       <AttendanceSubTabs activeTab="notes" onTabChange={handleTabChange} />
 
       {/* 3. Main Content Container */}
-      <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 pb-32 space-y-6">
         {/* Header & Main Fast Action */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-3xl p-6 border border-slate-200 shadow-xs">
           <div className="space-y-1">

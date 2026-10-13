@@ -17,6 +17,7 @@ services:
     depends_on:
       - backend
       - frontend
+      - minio
     networks:
       - kidsnutri_network
 
@@ -43,25 +44,25 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-RedisSecureToken2026!}
-      - JWT_SECRET=${JWT_SECRET:-super-secret-jwt-signing-key-minimum-32-chars-kidsnutri-2026}
+      - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-15m}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-super-secret-refresh-jwt-key-minimum-32-chars-nutri-2026}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio}
       - MINIO_PORT=${MINIO_PORT:-9000}
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin123}
       - MINIO_BUCKET=${MINIO_BUCKET:-kidmeal-uploads}
-      - VNPAY_TMN_CODE=${VNPAY_TMN_CODE:-SANDBOX01TMN}
-      - VNPAY_HASH_SECRET=${VNPAY_HASH_SECRET:-SECRETSECRETSECRETSECRETSECRET123}
+      - VNPAY_TMN_CODE=${VNPAY_TMN_CODE}
+      - VNPAY_HASH_SECRET=${VNPAY_HASH_SECRET}
       - VNPAY_URL=${VNPAY_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
-      - VNPAY_RETURN_URL=${VNPAY_RETURN_URL:-https://localhost/payments/vnpay-return}
+      - VNPAY_RETURN_URL=${VNPAY_RETURN_URL:-http://localhost:5173/payments/vnpay-return}
       - MAIL_HOST=${MAIL_HOST:-smtp.gmail.com}
       - MAIL_PORT=${MAIL_PORT:-587}
       - MAIL_SECURE=${MAIL_SECURE:-false}
-      - MAIL_USER=${MAIL_USER:-lamquockiet240321@gmail.com}
-      - MAIL_PASS=${MAIL_PASS:-luvzjmhyvuohzjb}
-      - MAIL_FROM=${MAIL_FROM:-lamquockiet240321@gmail.com}
+      - MAIL_USER=${MAIL_USER}
+      - MAIL_PASS=${MAIL_PASS}
+      - MAIL_FROM=${MAIL_FROM:-KidMeal <no-reply@kidmeal.edu.vn>}
     depends_on:
       postgres:
         condition: service_healthy
@@ -116,7 +117,7 @@ services:
     container_name: kidmeal_postgres
     restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-KidMeal}
       POSTGRES_USER: ${POSTGRES_USER:-KidMeal}

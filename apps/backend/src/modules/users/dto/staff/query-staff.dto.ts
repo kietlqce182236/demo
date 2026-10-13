@@ -16,4 +16,9 @@ export class QueryStaffDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  roleCode?: string;
 }

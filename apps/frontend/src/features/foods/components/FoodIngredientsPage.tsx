@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { apiClient } from '@/core/api/axios';
+import { useAuthStore } from '@/core/stores/auth.store';
 import {
   Search,
   Plus,
@@ -19,6 +21,7 @@ import {
   Clock,
   Sparkles,
   Flame,
+  Lock,
 } from 'lucide-react';
 import { FoodModal } from './FoodModal';
 
@@ -49,6 +52,14 @@ interface Stats {
 }
 
 export const FoodIngredientsPage: React.FC = () => {
+  const location = useLocation();
+  const { user } = useAuthStore();
+  const roles = user?.roles || [];
+  const isPrincipalOrManagement = roles.includes('SCHOOL_MANAGEMENT') || roles.includes('SCHOOL_MANAGER') || roles.includes('PRINCIPAL');
+  const isNutritionist = roles.includes('NUTRITIONIST');
+  // Khi ở phân hệ Ban Giám Hiệu (/inventory) hoặc tài khoản BGH, chỉ được xem không được thêm/sửa/xóa
+  const isReadOnly = location.pathname.startsWith('/inventory') || (isPrincipalOrManagement && !isNutritionist);
+
   const [foods, setFoods] = useState<Food[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -241,18 +252,25 @@ export const FoodIngredientsPage: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedFoodId(null);
-                setModalMode('create');
-                setIsModalOpen(true);
-              }}
-              className="flex items-center gap-2 bg-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition active:scale-95 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Thêm nguyên liệu mới</span>
-            </button>
+            {isReadOnly ? (
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>Quyền Ban Giám Hiệu: Giám sát kho & dinh dưỡng (Chỉ xem)</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFoodId(null);
+                  setModalMode('create');
+                  setIsModalOpen(true);
+                }}
+                className="flex items-center gap-2 bg-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition active:scale-95 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Thêm nguyên liệu mới</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -554,31 +572,36 @@ export const FoodIngredientsPage: React.FC = () => {
                                 setModalMode('view');
                                 setIsModalOpen(true);
                               }}
-                              className="p-1 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-lg text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition cursor-pointer flex items-center gap-1 text-xs font-bold"
                               title="Xem chi tiết"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Xem chi tiết</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedFoodId(food.id);
-                                setModalMode('edit');
-                                setIsModalOpen(true);
-                              }}
-                              className="p-1 rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-50 transition cursor-pointer"
-                              title="Chỉnh sửa"
-                            >
-                              <PenSquare className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteFood(food)}
-                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                              title="Xóa nguyên liệu"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {!isReadOnly && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedFoodId(food.id);
+                                    setModalMode('edit');
+                                    setIsModalOpen(true);
+                                  }}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-50 transition cursor-pointer"
+                                  title="Chỉnh sửa"
+                                >
+                                  <PenSquare className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteFood(food)}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                  title="Xóa nguyên liệu"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -647,7 +670,7 @@ export const FoodIngredientsPage: React.FC = () => {
 
       <FoodModal
         isOpen={isModalOpen}
-        mode={modalMode}
+        mode={isReadOnly ? 'view' : modalMode}
         foodId={selectedFoodId}
         onClose={() => setIsModalOpen(false)}
         onSuccess={() => {

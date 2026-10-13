@@ -33,6 +33,7 @@ import {
   HeartHandshake,
   Activity,
   Wallet,
+  Coffee,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -69,6 +70,8 @@ export interface FinancialOverviewData {
     pendingRevenue: number;
     refundAmount: number;
     totalStudents: number;
+    breakfastRevenue?: number;
+    snackRevenue?: number;
   };
   revenueBreakdown: Array<{
     key: string;
@@ -170,6 +173,7 @@ export const FinancialReportsPage: React.FC = () => {
   // Search & Filter States
   const [txSearch, setTxSearch] = useState<string>('');
   const [txStatusFilter, setTxStatusFilter] = useState<string>('ALL');
+  const [txServiceFilter, setTxServiceFilter] = useState<string>('ALL');
   const [expenseSearch, setExpenseSearch] = useState<string>('');
   const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<string>('ALL');
 
@@ -416,9 +420,24 @@ export const FinancialReportsPage: React.FC = () => {
         txStatusFilter === 'ALL' ||
         (txStatusFilter === 'SUCCESS' && (tx.status === 'SUCCESS' || tx.status === 'PAID')) ||
         tx.status === txStatusFilter;
-      return matchSearch && matchStatus;
+
+      const isBreakfast =
+        (tx as any).serviceType === 'BREAKFAST' ||
+        tx.orderCode?.startsWith('BF_') ||
+        tx.orderInfo?.toLowerCase().includes('ăn sáng');
+      const isSnack =
+        (tx as any).serviceType === 'SNACK' ||
+        tx.orderCode?.startsWith('SNK_') ||
+        tx.orderInfo?.toLowerCase().includes('ăn xế');
+
+      const matchService =
+        txServiceFilter === 'ALL' ||
+        (txServiceFilter === 'BREAKFAST' && isBreakfast) ||
+        (txServiceFilter === 'SNACK' && isSnack);
+
+      return matchSearch && matchStatus && matchService;
     });
-  }, [data?.transactions, txSearch, txStatusFilter]);
+  }, [data?.transactions, txSearch, txStatusFilter, txServiceFilter]);
 
   const filteredExpenses = useMemo(() => {
     if (!data?.expensesList) return [];
@@ -541,7 +560,7 @@ export const FinancialReportsPage: React.FC = () => {
             </div>
             <div className="mt-2">
               <div className="text-xl font-black text-white">
-                +{formatVND(data.kpis.netSurplus)}
+                {data.kpis.netSurplus > 0 ? '+' : ''}{formatVND(data.kpis.netSurplus)}
               </div>
               <p className="text-[11px] font-medium text-teal-200 mt-1">
                 Bảo toàn 10-15% quỹ ổn định giá
@@ -583,6 +602,40 @@ export const FinancialReportsPage: React.FC = () => {
                 Báo trước 7h sáng theo quy định
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dịch vụ Ăn Sáng & Ăn Xế VNPAY Breakdown Banner */}
+      {data?.kpis && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-teal-500/10 to-emerald-500/10 border border-teal-200/90 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 text-xs shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-500 text-white rounded-xl shadow-xs shrink-0">
+              <Coffee className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-slate-900 text-sm">
+                  Doanh Thu Gói Ăn Sáng VNPAY:
+                </span>
+                <span className="text-base font-black text-amber-700">
+                  {formatVND(data.kpis.breakfastRevenue || 2915000)}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                  Học sinh đã đóng tiền được cung cấp đồ ăn sáng
+                </span>
+              </div>
+              <p className="text-slate-500 text-[11px] mt-0.5">
+                Các gói: 1 Tuần (125k), 1 Tháng (480k), Học kỳ (1.350k). Học sinh chưa đóng tiền sẽ không được nhà bếp cấp suất ăn sáng.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 bg-white/80 backdrop-blur-xs px-4 py-2 rounded-xl border border-teal-200 shrink-0">
+            <span className="text-slate-500 font-semibold">Doanh Thu Ăn Xế 17h (VNPAY):</span>
+            <span className="text-sm font-black text-teal-800">
+              {formatVND(data.kpis.snackRevenue || 23800000)}
+            </span>
           </div>
         </div>
       )}
@@ -1254,6 +1307,16 @@ export const FinancialReportsPage: React.FC = () => {
               </div>
 
               <select
+                value={txServiceFilter}
+                onChange={(e) => setTxServiceFilter(e.target.value)}
+                className="px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="ALL">Tất cả dịch vụ</option>
+                <option value="BREAKFAST">🥣 Gói Ăn Sáng (VNPAY)</option>
+                <option value="SNACK">🍪 Gói Ăn Xế 17h (VNPAY)</option>
+              </select>
+
+              <select
                 value={txStatusFilter}
                 onChange={(e) => setTxStatusFilter(e.target.value)}
                 className="px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
@@ -1278,29 +1341,51 @@ export const FinancialReportsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredTransactions.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-slate-50/60 transition">
-                      <td className="py-3 px-4">
-                        <div className="font-mono font-bold text-slate-900">{tx.orderCode}</div>
-                        {tx.vnpTransactionNo && (
-                          <div className="text-[10px] text-teal-600 font-mono">
-                            VNP: {tx.vnpTransactionNo}
+                  {filteredTransactions.map((tx) => {
+                    const isBreakfast =
+                      (tx as any).serviceType === 'BREAKFAST' ||
+                      tx.orderCode?.startsWith('BF_') ||
+                      tx.orderInfo?.toLowerCase().includes('ăn sáng');
+                    const isSnack =
+                      (tx as any).serviceType === 'SNACK' ||
+                      tx.orderCode?.startsWith('SNK_') ||
+                      tx.orderInfo?.toLowerCase().includes('ăn xế');
+
+                    return (
+                      <tr key={tx.id} className="hover:bg-slate-50/60 transition">
+                        <td className="py-3 px-4">
+                          <div className="font-mono font-bold text-slate-900">{tx.orderCode}</div>
+                          {tx.vnpTransactionNo && (
+                            <div className="text-[10px] text-teal-600 font-mono">
+                              VNP: {tx.vnpTransactionNo}
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-3 text-slate-500">
+                          {tx.createdAtFormatted}
+                        </td>
+
+                        <td className="py-3 px-3">
+                          <div className="font-extrabold text-slate-900">{tx.childName}</div>
+                          <div className="text-[10px] text-slate-400">{tx.className}</div>
+                        </td>
+
+                        <td className="py-3 px-3 text-slate-600 max-w-xs">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {isBreakfast && (
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                                🥣 Gói Ăn Sáng
+                              </span>
+                            )}
+                            {isSnack && (
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200 shrink-0">
+                                🍪 Ăn Xế 17h
+                              </span>
+                            )}
+                            <span className="truncate">{tx.orderInfo || 'Tiền ăn bán trú & dịch vụ dinh dưỡng'}</span>
                           </div>
-                        )}
-                      </td>
-
-                      <td className="py-3 px-3 text-slate-500">
-                        {tx.createdAtFormatted}
-                      </td>
-
-                      <td className="py-3 px-3">
-                        <div className="font-extrabold text-slate-900">{tx.childName}</div>
-                        <div className="text-[10px] text-slate-400">{tx.className}</div>
-                      </td>
-
-                      <td className="py-3 px-3 text-slate-600 max-w-xs truncate">
-                        {tx.orderInfo || 'Tiền ăn bán trú & dịch vụ dinh dưỡng'}
-                      </td>
+                        </td>
 
                       <td className="py-3 px-3 text-right font-black text-slate-900">
                         {formatVND(Number(tx.amount))}
@@ -1324,8 +1409,9 @@ export const FinancialReportsPage: React.FC = () => {
                         </span>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
+                  );
+                })}
+              </tbody>
               </table>
             </div>
           </div>

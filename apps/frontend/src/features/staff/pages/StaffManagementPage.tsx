@@ -332,7 +332,7 @@ export const StaffManagementPage: React.FC = () => {
             <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-200">
               CỔNG BAN GIÁM HIỆU
             </span>
-            <span className="text-xs text-slate-400">• Cơ sở MN Sao Mai</span>
+            <span className="text-xs text-slate-500 font-medium">• Cơ sở {localStorage.getItem('school_name') || 'Trường Mẫu Giáo Hướng Dương'}</span>
           </div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-1">
             Quản Lý Nhân Sự & Đội Ngũ Bếp

@@ -41,7 +41,7 @@ export const StaffDrawer: React.FC<StaffDrawerProps> = ({
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [selectedRoleCodes, setSelectedRoleCodes] = useState<string[]>(['TEACHER']);
+  const [selectedRoleCode, setSelectedRoleCode] = useState<string>('TEACHER');
   const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [password, setPassword] = useState('Password123@');
   const [copiedPass, setCopiedPass] = useState(false);
@@ -56,7 +56,8 @@ export const StaffDrawer: React.FC<StaffDrawerProps> = ({
         setFullName(staff.fullName || '');
         setEmail(staff.email || '');
         setPhone(staff.phone || '');
-        setSelectedRoleCodes(staff.roles.map((r) => r.code));
+        const role = staff.roles?.[0]?.code || 'TEACHER';
+        setSelectedRoleCode(role);
         setStatus(staff.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE');
         setPassword(''); // Trong edit mode, để trống nếu không đổi
       } else {
@@ -64,7 +65,7 @@ export const StaffDrawer: React.FC<StaffDrawerProps> = ({
         setFullName('');
         setEmail('');
         setPhone('');
-        setSelectedRoleCodes(['TEACHER']);
+        setSelectedRoleCode('TEACHER');
         setStatus('ACTIVE');
         setPassword(generateSecurePassword());
       }
@@ -94,17 +95,9 @@ export const StaffDrawer: React.FC<StaffDrawerProps> = ({
     setTimeout(() => setCopiedPass(false), 2000);
   };
 
-  // Toggle role selection
-  const handleToggleRole = (code: string) => {
-    if (selectedRoleCodes.includes(code)) {
-      if (selectedRoleCodes.length === 1) {
-        setErrorMessage('Nhân sự phải có ít nhất 1 vai trò chuyên môn.');
-        return;
-      }
-      setSelectedRoleCodes(selectedRoleCodes.filter((c) => c !== code));
-    } else {
-      setSelectedRoleCodes([...selectedRoleCodes, code]);
-    }
+  // Chọn 1 vai trò chuyên môn (Single Selection)
+  const handleSelectRole = (code: string) => {
+    setSelectedRoleCode(code);
     setErrorMessage(null);
   };
 
@@ -122,17 +115,36 @@ export const StaffDrawer: React.FC<StaffDrawerProps> = ({
       return;
     }
 
-    if (selectedRoleCodes.length === 0) {
-      setErrorMessage('Vui lòng chọn ít nhất một vai trò chuyên môn.');
+    if (!selectedRoleCode) {
+      setErrorMessage('Vui lòng chọn vai trò chuyên môn.');
       return;
     }
+
+    const derivedStaffType = (() => {
+      switch (selectedRoleCode) {
+        case 'TEACHER':
+          return 'TEACHER';
+        case 'KITCHEN_STAFF':
+        case 'KITCHEN_MANAGER':
+          return 'KITCHEN';
+        case 'NUTRITIONIST':
+        case 'MEDICAL_STAFF':
+          return 'SPECIALIST';
+        case 'SCHOOL_MANAGER':
+        case 'PRINCIPAL':
+        default:
+          return 'MANAGEMENT';
+      }
+    })();
 
     try {
       if (isEditMode && staff) {
         const updatePayload: UpdateStaffPayload = {
           fullName: fullName.trim(),
           phone: phone.trim() || undefined,
-          roleCodes: selectedRoleCodes,
+          roleCode: selectedRoleCode,
+          roleCodes: [selectedRoleCode],
+          staffType: derivedStaffType,
           status,
           newPassword: password.trim() ? password.trim() : undefined,
         };
@@ -142,7 +154,9 @@ export const StaffDrawer: React.FC<StaffDrawerProps> = ({
           fullName: fullName.trim(),
           email: email.trim().toLowerCase(),
           phone: phone.trim() || undefined,
-          roleCodes: selectedRoleCodes,
+          roleCode: selectedRoleCode,
+          roleCodes: [selectedRoleCode],
+          staffType: derivedStaffType,
           status,
           password: password.trim() || 'Password123@',
         };
@@ -320,56 +334,58 @@ export const StaffDrawer: React.FC<StaffDrawerProps> = ({
           <div className="space-y-3 pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Vai Trò & Chức Năng <span className="text-red-500">*</span>
+                Vai Trò Chuyên Môn <span className="text-red-500">*</span>
               </h3>
               <span className="text-[11px] text-teal-600 font-semibold">
-                Đã chọn: {selectedRoleCodes.length} vai trò
+                Chọn 1 chức danh chính
               </span>
             </div>
 
             <div className="space-y-2">
-              {availableRoles.map((role) => {
-                const config = getRoleBadgeConfig(role.code);
-                const Icon = config.icon;
-                const isSelected = selectedRoleCodes.includes(role.code);
+              {availableRoles
+                .filter((role) => role.code !== 'PARENT' && role.code !== 'SUPER_ADMIN')
+                .map((role) => {
+                  const config = getRoleBadgeConfig(role.code);
+                  const Icon = config.icon;
+                  const isSelected = selectedRoleCode === role.code;
 
-                return (
-                  <div
-                    key={role.code}
-                    onClick={() => handleToggleRole(role.code)}
-                    className={`p-3 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
-                      isSelected
-                        ? `${config.color} shadow-xs font-semibold`
-                        : 'border-slate-200/80 bg-white hover:bg-slate-50 text-slate-600'
-                    }`}
-                  >
+                  return (
                     <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        isSelected ? 'bg-white shadow-xs' : 'bg-slate-100 text-slate-500'
+                      key={role.code}
+                      onClick={() => handleSelectRole(role.code)}
+                      className={`p-3 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
+                        isSelected
+                          ? `${config.color} shadow-xs font-semibold ring-2 ring-teal-500/20`
+                          : 'border-slate-200/80 bg-white hover:bg-slate-50 text-slate-600'
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900">{role.name}</span>
-                        <div
-                          className={`w-4 h-4 rounded-full border flex items-center justify-center transition ${
-                            isSelected
-                              ? 'bg-teal-600 border-teal-600 text-white'
-                              : 'border-slate-300 bg-white'
-                          }`}
-                        >
-                          {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                        </div>
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                          isSelected ? 'bg-white shadow-xs' : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
-                        {config.desc}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-900">{role.name}</span>
+                          <div
+                            className={`w-4 h-4 rounded-full border flex items-center justify-center transition ${
+                              isSelected
+                                ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
+                                : 'border-slate-300 bg-white'
+                            }`}
+                          >
+                            {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                          {config.desc}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </div>
 

@@ -146,8 +146,9 @@ export const DayboardingServicesPage: React.FC = () => {
     loadData();
   }, []);
 
-  const formatVND = (num: number) => {
-    return new Intl.NumberFormat('vi-VN').format(num) + ' đ';
+  const formatVND = (num: number | undefined | null) => {
+    const val = typeof num === 'number' && !isNaN(num) ? num : Number(num) || 0;
+    return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
   };
 
   const getServiceTypeBadge = (type: string) => {
@@ -198,13 +199,17 @@ export const DayboardingServicesPage: React.FC = () => {
 
   const handleOpenEditService = (service: DayboardingServiceItem) => {
     setEditingService(service);
+    const price = service.pricePerUnit ?? (service as any).feeAmount ?? 35000;
+    const sType = service.serviceType ?? (service as any).type ?? 'DAYBOARDING_STANDARD';
+    const active = service.isActive !== undefined ? Boolean(service.isActive) : (service as any).status === 'ACTIVE';
+
     setServiceFormData({
       name: service.name,
       description: service.description,
-      serviceType: service.serviceType,
-      billingCycle: service.billingCycle,
-      pricePerUnit: service.pricePerUnit,
-      isActive: service.isActive,
+      serviceType: sType,
+      billingCycle: service.billingCycle || 'DAILY',
+      pricePerUnit: price,
+      isActive: active,
     });
     setIsServiceModalOpen(true);
   };
@@ -286,17 +291,71 @@ export const DayboardingServicesPage: React.FC = () => {
     });
   }, [students, studentSearch, selectedClassFilter, selectedServiceFilter]);
 
-  // Export excel demo
+  // Export real Excel / CSV file
   const handleExportExcel = () => {
-    alert('Đang kết xuất báo cáo Bán Trú Học Đường (Excel) theo chuẩn Thông tư 28/2016/TT-BGDĐT...');
+    if (students.length === 0) {
+      alert('Chưa có dữ liệu học sinh để xuất báo cáo.');
+      return;
+    }
+
+    const headers = [
+      'STT',
+      'Mã Học Sinh',
+      'Họ Và Tên',
+      'Lớp Học',
+      'Khối Lớp',
+      'Giới Tính',
+      'Ngày Sinh',
+      'Bán Trú Trưa',
+      'Ăn Sáng',
+      'Ăn Xế 17h',
+      'Đón Muộn',
+      'Cảnh Báo Dị Ứng Thực Phẩm',
+      'Ghi Chú Dinh Dưỡng',
+      'Người Liên Hệ',
+      'Số Điện Thoại Phụ Huynh',
+      'Tình Trạng Học Phí Bán Trú',
+    ];
+
+    const rows = students.map((st, index) => [
+      index + 1,
+      `"${st.studentCode}"`,
+      `"${st.fullName}"`,
+      `"${st.className}"`,
+      `"${st.gradeLevel}"`,
+      `"${st.gender}"`,
+      `"${st.dateOfBirth}"`,
+      st.isDayboarding ? 'Có' : 'Không',
+      st.isBreakfast ? 'Có' : 'Không',
+      st.isSnack17h ? 'Có' : 'Không',
+      st.isLatePickup ? 'Có' : 'Không',
+      st.allergies && st.allergies.length > 0 ? `"${st.allergies.join(', ')}"` : 'Không có',
+      `"${(st.dietaryNotes || '').replace(/"/g, '""')}"`,
+      `"${st.emergencyContactName}"`,
+      `"${st.emergencyContactPhone}"`,
+      st.paymentStatus === 'PAID' ? 'Đã thu phí' : 'Chờ nộp',
+    ]);
+
+    const csvContent =
+      '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Bao_Cao_Ban_Tru_Hoc_Duong_KidMeal_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="space-y-6 pb-12 font-sans text-slate-800">
       {/* 1. Header & Breadcrumbs */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1">
         <div>
-          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium mb-1">
+          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium mb-1.5">
             <span className="text-teal-600 font-semibold">Đơn vị KidMeal</span>
             <span>›</span>
             <span>Dịch vụ trường học</span>
@@ -515,19 +574,22 @@ export const DayboardingServicesPage: React.FC = () => {
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {services.map((item) => {
-              const badge = getServiceTypeBadge(item.serviceType);
+              const price = item.pricePerUnit ?? (item as any).feeAmount ?? 0;
+              const serviceType = item.serviceType ?? (item as any).type ?? 'DAYBOARDING_STANDARD';
+              const isActive = item.isActive !== undefined ? Boolean(item.isActive) : (item as any).status === 'ACTIVE';
+              const badge = getServiceTypeBadge(serviceType);
               const monthlyEst =
                 item.billingCycle === 'DAILY'
-                  ? item.pricePerUnit * 22
+                  ? price * 22
                   : item.billingCycle === 'MONTHLY'
-                  ? item.pricePerUnit
-                  : item.pricePerUnit;
+                  ? price
+                  : price;
 
               return (
                 <div
                   key={item.id}
                   className={`bg-white border rounded-2xl p-5 shadow-xs transition-all hover:shadow-md flex flex-col justify-between ${
-                    item.isActive ? 'border-slate-200/90' : 'border-slate-200 opacity-60 bg-slate-50'
+                    isActive ? 'border-slate-200/90' : 'border-slate-200 opacity-60 bg-slate-50'
                   }`}
                 >
                   <div>
@@ -538,11 +600,11 @@ export const DayboardingServicesPage: React.FC = () => {
                       <div className="flex items-center gap-1.5">
                         <span
                           className={`w-2 h-2 rounded-full ${
-                            item.isActive ? 'bg-emerald-500' : 'bg-slate-400'
+                            isActive ? 'bg-emerald-500' : 'bg-slate-400'
                           }`}
                         />
                         <span className="text-[11px] font-semibold text-slate-500">
-                          {item.isActive ? 'Đang áp dụng' : 'Tạm ngưng'}
+                          {isActive ? 'Đang áp dụng' : 'Tạm ngưng'}
                         </span>
                       </div>
                     </div>
@@ -559,7 +621,7 @@ export const DayboardingServicesPage: React.FC = () => {
                     <div className="flex items-baseline justify-between mb-3">
                       <div>
                         <span className="text-lg font-black text-teal-700">
-                          {formatVND(item.pricePerUnit)}
+                          {formatVND(price)}
                         </span>
                         <span className="text-[11px] text-slate-400 font-medium">
                           {' '}

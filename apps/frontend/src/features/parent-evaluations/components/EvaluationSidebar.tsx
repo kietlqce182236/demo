@@ -16,24 +16,39 @@ import {
   PhoneCall,
   Carrot,
 } from 'lucide-react';
+import { useSchoolBranding } from '../../../core/hooks/useSchoolBranding';
 
 export const EvaluationSidebar: React.FC = () => {
   const [isServiceOpen, setIsServiceOpen] = useState(true);
+  const schoolBranding = useSchoolBranding();
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-screen sticky top-0 font-sans select-none z-30">
       {/* Brand & Logo */}
       <div>
-        <div className="p-5 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-400 flex items-center justify-center shadow-md text-white">
-            <Carrot className="w-6 h-6" />
+        <div className="p-4 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 p-0.5 flex items-center justify-center text-teal-600 shadow-inner overflow-hidden shrink-0">
+            {schoolBranding.logoUrl ? (
+              <img
+                src={schoolBranding.logoUrl}
+                alt={schoolBranding.name}
+                className="w-full h-full object-cover rounded-lg"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <UtensilsCrossed className="w-5 h-5 text-teal-600 stroke-[2.5]" />
+            )}
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-base tracking-tight text-teal-800">KidMeal</span>
+              <span className="font-extrabold text-sm tracking-tight text-teal-800">KidMeal</span>
               <span className="text-xs font-bold px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded">BGH</span>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium leading-none mt-0.5">Bán trú mầm non thông minh</p>
+            <p className="text-[10px] text-teal-700 font-semibold truncate mt-0.5" title={schoolBranding.name}>
+              {schoolBranding.name}
+            </p>
           </div>
         </div>
 

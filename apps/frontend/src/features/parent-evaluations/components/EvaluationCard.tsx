@@ -218,7 +218,7 @@ export const EvaluationCard: React.FC<EvaluationCardProps> = ({
               <CheckCircle className="w-4 h-4 text-teal-600" />
               <span>
                 {item.responseHeader ||
-                  'Phản hồi chính thức từ Ban Giám Hiệu trường Mầm non Sao Mai'}
+                  `Phản hồi chính thức từ Ban Giám Hiệu ${localStorage.getItem('school_name') || 'Trường Mẫu Giáo Hướng Dương'}`}
               </span>
             </div>
             <span className="text-teal-700 font-semibold text-[11px]">
@@ -302,7 +302,7 @@ export const EvaluationCard: React.FC<EvaluationCardProps> = ({
               <CornerDownRight className="w-3.5 h-3.5 text-teal-600" />
               <span>
                 {item.responseHeader ||
-                  'BGH Trường Mầm non Sao Mai (Hiệu trưởng Nguyễn Thu Thủy)'}
+                  `BGH ${localStorage.getItem('school_name') || 'Trường Mẫu Giáo Hướng Dương'}`}
               </span>
             </div>
             <span className="text-[11px] text-slate-400">

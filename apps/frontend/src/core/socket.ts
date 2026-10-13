@@ -3,9 +3,9 @@ import { io, Socket } from 'socket.io-client';
 const getSocketUrl = (): string => {
   if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
   if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.host}/kitchen`;
+    return `${window.location.protocol}//${window.location.host}`;
   }
-  return 'http://localhost:3000/kitchen';
+  return 'http://localhost:3000';
 };
 
 const SOCKET_URL = getSocketUrl();

@@ -106,9 +106,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           roles: authUser.roles.map((r, i) => ({ id: `r-${i}`, code: r, name: r })),
           tenantId: authUser.tenantId || null,
           tenant: {
-            id: authUser.tenantId || 'saomai-01',
-            code: 'MN_SAOMAI',
-            name: 'Trường Mầm Non Sao Mai',
+            id: authUser.tenantId || 'huongduong-01',
+            code: 'MG_HUONGDUONG',
+            name: localStorage.getItem('school_name') || 'Trường Mẫu Giáo Hướng Dương',
             phone: '(028) 3829 4999',
             address: '128 Võ Thị Sáu, Phường Võ Thị Sáu, Quận 3, TP. Hồ Chí Minh',
             contactEmail: 'saomai@nutribud.vn',
@@ -483,7 +483,7 @@ Lưu ý: Mỗi mã chỉ có giá trị sử dụng 01 lần duy nhất khi bạ
                       <div className="relative">
                         <input
                           type="text"
-                          value={profile?.tenant?.name || 'Trường Mầm Non Sao Mai'}
+                          value={profile?.tenant?.name || localStorage.getItem('school_name') || 'Trường Mẫu Giáo Hướng Dương'}
                           disabled
                           className="w-full text-xs px-3.5 py-2.5 pl-9 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
                         />

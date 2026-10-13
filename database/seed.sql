@@ -2181,8 +2181,33 @@ INSERT INTO dish_allergens (dish_id, allergen_id, risk_level, note) VALUES
 (88, 1, 'HIGH', 'Kem sữa tươi'),
 (88, 2, 'HIGH', 'Vỏ bánh làm từ trứng gà'),
 (94, 1, 'HIGH', 'Sữa tươi và sữa đặc'),
-(94, 2, 'HIGH', 'Trứng gà tươi đánh mịn')
 ON CONFLICT (dish_id, allergen_id) DO NOTHING;
+
+-- ============================================================================
+-- SYNCHRONIZE ALL SEQUENCES TO MAX(ID)
+-- ============================================================================
+DO $$
+DECLARE
+    r RECORD;
+    max_id BIGINT;
+BEGIN
+    FOR r IN (
+        SELECT
+            c.table_name,
+            c.column_name,
+            s.relname AS seq_name
+        FROM information_schema.columns c
+        JOIN pg_class s ON s.relname = pg_get_serial_sequence(c.table_name, c.column_name)::regclass::text
+        WHERE c.table_schema = 'public'
+    ) LOOP
+        EXECUTE format('SELECT COALESCE(MAX(%I), 0) FROM %I', r.column_name, r.table_name) INTO max_id;
+        IF max_id > 0 THEN
+            EXECUTE format('SELECT setval(%L, %s, true)', r.seq_name, max_id);
+        ELSE
+            EXECUTE format('SELECT setval(%L, 1, false)', r.seq_name);
+        END IF;
+    END LOOP;
+END $$;
 
 COMMIT;
 

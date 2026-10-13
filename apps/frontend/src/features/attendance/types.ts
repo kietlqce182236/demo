@@ -19,6 +19,9 @@ export interface ChildAttendanceItem {
   kitchenStatus: 'SYNCED' | 'PENDING' | 'CANCELLED';
   checkinSource: string;
   isAbsent: boolean;
+  hasBreakfast?: boolean;
+  breakfastPackage?: string;
+  isEligibleForBreakfast?: boolean;
 }
 
 export interface AttendanceResponse {

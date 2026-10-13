@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate, useParams } from 'react-router-dom';
 import { AdminDashboardLayout } from './layouts/AdminDashboardLayout';
 import { NutritionistLayout } from './layouts/NutritionistLayout';
 import { TeacherTabletLayout } from './layouts/TeacherTabletLayout';
@@ -9,6 +9,7 @@ import { LoginPage } from './features/auth/pages/LoginPage';
 import { ForgotPasswordPage } from './features/auth/pages/ForgotPasswordPage';
 import { WeeklyMenuManagementPage } from './features/menus/pages/WeeklyMenuManagementPage';
 import { NutritionistDashboardPage } from './features/menus/pages/NutritionistDashboardPage';
+import { NutritionistReportsPage } from './features/menus/pages/NutritionistReportsPage';
 import { NutritionRulesPage } from './features/menus/pages/NutritionRulesPage';
 import { NutritionistAllergyManagementPage } from './features/menus/pages/NutritionistAllergyManagementPage';
 import { SchoolSettingsPage } from './features/tenant/pages/SchoolSettingsPage';
@@ -32,7 +33,7 @@ import { SnackRosterPage } from './features/attendance/SnackRosterPage';
 
 import { ProtectedRoute } from './core/components/ProtectedRoute';
 import { useAuthStore } from './core/stores/auth.store';
-import { ChefHat, Tablet, LayoutDashboard, Sparkles, LogOut, Users, Scale, UtensilsCrossed, Utensils, MessageSquare, ShieldAlert, Home, ClipboardCheck } from 'lucide-react';
+import { ChefHat, Tablet, LayoutDashboard, Sparkles, LogOut, Users, Scale, UtensilsCrossed, Utensils, MessageSquare, ShieldAlert, Home, ClipboardCheck, Coffee } from 'lucide-react';
 
 import { HomePage } from './features/home/HomePage';
 import { FoodIngredientsPage } from './features/foods/components/FoodIngredientsPage';
@@ -44,6 +45,8 @@ import { ExecutiveDashboardPage } from './features/dashboard/pages/ExecutiveDash
 import { ChildrenManagementPage } from './features/children/pages/ChildrenManagementPage';
 import { ChildGrowthMonitoringPage } from './features/growth/pages/ChildGrowthMonitoringPage';
 import { SnackBillingPaymentPage } from './features/payments/pages/SnackBillingPaymentPage';
+import { ParentBreakfastPackagesPage } from './features/payments/pages/ParentBreakfastPackagesPage';
+import { VnpayReturnPage } from './features/payments/pages/VnpayReturnPage';
 import { MonitorChildMenuConsumptionPage } from './features/parent-evaluations/MonitorChildMenuConsumptionPage';
 import { SubmitMealEvaluationPage } from './features/parent-evaluations/SubmitMealEvaluationPage';
 import { ParentEvaluationsPage } from './features/parent-evaluations/ParentEvaluationsPage';
@@ -81,6 +84,10 @@ const RoleBasedRedirect: React.FC = () => {
   return <Navigate to="/dashboard" replace />;
 };
 
+const InspectionsRedirect: React.FC = () => {
+  const { id } = useParams();
+  return <Navigate to={id ? `/nutritionist/food-safety/${id}` : '/nutritionist/food-safety'} replace />;
+};
 
 export const App: React.FC = () => {
   const { hydrate, isAuthenticated, logout, user } = useAuthStore();
@@ -185,6 +192,10 @@ export const App: React.FC = () => {
                 <Utensils className="w-3.5 h-3.5" /> Thực đơn & Sức ăn
               </Link>
               <span className="text-slate-600">|</span>
+              <Link to="/parent-breakfast" className="flex items-center gap-1 text-amber-300 hover:text-amber-200 transition font-bold">
+                <Coffee className="w-3.5 h-3.5" /> Gói ăn sáng (VNPAY)
+              </Link>
+              <span className="text-slate-600">|</span>
               <Link to="/submit-evaluation" className="flex items-center gap-1 hover:text-teal-300 transition">
                 <MessageSquare className="w-3.5 h-3.5" /> Góp ý suất ăn
               </Link>
@@ -261,7 +272,7 @@ export const App: React.FC = () => {
           <Route path="food-safety/:id" element={<InspectionDetailPage />} />
           <Route path="children" element={<ChildrenManagementPage />} />
           <Route path="growth" element={<ChildGrowthMonitoringPage />} />
-          <Route path="reports" element={<NutritionistDashboardPage />} />
+          <Route path="reports" element={<NutritionistReportsPage />} />
         </Route>
 
         <Route
@@ -403,6 +414,22 @@ export const App: React.FC = () => {
           }
         />
         <Route
+          path="/parent-breakfast"
+          element={
+            <ProtectedRoute allowedRoles={['PARENT', 'SUPER_ADMIN', 'PRINCIPAL', 'SCHOOL_MANAGEMENT']}>
+              <ParentBreakfastPackagesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/payments/vnpay-return"
+          element={
+            <ProtectedRoute allowedRoles={['PARENT', 'SUPER_ADMIN', 'PRINCIPAL', 'SCHOOL_MANAGEMENT']}>
+              <VnpayReturnPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/submit-evaluation"
           element={
             <ProtectedRoute allowedRoles={['PARENT', 'SUPER_ADMIN', 'PRINCIPAL']}>
@@ -426,6 +453,10 @@ export const App: React.FC = () => {
             </ProtectedRoute>
           }
         />
+
+        {/* Aliases for 3-step inspections */}
+        <Route path="/inspections" element={<Navigate to="/nutritionist/food-safety" replace />} />
+        <Route path="/inspections/:id" element={<InspectionsRedirect />} />
 
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />

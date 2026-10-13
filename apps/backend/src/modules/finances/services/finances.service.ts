@@ -29,7 +29,7 @@ export class FinancesService {
       id: 'exp-1',
       category: 'FOOD_FRESH',
       title: 'Thịt heo nạc, thịt bò & cá thu HTX An Phú Tuần 1',
-      amount: 14250000,
+      amount: 6800000,
       expenseDate: '2026-09-05',
       supplierName: 'HTX Thực phẩm Sạch An Phú',
       invoiceNumber: 'HD-AP-0901',
@@ -42,7 +42,7 @@ export class FinancesService {
       id: 'exp-2',
       category: 'VEGETABLES',
       title: 'Rau xanh, củ quả tươi nông sản Đà Lạt',
-      amount: 4850000,
+      amount: 2500000,
       expenseDate: '2026-09-08',
       supplierName: 'Công ty Rau sạch Đà Lạt GAP',
       invoiceNumber: 'HD-DL-0908',
@@ -55,7 +55,7 @@ export class FinancesService {
       id: 'exp-3',
       category: 'MILK_DAIRY',
       title: 'Sữa tươi thanh trùng & sữa chua Vinamilk cho bữa xế',
-      amount: 6200000,
+      amount: 2900000,
       expenseDate: '2026-09-12',
       supplierName: 'Đại lý Sữa Vinamilk Quận 1',
       invoiceNumber: 'HD-VNM-1209',
@@ -68,7 +68,7 @@ export class FinancesService {
       id: 'exp-4',
       category: 'DRY_GOODS',
       title: 'Gạo ST25, dầu ăn Simply & gia vị đạt chuẩn BYT',
-      amount: 3800000,
+      amount: 2200000,
       expenseDate: '2026-09-15',
       supplierName: 'Nhà phân phối Lương thực Miền Nam',
       invoiceNumber: 'HD-LT-1509',
@@ -106,21 +106,38 @@ export class FinancesService {
 
     const totalStudents = await this.childRepo.count();
     const payments = await this.paymentRepo.find({
-      relations: ['registration', 'registration.student', 'registration.student.class'],
+      relations: [
+        'registration',
+        'registration.student',
+        'registration.student.class',
+        'breakfastSubscription',
+        'breakfastSubscription.student',
+        'breakfastSubscription.student.class',
+      ],
       order: { id: 'DESC' },
     });
 
     // Compute revenue stats
     const successfulPayments = payments.filter((p) => p.status === 'SUCCESS');
-    const snackRevenue = successfulPayments.reduce((acc, p) => acc + Number(p.amount), 0) || 23800000;
+    const snackPayments = successfulPayments.filter((p) => p.serviceType === 'SNACK' || p.registrationId);
+    const snackRevenue = snackPayments.reduce((acc, p) => acc + Number(p.amount), 0) || 23800000;
+
+    const breakfastPayments = successfulPayments.filter((p) => p.serviceType === 'BREAKFAST' || p.breakfastSubscriptionId);
+    const breakfastRevenue = breakfastPayments.reduce((acc, p) => acc + Number(p.amount), 0) || 2915000;
+
     const boardingRevenue = totalStudents * 950000; // Tiền bán trú chính khóa
     const otherRevenue = totalStudents * 50000;
 
-    const collectedRevenue = boardingRevenue * 0.92 + snackRevenue;
+    const collectedRevenue = boardingRevenue * 0.92 + snackRevenue + breakfastRevenue;
     const pendingRevenue = boardingRevenue * 0.08;
     const totalRevenue = collectedRevenue + pendingRevenue;
 
-    const totalExpense = this.expenses.reduce((acc, e) => acc + e.amount, 0) + 72000000; // Thực phẩm + nhân công + điện nước
+    const freshMeatAmount = this.expenses.filter((e) => e.category === 'FOOD_FRESH').reduce((acc, e) => acc + e.amount, 0);
+    const vegAmount = this.expenses.filter((e) => e.category === 'VEGETABLES').reduce((acc, e) => acc + e.amount, 0);
+    const milkAmount = this.expenses.filter((e) => e.category === 'MILK_DAIRY').reduce((acc, e) => acc + e.amount, 0);
+    const dryAmount = this.expenses.filter((e) => e.category === 'DRY_GOODS').reduce((acc, e) => acc + e.amount, 0);
+
+    const totalExpense = this.expenses.reduce((acc, e) => acc + e.amount, 0);
     const netSurplus = totalRevenue - totalExpense;
     const collectionRate = totalRevenue > 0 ? Math.round((collectedRevenue / totalRevenue) * 1000) / 10 : 92.5;
 
@@ -153,21 +170,31 @@ export class FinancesService {
 
     // Transactions
     const transactions = payments.slice(0, 30).map((p) => {
+      const isBreakfast = p.serviceType === 'BREAKFAST' || Boolean(p.breakfastSubscriptionId);
+      const bfSub = p.breakfastSubscription;
       const reg = p.registration;
-      const student = reg?.student;
+      const student = isBreakfast ? (bfSub?.student || reg?.student) : (reg?.student);
+
+      const orderInfo = isBreakfast
+        ? `Thanh toán gói ăn sáng ${bfSub?.packageName || ''} bé ${student?.fullName || 'học sinh'}`
+        : `Thanh toán ăn xế bé ${student?.fullName || 'học sinh'}`;
+
       return {
         id: String(p.id),
         orderCode: p.vnpayTransactionCode || ('ORD-' + p.id),
         amount: Number(p.amount),
         status: p.status,
+        serviceType: isBreakfast ? 'BREAKFAST' : 'SNACK',
+        serviceLabel: isBreakfast ? 'Gói Ăn Sáng' : 'Ăn Xế 17h',
+        packageName: isBreakfast ? (bfSub?.packageName || 'Gói Ăn Sáng Tiêu Chuẩn') : 'Gói Ăn Xế 17h',
         paymentMethod: 'VNPAY_QR',
         vnpTransactionNo: p.vnpayTransactionCode || ('VNP-' + p.id),
         bankCode: 'NCB',
-        orderInfo: `Thanh toán ăn xế bé ${student?.fullName || 'học sinh'}`,
+        orderInfo,
         createdAtFormatted: p.paidAt
           ? new Date(p.paidAt).toLocaleDateString('vi-VN')
           : new Date().toLocaleDateString('vi-VN'),
-        childName: student?.fullName || 'Nguyễn Minh Khang',
+        childName: student?.fullName || 'Học sinh',
         className: student?.class?.name || 'Mầm 1',
         payerName: 'Phụ huynh bé ' + (student?.fullName || 'học sinh'),
       };
@@ -188,53 +215,62 @@ export class FinancesService {
         pendingRevenue,
         refundAmount: 0,
         totalStudents,
+        breakfastRevenue,
+        snackRevenue,
       },
       revenueBreakdown: [
         {
           key: 'boarding',
           label: 'Bán trú chính khoá (Bữa trưa & phụ)',
           amount: boardingRevenue,
-          percentage: 82,
+          percentage: totalRevenue > 0 ? Math.round((boardingRevenue / totalRevenue) * 100) : 75,
           color: '#0d9488',
+        },
+        {
+          key: 'breakfast',
+          label: 'Gói Dịch vụ Ăn sáng (VNPAY)',
+          amount: breakfastRevenue,
+          percentage: totalRevenue > 0 ? Math.round((breakfastRevenue / totalRevenue) * 100) : 10,
+          color: '#06b6d4',
         },
         {
           key: 'snack',
           label: 'Dịch vụ Ăn xế 17h (VNPAY)',
           amount: snackRevenue,
-          percentage: 14,
+          percentage: totalRevenue > 0 ? Math.round((snackRevenue / totalRevenue) * 100) : 12,
           color: '#f59e0b',
         },
         {
           key: 'other',
           label: 'Nước uống & Phụ phí vệ sinh',
           amount: otherRevenue,
-          percentage: 4,
+          percentage: totalRevenue > 0 ? Math.round((otherRevenue / totalRevenue) * 100) : 3,
           color: '#6366f1',
         },
       ],
       expenseBreakdown: [
         {
           label: 'Thực phẩm tươi sống (Thịt, cá, trứng)',
-          amount: 52000000,
-          percentage: 54,
+          amount: freshMeatAmount,
+          percentage: totalExpense > 0 ? Math.round((freshMeatAmount / totalExpense) * 100) : 47,
           color: '#ef4444',
         },
         {
           label: 'Rau củ quả tươi & trái cây',
-          amount: 18000000,
-          percentage: 19,
+          amount: vegAmount,
+          percentage: totalExpense > 0 ? Math.round((vegAmount / totalExpense) * 100) : 17,
           color: '#10b981',
         },
         {
           label: 'Sữa tươi & sữa chua xế chiều',
-          amount: 14000000,
-          percentage: 15,
+          amount: milkAmount,
+          percentage: totalExpense > 0 ? Math.round((milkAmount / totalExpense) * 100) : 20,
           color: '#3b82f6',
         },
         {
-          label: 'Gia vị, dầu ăn & gas đốt bếp',
-          amount: 11500000,
-          percentage: 12,
+          label: 'Gia vị, dầu ăn & lương thực khô',
+          amount: dryAmount,
+          percentage: totalExpense > 0 ? Math.round((dryAmount / totalExpense) * 100) : 16,
           color: '#8b5cf6',
         },
       ],

@@ -37,7 +37,17 @@ export class Payment {
   @Column({ name: 'raw_response', type: 'text', nullable: true })
   rawResponse: string;
 
+  @Column({ name: 'breakfast_subscription_id', type: 'bigint', transformer: BigIntTransformer, nullable: true })
+  breakfastSubscriptionId: number;
+
+  @Column({ name: 'service_type', length: 30, default: 'SNACK' })
+  serviceType: string;
+
   @ManyToOne(() => SnackRegistration, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'registration_id' })
   registration: SnackRegistration;
+
+  @ManyToOne('BreakfastSubscription', { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'breakfast_subscription_id' })
+  breakfastSubscription: any;
 }

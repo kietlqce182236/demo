@@ -393,7 +393,7 @@ export const MealEvaluationPage: React.FC = () => {
           <p className="text-sm font-bold text-slate-600">Đang tải dữ liệu đánh giá từ máy chủ...</p>
         </div>
       ) : evaluationData ? (
-        <main className="flex-1 space-y-4 pb-12">
+        <main className="flex-1 space-y-4 pb-32">
           {/* Summary Cards */}
           <EvaluationSummaryCards summary={evaluationData.summary} />
 

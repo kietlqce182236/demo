@@ -308,7 +308,7 @@ export const AttendancePage: React.FC = () => {
       />
 
       {/* 3. Main Content Container */}
-      <main className="flex-1 max-w-[1440px] w-full mx-auto px-6 py-6 space-y-6">
+      <main className="flex-1 max-w-[1440px] w-full mx-auto px-6 py-6 pb-32 space-y-6">
         {!selectedClassId ? (
           <ClassSelectionHub
             summaryData={summaryData}

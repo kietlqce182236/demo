@@ -14,9 +14,11 @@ import {
   Headphones,
   LogOut,
 } from 'lucide-react';
+import { useSchoolBranding } from '../../../core/hooks/useSchoolBranding';
 
 export const MealPortionsSidebar: React.FC = () => {
   const location = useLocation();
+  const schoolBranding = useSchoolBranding();
 
   const menuItems = [
     { name: 'Dashboard Tổng quan', icon: LayoutDashboard, path: '/dashboard' },
@@ -36,20 +38,31 @@ export const MealPortionsSidebar: React.FC = () => {
       {/* Top Brand Logo */}
       <div>
         <div className="p-4 pb-3 flex items-center gap-2.5 border-b border-slate-100">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-teal-500/20">
-            <UtensilsCrossed className="w-5 h-5 text-white stroke-[2.5]" />
+          <div className="w-10 h-10 rounded-2xl bg-teal-500/10 border border-teal-500/20 p-0.5 flex items-center justify-center text-teal-600 shadow-inner overflow-hidden shrink-0">
+            {schoolBranding.logoUrl ? (
+              <img
+                src={schoolBranding.logoUrl}
+                alt={schoolBranding.name}
+                className="w-full h-full object-cover rounded-xl"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <UtensilsCrossed className="w-5 h-5 text-teal-600 stroke-[2.5]" />
+            )}
           </div>
-          <div className="leading-tight">
+          <div className="leading-tight min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-base tracking-tight text-slate-800">
+              <span className="font-extrabold text-sm tracking-tight text-slate-800">
                 KidMeal
               </span>
               <span className="bg-teal-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">
                 BGH
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-              Bán trú mầm non thông minh
+            <p className="text-[10px] text-teal-700 font-semibold truncate mt-0.5" title={schoolBranding.name}>
+              {schoolBranding.name}
             </p>
           </div>
         </div>

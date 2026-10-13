@@ -126,16 +126,45 @@ export const SchoolSettingsPage: React.FC = () => {
       ? `${Math.round(file.size / 1024)} KB`
       : `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
 
-    if (profile) {
-      setProfile({
-        ...profile,
-        branding: {
-          ...profile.branding,
-          logoName: file.name,
-          logoSize: `${sizeStr} • 512×512px • Raster/Vector`,
-        },
-      });
-    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      try {
+        await tenantApi.uploadLogo({
+          fileName: file.name,
+          fileSizeBytes: file.size,
+          mimeType: file.type,
+          fileContentBase64: base64,
+        });
+        await tenantApi.updateProfile({
+          branding: {
+            ...profile?.branding,
+            logoUrl: base64,
+            logoName: file.name,
+            logoSize: `${sizeStr} • 512×512px • Raster/Vector`,
+          },
+        });
+        localStorage.setItem('school_logo', base64);
+        localStorage.setItem('school_logo_name', file.name);
+        localStorage.setItem('school_name', profile?.name || 'Trường Mẫu Giáo Hướng Dương');
+        window.dispatchEvent(new Event('school-branding-updated'));
+
+        if (profile) {
+          setProfile({
+            ...profile,
+            branding: {
+              ...profile.branding,
+              logoUrl: base64,
+              logoName: file.name,
+              logoSize: `${sizeStr} • 512×512px • Raster/Vector`,
+            },
+          });
+        }
+      } catch (err) {
+        console.error('Lỗi lưu logo:', err);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   if (loading) {
@@ -155,7 +184,7 @@ export const SchoolSettingsPage: React.FC = () => {
           <div className="flex items-center gap-2 mb-1.5">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
               <span className="w-2 h-2 rounded-full bg-teal-600 animate-pulse"></span>
-              CƠ SỞ 1 - CHUẨN QUỐC GIA MẦM NON SAO MAI
+              CƠ SỞ 1 - {profile?.name ? profile.name.toUpperCase() : 'TRƯỜNG MẪU GIÁO HƯỚNG DƯƠNG'}
             </span>
             <span className="text-xs text-slate-400 font-mono">
               Mã định danh SGD: {profile?.schoolIdentifierSgd || 'MN-HCM-Q3-0042'}
@@ -433,24 +462,24 @@ export const SchoolSettingsPage: React.FC = () => {
             {/* Card Logo đang kích hoạt */}
             <div className="bg-slate-50/70 border border-slate-200 rounded-2xl p-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs">
+                <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs overflow-hidden">
                   <img
-                    src="https://api.iconify.design/lucide:sun.svg?color=%230d9488"
-                    alt="Logo Sao Mai"
-                    className="w-8 h-8 object-contain"
+                    src={profile?.branding?.logoUrl || localStorage.getItem('school_logo') || "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=400&q=80"}
+                    alt={profile?.name || "Logo trường"}
+                    className="w-10 h-10 object-contain rounded-lg"
                   />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-800 font-mono">
-                      {profile?.branding?.logoName || 'logo_saomai_kids.svg'}
+                      {profile?.branding?.logoName || localStorage.getItem('school_logo_name') || 'logo_huongduong.png'}
                     </span>
                     <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-teal-200">
                       Đang kích hoạt
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {profile?.branding?.logoSize || 'Dung lượng: 142 KB • 512×512px • Vector RGB'}
+                    {profile?.branding?.logoSize || '184 KB • 512×512px • Vector RGB'}
                   </p>
                 </div>
               </div>

@@ -14,6 +14,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useAuthStore } from '../../../core/stores/auth.store';
+import { useSchoolBranding } from '../../../core/hooks/useSchoolBranding';
 import { UserProfileModal } from '../../auth/components/UserProfileModal';
 
 interface NutriKidHeaderProps {
@@ -30,6 +31,7 @@ export const NutriKidHeader: React.FC<NutriKidHeaderProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const schoolBranding = useSchoolBranding();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
 
@@ -56,18 +58,33 @@ export const NutriKidHeader: React.FC<NutriKidHeaderProps> = ({
             {/* Logo bên trái: Khối vuông xanh rêu + Icon + Tên + Badge BẢN CHUẨN */}
             <div className="flex items-center gap-3 shrink-0">
               <Link to="/menus" className="flex items-center gap-2.5 group">
-                <div className="w-10 h-10 rounded-2xl bg-[#0f382c] border border-emerald-800 flex items-center justify-center text-emerald-400 shadow-md group-hover:scale-105 transition-transform">
-                  {/* Icon hoa / mầm lá đa cánh */}
-                  <svg className="w-6 h-6 fill-emerald-300" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.4z"/>
-                  </svg>
+                <div className="w-10 h-10 rounded-2xl bg-[#0f382c] border border-emerald-800 flex items-center justify-center text-emerald-400 shadow-md group-hover:scale-105 transition-transform overflow-hidden shrink-0">
+                  {schoolBranding.logoUrl ? (
+                    <img
+                      src={schoolBranding.logoUrl}
+                      alt={schoolBranding.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <svg className="w-6 h-6 fill-emerald-300" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.4z"/>
+                    </svg>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-base text-slate-900 tracking-tight">
-                    NutriKid <span className="text-slate-500 font-medium text-xs sm:text-sm">- Dinh dưỡng Mầm non</span>
-                  </span>
-                  <span className="bg-[#4eed9c]/25 border border-emerald-500/30 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                    BẢN CHUẨN
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-base text-slate-900 tracking-tight">
+                      NutriKid <span className="text-slate-500 font-medium text-xs sm:text-sm">- Dinh dưỡng Mầm non</span>
+                    </span>
+                    <span className="bg-[#4eed9c]/25 border border-emerald-500/30 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                      BẢN CHUẨN
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-emerald-700 truncate max-w-[240px]" title={schoolBranding.name}>
+                    {schoolBranding.name}
                   </span>
                 </div>
               </Link>

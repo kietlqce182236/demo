@@ -1,14 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, ChevronDown, Utensils, ShieldAlert, Coffee, CreditCard, MessageSquare, Baby } from 'lucide-react';
+import { useSchoolBranding } from '../../../core/hooks/useSchoolBranding';
 import { ChildProfile } from '../types';
 
 interface ParentPortalTopNavProps {
   child?: ChildProfile;
-  activeTab?: 'menu-consumption' | 'allergies' | 'snacks' | 'tuition' | 'evaluation';
+  activeTab?: 'menu-consumption' | 'allergies' | 'snacks' | 'breakfast' | 'tuition' | 'evaluation';
 }
 
 export const ParentPortalTopNav: React.FC<ParentPortalTopNavProps> = ({ child, activeTab = 'evaluation' }) => {
+  const schoolBranding = useSchoolBranding();
+
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -16,12 +19,28 @@ export const ParentPortalTopNav: React.FC<ParentPortalTopNavProps> = ({ child, a
           {/* Logo & Portal Badge */}
           <div className="flex items-center gap-3">
             <Link to="/child-menu-consumption" className="flex items-center gap-2 hover:opacity-90 transition">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-sm">
-                <Utensils className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 p-0.5 flex items-center justify-center text-white shadow-sm overflow-hidden shrink-0">
+                {schoolBranding.logoUrl ? (
+                  <img
+                    src={schoolBranding.logoUrl}
+                    alt={schoolBranding.name}
+                    className="w-full h-full object-cover rounded-[10px]"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <Utensils className="w-5 h-5" />
+                )}
               </div>
-              <span className="text-xl font-black tracking-tight text-teal-800">
-                Kid<span className="text-emerald-500">Meal</span>
-              </span>
+              <div className="flex flex-col">
+                <span className="text-xl font-black tracking-tight text-teal-800 leading-none">
+                  Kid<span className="text-emerald-500">Meal</span>
+                </span>
+                <span className="text-[10px] text-teal-700 font-semibold truncate max-w-[160px]" title={schoolBranding.name}>
+                  {schoolBranding.name}
+                </span>
+              </div>
             </Link>
             <span className="text-[11px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
               Cổng Phụ Huynh
@@ -62,18 +81,19 @@ export const ParentPortalTopNav: React.FC<ParentPortalTopNavProps> = ({ child, a
               <ShieldAlert className="w-3.5 h-3.5" />
               <span>Khai báo Dị ứng</span>
             </Link>
-            <button
-              type="button"
-              className="px-3 py-2 text-slate-600 hover:text-teal-700 rounded-lg transition hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
+            {/* Tab 3: Mua Gói Ăn Sáng VNPAY */}
+            <Link
+              to="/parent-breakfast"
+              className={`px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 ${
+                activeTab === 'breakfast' || activeTab === 'snacks'
+                  ? 'bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-xs'
+                  : 'text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 font-bold border border-amber-200'
+              }`}
             >
-              <span>Gói ăn xế chiều</span>
-            </button>
-            <button
-              type="button"
-              className="px-3 py-2 text-slate-600 hover:text-teal-700 rounded-lg transition hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>Học phí Bán trú</span>
-            </button>
+              <Coffee className="w-3.5 h-3.5" />
+              <span>Gói Ăn Sáng (VNPAY)</span>
+            </Link>
+
 
             {/* Tab 5: Đánh giá & Góp ý (Submit Meal Evaluation) */}
             <Link

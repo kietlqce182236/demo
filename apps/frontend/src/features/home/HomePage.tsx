@@ -31,10 +31,12 @@ import {
   Apple
 } from 'lucide-react';
 import { useAuthStore } from '../../core/stores/auth.store';
+import { useSchoolBranding } from '../../core/hooks/useSchoolBranding';
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuthStore();
+  const schoolBranding = useSchoolBranding();
   const [activeTab, setActiveTab] = useState<'principal' | 'nutritionist' | 'teacher' | 'kitchen' | 'parent'>('nutritionist');
 
   const roles = user?.roles || [];
@@ -68,8 +70,19 @@ export const HomePage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Logo & Brand */}
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 group-hover:scale-105 transition-transform">
-              <UtensilsCrossed className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-400 p-0.5 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
+              {schoolBranding.logoUrl ? (
+                <img
+                  src={schoolBranding.logoUrl}
+                  alt={schoolBranding.name}
+                  className="w-full h-full object-cover rounded-[14px]"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <UtensilsCrossed className="w-6 h-6" />
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -80,8 +93,8 @@ export const HomePage: React.FC = () => {
                   NutriBud
                 </span>
               </div>
-              <p className="text-[11px] font-medium text-slate-500">
-                Hệ Thống Dinh Dưỡng & Suất Ăn Mầm Non
+              <p className="text-[11px] font-semibold text-emerald-700 truncate max-w-[280px]" title={schoolBranding.name}>
+                {schoolBranding.name}
               </p>
             </div>
           </Link>
@@ -339,7 +352,7 @@ export const HomePage: React.FC = () => {
                 </div>
                 <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
                   <div className="flex items-center justify-between border-b pb-3">
-                    <span className="text-xs font-bold text-slate-500 uppercase">Dashboard BGH Sao Mai</span>
+                    <span className="text-xs font-bold text-slate-500 uppercase">Dashboard BGH {schoolBranding.name}</span>
                     <span className="text-[10px] font-bold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full">Trực tuyến</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-center">

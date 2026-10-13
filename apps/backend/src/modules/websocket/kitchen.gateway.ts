@@ -57,6 +57,9 @@ export class KitchenGateway implements OnGatewayConnection, OnGatewayDisconnect 
   broadcastPortionsUpdate(tenantId: number = 1, payload: any) {
     const room = `tenant:${tenantId}:kitchen`;
     this.server?.to(room).emit('kitchen:portions-updated', payload);
+    this.server?.to(room).emit('MEAL_PORTIONS_SYNCED', payload);
+    this.server?.emit('kitchen:portions-updated', payload);
+    this.server?.emit('MEAL_PORTIONS_SYNCED', payload);
     this.logger.log(`Emitted kitchen:portions-updated to room ${room}`);
   }
 
@@ -66,5 +69,8 @@ export class KitchenGateway implements OnGatewayConnection, OnGatewayDisconnect 
   broadcastSafetyAlert(tenantId: number = 1, payload: any) {
     const room = `tenant:${tenantId}:kitchen`;
     this.server?.to(room).emit('safety:alert', payload);
+    this.server?.to(room).emit('ALLERGY_ALERT', payload);
+    this.server?.emit('safety:alert', payload);
+    this.server?.emit('ALLERGY_ALERT', payload);
   }
 }

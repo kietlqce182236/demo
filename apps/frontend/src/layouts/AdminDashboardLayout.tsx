@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   GraduationCap,
-  ClipboardCheck,
   Users2,
   Coffee,
   FileCheck2,
@@ -24,11 +23,13 @@ import {
 } from 'lucide-react';
 import { UserProfileModal } from '../features/auth/components/UserProfileModal';
 import { useAuthStore } from '../core/stores/auth.store';
+import { useSchoolBranding } from '../core/hooks/useSchoolBranding';
 
 export const AdminDashboardLayout: React.FC = () => {
   const location = useLocation();
   const { user } = useAuthStore();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const schoolProfile = useSchoolBranding();
 
   const roles = user?.roles || [];
   const isSuperAdmin = roles.includes('SUPER_ADMIN');
@@ -38,11 +39,10 @@ export const AdminDashboardLayout: React.FC = () => {
   const navItems = [
     { label: 'Dashboard Tổng quan', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Quản trị Lớp học', path: '/classes', icon: GraduationCap },
-    { label: 'Điểm danh bán trú (GV)', path: '/attendance', icon: ClipboardCheck },
     { label: 'Nhân sự & Bếp', path: '/staff', icon: Users2 },
     { label: 'Tài khoản Phụ huynh', path: '/parents', icon: Users },
-    { label: 'Dịch vụ bán trú', path: '/services', icon: Coffee },
-    { label: 'Gói ăn xế chiều', path: '/snack-services', icon: Sparkles },
+    { label: 'Dịch vụ bán trú', path: '/services', icon: UtensilsCrossed },
+    { label: 'Gói dịch vụ ăn sáng', path: '/snack-services', icon: Coffee },
     { label: 'Phê duyệt thực đơn', path: '/menus', icon: FileCheck2 },
     { label: 'Kho & Dinh dưỡng', path: '/inventory', icon: PackageOpen },
     { label: 'Sổ kiểm thực 3 bước', path: '/food-safety', icon: ShieldCheck },
@@ -54,9 +54,8 @@ export const AdminDashboardLayout: React.FC = () => {
 
   const getBreadcrumbTitle = () => {
     if (location.pathname.startsWith('/menu-approval') || location.pathname.startsWith('/menus')) return 'Phê duyệt & Công bố thực đơn tuần';
-    if (location.pathname.startsWith('/snack-services')) return 'Gói ăn xế chiều';
+    if (location.pathname.startsWith('/snack-services')) return 'Gói dịch vụ ăn sáng';
     if (location.pathname.startsWith('/classes')) return 'Quản trị Lớp học & Học sinh';
-    if (location.pathname.startsWith('/attendance')) return 'Điểm danh suất ăn Bán trú - LiveSync Bếp';
     if (location.pathname.startsWith('/staff')) return 'Quản trị Nhân sự & Tài khoản Bếp';
     if (location.pathname.startsWith('/parents')) return 'Quản trị Tài khoản Phụ huynh';
     if (location.pathname.startsWith('/services')) return 'Dịch vụ Bán trú & Ăn xế';
@@ -75,15 +74,28 @@ export const AdminDashboardLayout: React.FC = () => {
       <aside className="w-64 bg-white border-r border-slate-200/80 flex flex-col justify-between shadow-xs z-30">
         <div>
           {/* Header Sidebar: KidMeal BGH */}
-          <div className="p-5 border-b border-slate-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-600 shadow-inner">
-              <UtensilsCrossed className="w-5 h-5" />
+          <div className="p-4 border-b border-slate-100 flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-teal-500/10 border border-teal-500/20 p-1 flex items-center justify-center text-teal-600 shadow-inner overflow-hidden shrink-0">
+              {schoolProfile.logoUrl ? (
+                <img
+                  src={schoolProfile.logoUrl}
+                  alt={schoolProfile.name}
+                  className="w-full h-full object-cover rounded-xl"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <UtensilsCrossed className="w-5 h-5 text-teal-600" />
+              )}
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-sm text-slate-900 tracking-tight">KidMeal BGH</span>
               </div>
-              <p className="text-[11px] text-slate-400 font-medium">MN Sao Mai – Cơ sở 1</p>
+              <p className="text-[11px] text-teal-800 font-bold truncate" title={schoolProfile.name}>
+                {schoolProfile.name}
+              </p>
             </div>
           </div>
 

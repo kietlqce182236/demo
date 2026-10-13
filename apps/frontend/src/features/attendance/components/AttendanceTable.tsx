@@ -173,6 +173,23 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
                           <span>•</span>
                           <span>{child.genderAgeText}</span>
                         </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {child.hasBreakfast ? (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200"
+                              title={`Học sinh ĐÃ ĐÓNG TIỀN: ${child.breakfastPackage || 'Gói Ăn Sáng'} — ĐƯỢC CUNG CẤP ĐỒ ĂN SÁNG`}
+                            >
+                              🥣 Có ăn sáng ({child.breakfastPackage ? child.breakfastPackage.split('(')[0].replace('Gói Ăn Sáng', '').trim() : 'Đã đóng'})
+                            </span>
+                          ) : (
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200"
+                              title="Chưa đóng tiền gói ăn sáng — KHÔNG ĐƯỢC CUNG CẤP ĐỒ ĂN SÁNG"
+                            >
+                              ❌ Không ăn sáng (Chưa đóng)
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>

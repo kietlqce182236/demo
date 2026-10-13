@@ -380,7 +380,8 @@ CREATE TABLE menu_dishes (
     menu_meal_id   BIGINT NOT NULL REFERENCES menu_meals(id) ON DELETE CASCADE,
     dish_id        BIGINT NOT NULL REFERENCES dishes(id) ON DELETE CASCADE,
     portion_size_g NUMERIC(8,2),
-    display_order  INT NOT NULL DEFAULT 0
+    display_order  INT NOT NULL DEFAULT 0,
+    special_diet_notes TEXT
 );
 
 CREATE INDEX idx_menu_dishes_meal ON menu_dishes(menu_meal_id);
@@ -527,6 +528,8 @@ CREATE TABLE food_inspections (
     inspector_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     result          VARCHAR(20) NOT NULL DEFAULT 'PASS'
                         CHECK (result IN ('PASS', 'FAIL')),
+    meal_session    VARCHAR(50) DEFAULT 'LUNCH',
+    session_code    VARCHAR(50),
     note            TEXT
 );
 
@@ -537,7 +540,7 @@ CREATE INDEX idx_food_inspections_inspector ON food_inspections(inspector_id);
 CREATE TABLE inspection_images (
     id            BIGSERIAL PRIMARY KEY,
     inspection_id BIGINT NOT NULL REFERENCES food_inspections(id) ON DELETE CASCADE,
-    image_url     VARCHAR(500) NOT NULL,
+    image_url     TEXT NOT NULL,
     uploaded_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -545,15 +548,19 @@ CREATE INDEX idx_inspection_images_inspection ON inspection_images(inspection_id
 
 -- food_samples: Lưu mẫu 24 giờ (QĐ 1246/QĐ-BYT)
 CREATE TABLE food_samples (
-    id          BIGSERIAL PRIMARY KEY,
-    date        DATE NOT NULL,
-    dish_name   VARCHAR(150) NOT NULL,
-    sample_code VARCHAR(50) NOT NULL,
-    stored_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    dispose_at  TIMESTAMPTZ,
-    status      VARCHAR(20) NOT NULL DEFAULT 'STORED'
-                    CHECK (status IN ('STORED', 'DISPOSED')),
-    note        TEXT
+    id              BIGSERIAL PRIMARY KEY,
+    date            DATE NOT NULL,
+    dish_name       VARCHAR(150) NOT NULL,
+    sample_code     VARCHAR(50) NOT NULL,
+    stored_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    dispose_at      TIMESTAMPTZ,
+    status          VARCHAR(20) NOT NULL DEFAULT 'STORED'
+                        CHECK (status IN ('STORED', 'DISPOSED')),
+    fridge_unit     VARCHAR(100) DEFAULT 'Tủ lưu mẫu số 1 (Ngăn mát 0-5°C)',
+    sample_weight_g NUMERIC(6,1) DEFAULT 150.0,
+    storage_temp    NUMERIC(4,1) DEFAULT 3.8,
+    collector_name  VARCHAR(100) DEFAULT 'Nguyễn Văn Cường (Bếp trưởng)',
+    note            TEXT
 );
 
 CREATE INDEX idx_food_samples_date ON food_samples(date);

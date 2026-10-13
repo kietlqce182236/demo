@@ -1,18 +1,32 @@
 import React from 'react';
 import { School, Search, Bell, ChevronDown, UtensilsCrossed } from 'lucide-react';
+import { useSchoolBranding } from '../../../core/hooks/useSchoolBranding';
 
 interface AttendanceTopNavProps {
   onSearch?: (query: string) => void;
 }
 
 export const AttendanceTopNav: React.FC<AttendanceTopNavProps> = ({ onSearch }) => {
+  const schoolBranding = useSchoolBranding();
+
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 px-6 py-2.5">
       <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-4">
         {/* Brand Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-white shadow-sm ring-2 ring-emerald-100">
-            <UtensilsCrossed className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 p-0.5 flex items-center justify-center text-white shadow-sm ring-2 ring-emerald-100 overflow-hidden shrink-0">
+            {schoolBranding.logoUrl ? (
+              <img
+                src={schoolBranding.logoUrl}
+                alt={schoolBranding.name}
+                className="w-full h-full object-cover rounded-[10px]"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <UtensilsCrossed className="w-5 h-5 text-white" />
+            )}
           </div>
           <div>
             <div className="flex items-center gap-1.5">
@@ -24,10 +38,10 @@ export const AttendanceTopNav: React.FC<AttendanceTopNavProps> = ({ onSearch }) 
         </div>
 
         {/* Campus / School Selector */}
-        <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 transition rounded-xl border border-slate-200/80 cursor-pointer text-xs font-semibold text-slate-700">
-          <School className="w-4 h-4 text-teal-600" />
-          <span>Trường MN Ban Mai - CS01</span>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
+        <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 transition rounded-xl border border-slate-200/80 cursor-pointer text-xs font-semibold text-slate-700 max-w-[280px]">
+          <School className="w-4 h-4 text-teal-600 shrink-0" />
+          <span className="truncate" title={schoolBranding.name}>{schoolBranding.name}</span>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1 shrink-0" />
         </div>
 
         {/* Search Bar */}

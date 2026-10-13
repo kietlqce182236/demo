@@ -65,23 +65,28 @@ export interface SnackServiceListResponse {
 }
 
 export interface CreateSnackServicePeriodDto {
-  snackServiceId: string;
-  periodCode: string;
-  appliedGrades: string[];
-  isWholeSchool: boolean;
-  registrationStart: string;
-  registrationEnd: string;
-  serviceMonths: string[];
-  pricePerUnitPerDay: number;
-  autoRefundEnabled: boolean;
-  capacityMode: 'UNLIMITED' | 'LIMITED';
+  name?: string;
+  startDate?: string;
+  endDate?: string;
+  feeAmount?: number;
+  registrationDeadline?: string;
+  snackServiceId?: string;
+  periodCode?: string;
+  appliedGrades?: string[];
+  isWholeSchool?: boolean;
+  registrationStart?: string;
+  registrationEnd?: string;
+  serviceMonths?: string[];
+  pricePerUnitPerDay?: number;
+  autoRefundEnabled?: boolean;
+  capacityMode?: 'UNLIMITED' | 'LIMITED';
   kitchenCapacity?: number;
   totalQuota?: number;
   quotaPerGrade?: Record<string, number>;
-  autoCloseEnabled: boolean;
+  autoCloseEnabled?: boolean;
   autoCloseThresholdPercent?: number;
   nutritionNotes?: string;
-  status: 'DRAFT' | 'ACTIVE';
+  status: 'DRAFT' | 'ACTIVE' | 'OPEN' | 'CLOSED';
 }
 
 export interface CreatePeriodResponse {
@@ -97,9 +102,11 @@ export interface UpdateSnackServiceDto {
   serviceType?: string;
   billingCycle?: string;
   pricePerUnit?: number;
+  feeAmount?: number;
   isActive?: boolean;
   availableFrom?: string;
   availableTo?: string;
+  status?: string;
 }
 
 export interface SnackServiceDetailEntity {

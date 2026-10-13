@@ -165,7 +165,13 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
 
       setClasses(classList);
       setChildren(childList);
-      setTeachers(staffRes?.data || []);
+      const rawStaff = Array.isArray(staffRes) ? staffRes : (staffRes?.data || []);
+      const teacherList = Array.isArray(rawStaff) ? rawStaff : [];
+      const validTeachers = teacherList.filter((t: any) => 
+        t.staffType === 'TEACHER' || 
+        (Array.isArray(t.roles) && t.roles.some((r: any) => (typeof r === 'string' ? r : r.code) === 'TEACHER'))
+      );
+      setTeachers(validTeachers.length > 0 ? validTeachers : teacherList);
       setAllergenCatalogs(catalogsRes || []);
       if (headcountRes) {
         setHeadcountSummary(headcountRes);
@@ -277,8 +283,8 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
         gradeLevel: createFormData.gradeLevel,
         ageGroup,
         roomNumber: createFormData.roomNumber.trim() || undefined,
-        academicYear: createFormData.academicYear.trim() || '2025-2026',
-        schoolYear: createFormData.academicYear.trim() || '2025-2026',
+        academicYear: createFormData.academicYear.trim() || '2026-2027',
+        schoolYear: createFormData.academicYear.trim() || '2026-2027',
         mainTeacherId: createFormData.mainTeacherId || undefined,
         homeroomTeacherId: createFormData.mainTeacherId ? Number(createFormData.mainTeacherId) : undefined,
       } as any);
@@ -288,7 +294,7 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
         name: '',
         gradeLevel: 'KINDERGARTEN_3_4Y',
         roomNumber: '',
-        academicYear: '2025-2026',
+        academicYear: '2026-2027',
         mainTeacherId: '',
       });
     } catch (err: any) {
@@ -327,10 +333,10 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
         gradeLevel: editFormData.gradeLevel,
         ageGroup,
         roomNumber: editFormData.roomNumber.trim() || undefined,
-        academicYear: editFormData.academicYear.trim() || '2025-2026',
-        schoolYear: editFormData.academicYear.trim() || '2025-2026',
+        academicYear: editFormData.academicYear.trim() || '2026-2027',
+        schoolYear: editFormData.academicYear.trim() || '2026-2027',
         mainTeacherId: editFormData.mainTeacherId || undefined,
-        homeroomTeacherId: editFormData.mainTeacherId ? Number(editFormData.mainTeacherId) : undefined,
+        homeroomTeacherId: editFormData.mainTeacherId ? Number(editFormData.mainTeacherId) : null,
         status: editFormData.status,
       } as any);
       await fetchData();
@@ -422,7 +428,8 @@ export const SchoolClassAllergyHubPage: React.FC = () => {
     try {
       await classesApi.updateClass(targetClass.id, {
         mainTeacherId: teacherIdInput || undefined,
-      });
+        homeroomTeacherId: teacherIdInput ? Number(teacherIdInput) : null,
+      } as any);
       await fetchData();
       setShowAssignModal(false);
       setTargetClass(null);

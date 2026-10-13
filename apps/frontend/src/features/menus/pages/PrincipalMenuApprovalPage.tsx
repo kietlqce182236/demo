@@ -133,7 +133,8 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
   const handleSelectMenu = async (menuId: string, openDrawer: boolean = false) => {
     try {
       const detail = await weeklyMenusApi.getMenuById(menuId);
-      setSelectedMenu(detail);
+      const actualMenu = (detail as any)?.data || detail;
+      setSelectedMenu(actualMenu);
       if (openDrawer) {
         setIsDrawerOpen(true);
       }
@@ -269,6 +270,7 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case 'PENDING':
       case 'SUBMITTED_FOR_REVIEW':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
@@ -467,7 +469,11 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
               ) : (
                 menus.map((menu, idx) => {
                   const isSelected = selectedMenu?.id === menu.id;
-                  const isPending = menu.status === 'SUBMITTED_FOR_REVIEW';
+                  const isPending = menu.status === 'SUBMITTED_FOR_REVIEW' || menu.status === 'PENDING';
+                  const menuDate = menu.updatedAt || menu.createdAt || menu.startDate;
+                  const formattedDate = menuDate && !isNaN(new Date(menuDate).getTime())
+                    ? new Date(menuDate).toLocaleDateString('vi-VN')
+                    : new Date().toLocaleDateString('vi-VN');
 
                   return (
                     <tr
@@ -531,7 +537,7 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
                       {/* Năng lượng TB & Dinh dưỡng */}
                       <td className="py-3.5 px-4 text-center">
                         <span className="font-black text-amber-700 text-xs inline-flex items-center gap-1">
-                          <Flame className="w-3 h-3 text-amber-500" />
+                          <Flame className="w-3.5 h-3.5 text-amber-500" />
                           {Number(menu.dailyAverageCalories || 0).toFixed(1)} Kcal
                         </span>
                         <div className="flex items-center justify-center gap-1 mt-0.5 text-[10px] font-semibold">
@@ -550,7 +556,7 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
                           <span className="font-bold">BS. Hoàng Mai Trang</span>
                         </div>
                         <p className="text-[10px] text-slate-400 mt-0.5">
-                          {new Date(menu.updatedAt || menu.createdAt).toLocaleDateString('vi-VN')}
+                          {formattedDate}
                         </p>
                       </td>
 
@@ -588,13 +594,13 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
                           )}
 
                           {/* Nút Duyệt nhanh nếu đang chờ duyệt */}
-                          {menu.status === 'SUBMITTED_FOR_REVIEW' && (
+                          {isPending && (
                             <button
                               onClick={() => {
                                 handleSelectMenu(menu.id, false);
                                 setIsApprovalModalOpen(true);
                               }}
-                              className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1 transition shadow-xs"
+                              className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1 transition shadow-xs cursor-pointer"
                               title="Hiệu trưởng phê duyệt thực đơn"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -609,7 +615,7 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
                                 handleSelectMenu(menu.id, false);
                                 handlePublish();
                               }}
-                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 transition shadow-xs"
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 transition shadow-xs cursor-pointer"
                               title="Khóa & Công bố thực đơn toàn trường"
                             >
                               <Lock className="w-3.5 h-3.5" />
@@ -775,10 +781,10 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {selectedMenu.status === 'SUBMITTED_FOR_REVIEW' && (
+                  {(selectedMenu.status === 'SUBMITTED_FOR_REVIEW' || selectedMenu.status === 'PENDING') && (
                     <button
                       onClick={() => setIsApprovalModalOpen(true)}
-                      className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md shadow-teal-600/25 flex items-center gap-1.5 transition"
+                      className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md shadow-teal-600/25 flex items-center gap-1.5 transition cursor-pointer"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Phê duyệt / Từ chối</span>
@@ -832,7 +838,7 @@ export const PrincipalMenuApprovalPage: React.FC = () => {
 
             {/* Footer Drawer */}
             <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-500 shrink-0">
-              <span>Hệ thống KidMeal NutriBud • Bản quyền MN Sao Mai</span>
+              <span>Hệ thống KidMeal NutriBud • Bản quyền {localStorage.getItem('school_name') || 'Trường Mẫu Giáo Hướng Dương'}</span>
               <button
                 onClick={() => setIsDrawerOpen(false)}
                 className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold transition shadow-xs"

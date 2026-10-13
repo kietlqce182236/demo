@@ -47,7 +47,9 @@ export interface CreateStaffPayload {
   email: string;
   fullName: string;
   phone?: string;
-  roleCodes: string[];
+  roleCode?: string;
+  roleCodes?: string[];
+  staffType?: string;
   password?: string;
   status?: string;
 }
@@ -55,7 +57,9 @@ export interface CreateStaffPayload {
 export interface UpdateStaffPayload {
   fullName?: string;
   phone?: string;
+  roleCode?: string;
   roleCodes?: string[];
+  staffType?: string;
   status?: string;
   newPassword?: string;
 }
@@ -63,6 +67,7 @@ export interface UpdateStaffPayload {
 export interface QueryStaffParams {
   search?: string;
   roleCode?: string;
+  staffType?: string;
   status?: string;
   includeDeleted?: boolean;
   page?: number;
@@ -75,8 +80,13 @@ export const staffApi = {
   /**
    * Lấy danh sách nhân sự kèm tìm kiếm, lọc và phân trang
    */
-  async getStaffList(params?: QueryStaffParams): Promise<StaffListResponse> {
-    const res = await apiClient.get<StaffListResponse>('/users/staff', { params });
+  async getStaffList(params?: QueryStaffParams): Promise<any> {
+    const res = await apiClient.get('/users/staff', {
+      params: {
+        ...params,
+        staffType: params?.staffType || params?.roleCode,
+      },
+    });
     return res.data;
   },
 

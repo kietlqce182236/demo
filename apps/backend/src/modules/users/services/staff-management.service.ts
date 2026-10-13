@@ -24,7 +24,7 @@ export class StaffManagementService {
     const qb = this.userRepo
       .createQueryBuilder('u')
       .leftJoinAndSelect('u.roles', 'r')
-      .innerJoin(StaffProfile, 'sp', 'sp.user_id = u.id')
+      .leftJoin(StaffProfile, 'sp', 'sp.user_id = u.id')
       .addSelect(['sp.staffType', 'sp.position', 'sp.startDate']);
 
     if (query.search) {
@@ -43,6 +43,7 @@ export class StaffManagementService {
 
     let results = users.map((u) => {
       const p = profileMap.get(u.id);
+      const isTeacherRole = u.roles?.some((r) => r.code === 'TEACHER');
       return {
         id: String(u.id),
         email: u.email,
@@ -51,15 +52,19 @@ export class StaffManagementService {
         avatarUrl: u.avatar,
         status: u.status,
         roles: u.roles?.map((r) => r.code) || [],
-        staffType: p?.staffType || 'MANAGEMENT',
-        position: p?.position || '',
+        staffType: p?.staffType || (isTeacherRole ? 'TEACHER' : 'MANAGEMENT'),
+        position: p?.position || (isTeacherRole ? 'Giáo viên mầm non' : ''),
         startDate: p?.startDate || null,
         createdAt: u.createdAt,
       };
     });
 
-    if (query.staffType) {
-      results = results.filter((s) => s.staffType === query.staffType);
+    const targetType = (query.staffType || query.roleCode || '').toUpperCase();
+    if (targetType) {
+      results = results.filter((s) => 
+        s.staffType?.toUpperCase() === targetType || 
+        s.roles.some((r) => r.toUpperCase() === targetType)
+      );
     }
 
     return results;
@@ -97,23 +102,52 @@ export class StaffManagementService {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(dto.password || '123456', salt);
 
-    const role = await this.roleRepo.findOne({ where: { code: dto.roleCode } });
+    const targetRoleCode = dto.roleCode || (dto.roleCodes && dto.roleCodes.length > 0 ? dto.roleCodes[0] : 'TEACHER');
+    const role = await this.roleRepo.findOne({ where: { code: targetRoleCode } });
+
+    let derivedStaffType = dto.staffType;
+    if (!derivedStaffType) {
+      switch (targetRoleCode) {
+        case 'TEACHER':
+          derivedStaffType = 'TEACHER';
+          break;
+        case 'KITCHEN_STAFF':
+        case 'KITCHEN_MANAGER':
+          derivedStaffType = 'KITCHEN';
+          break;
+        case 'NUTRITIONIST':
+        case 'MEDICAL_STAFF':
+          derivedStaffType = 'SPECIALIST';
+          break;
+        case 'SCHOOL_MANAGER':
+        case 'PRINCIPAL':
+        default:
+          derivedStaffType = 'MANAGEMENT';
+          break;
+      }
+    }
 
     const user = this.userRepo.create({
       email: dto.email.toLowerCase(),
       passwordHash,
       fullName: dto.fullName,
       phone: dto.phone || null,
-      status: 'ACTIVE',
-      roles: role ? [role] : [],
+      status: dto.status || 'ACTIVE',
     });
 
     const savedUser = await this.userRepo.save(user);
 
+    if (role) {
+      await this.userRepo.query(
+        `INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT (user_id, role_id) DO NOTHING`,
+        [savedUser.id, role.id],
+      );
+    }
+
     const profile = this.staffRepo.create({
       userId: savedUser.id,
-      staffType: dto.staffType,
-      position: dto.position || null,
+      staffType: derivedStaffType,
+      position: dto.position || (targetRoleCode === 'TEACHER' ? 'Giáo viên mầm non' : null),
       startDate: new Date().toISOString().split('T')[0],
     });
     await this.staffRepo.save(profile);
@@ -122,24 +156,61 @@ export class StaffManagementService {
   }
 
   async update(id: number, dto: UpdateStaffDto) {
-    const user = await this.userRepo.findOne({ where: { id }, relations: ['roles'] });
+    const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('Không tìm thấy nhân viên');
 
-    if (dto.fullName) user.fullName = dto.fullName;
-    if (dto.phone) user.phone = dto.phone;
-    if (dto.status) user.status = dto.status;
+    const updateData: Partial<User> = {};
+    if (dto.fullName) updateData.fullName = dto.fullName;
+    if (dto.phone !== undefined) updateData.phone = dto.phone;
+    if (dto.status) updateData.status = dto.status;
 
-    if (dto.roleCode) {
-      const role = await this.roleRepo.findOne({ where: { code: dto.roleCode } });
-      if (role) user.roles = [role];
+    if (dto.newPassword) {
+      const salt = await bcrypt.genSalt(10);
+      updateData.passwordHash = await bcrypt.hash(dto.newPassword, salt);
     }
-    await this.userRepo.save(user);
+
+    if (Object.keys(updateData).length > 0) {
+      await this.userRepo.update(id, updateData);
+    }
+
+    const targetRoleCode = dto.roleCode || (dto.roleCodes && dto.roleCodes.length > 0 ? dto.roleCodes[0] : undefined);
+    if (targetRoleCode) {
+      const role = await this.roleRepo.findOne({ where: { code: targetRoleCode } });
+      if (role) {
+        await this.userRepo.query(`DELETE FROM user_roles WHERE user_id = $1`, [id]);
+        await this.userRepo.query(
+          `INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT (user_id, role_id) DO NOTHING`,
+          [id, role.id],
+        );
+      }
+    }
 
     let profile = await this.staffRepo.findOne({ where: { userId: id } });
     if (!profile) {
       profile = this.staffRepo.create({ userId: id });
     }
-    if (dto.staffType) profile.staffType = dto.staffType;
+    if (dto.staffType) {
+      profile.staffType = dto.staffType;
+    } else if (targetRoleCode) {
+      switch (targetRoleCode) {
+        case 'TEACHER':
+          profile.staffType = 'TEACHER';
+          break;
+        case 'KITCHEN_STAFF':
+        case 'KITCHEN_MANAGER':
+          profile.staffType = 'KITCHEN';
+          break;
+        case 'NUTRITIONIST':
+        case 'MEDICAL_STAFF':
+          profile.staffType = 'SPECIALIST';
+          break;
+        case 'SCHOOL_MANAGER':
+        case 'PRINCIPAL':
+        default:
+          profile.staffType = 'MANAGEMENT';
+          break;
+      }
+    }
     if (dto.position) profile.position = dto.position;
     await this.staffRepo.save(profile);
 
@@ -149,8 +220,7 @@ export class StaffManagementService {
   async remove(id: number) {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('Không tìm thấy nhân viên');
-    user.status = 'INACTIVE';
-    await this.userRepo.save(user);
+    await this.userRepo.update(id, { status: 'INACTIVE' });
     return { success: true, message: 'Đã tạm ngưng cán bộ/nhân viên' };
   }
 
@@ -182,22 +252,23 @@ export class StaffManagementService {
 
   async getRoles() {
     const roles = await this.roleRepo.find();
-    return roles.map((r) => ({ code: r.code, name: r.name, description: (r as any).description || r.name }));
+    // Loại trừ các role không phải nhân sự trường học (chẳng hạn PARENT) và SUPER_ADMIN
+    const staffRoles = roles.filter((r) => r.code !== 'PARENT' && r.code !== 'SUPER_ADMIN');
+    return staffRoles.map((r) => ({ code: r.code, name: r.name, description: (r as any).description || r.name }));
   }
 
   async restore(id: number) {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('Không tìm thấy nhân sự');
-    user.status = 'ACTIVE';
-    await this.userRepo.save(user);
+    await this.userRepo.update(id, { status: 'ACTIVE' });
     return { success: true, message: 'Đã khôi phục nhân sự' };
   }
 
   async toggleStatus(id: number) {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('Không tìm thấy nhân sự');
-    user.status = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    await this.userRepo.save(user);
-    return { success: true, status: user.status, message: `Đã đổi trạng thái sang ${user.status}` };
+    const newStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    await this.userRepo.update(id, { status: newStatus });
+    return { success: true, status: newStatus, message: `Đã đổi trạng thái sang ${newStatus}` };
   }
 }

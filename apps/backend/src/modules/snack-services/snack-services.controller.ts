@@ -81,9 +81,23 @@ export class SnackServicesController {
 
   @Put('periods/:id/close')
   @Roles('SCHOOL_MANAGER', 'PRINCIPAL', 'SUPER_ADMIN')
-  @ApiOperation({ summary: 'Đóng kỳ đăng ký ăn xế' })
+  @ApiOperation({ summary: 'Đóng kỳ đăng ký gói ăn sáng' })
   async closePeriod(@Param('id', ParseIntPipe) id: number) {
     return this.snackService.closePeriod(id);
+  }
+
+  @Put('periods/:id/open')
+  @Roles('SCHOOL_MANAGER', 'PRINCIPAL', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Mở lại đăng ký gói ăn sáng' })
+  async openPeriod(@Param('id', ParseIntPipe) id: number) {
+    return this.snackService.updatePeriod(id, { status: 'OPEN' });
+  }
+
+  @Put('periods/:id/toggle')
+  @Roles('SCHOOL_MANAGER', 'PRINCIPAL', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Bật/tắt mở đăng ký gói ăn sáng' })
+  async togglePeriod(@Param('id', ParseIntPipe) id: number) {
+    return this.snackService.togglePeriodStatus(id);
   }
 
   @Delete(':id')

@@ -63,7 +63,7 @@ export interface WeeklyMenu {
   startDate: string;
   endDate: string;
   cycleWeekNumber: number;
-  status: 'DRAFT' | 'SUBMITTED_FOR_REVIEW' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'ARCHIVED';
+  status: 'DRAFT' | 'PENDING' | 'SUBMITTED_FOR_REVIEW' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'PUBLISHED' | 'ARCHIVED';
   createdBy: string;
   approvedBy?: string | null;
   approvedAt?: string | null;
@@ -259,13 +259,13 @@ export const weeklyMenusApi = {
   // 2. Thống kê KPI
   async getStatistics(): Promise<MenuStatistics> {
     const res = await apiClient.get('/menus/statistics');
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   // 3. Món ăn trong kho
   async getAvailableDishes(): Promise<DishItem[]> {
     const res = await apiClient.get('/menus/available-dishes');
-    const raw = res.data;
+    const raw = res.data?.data || res.data;
     if (Array.isArray(raw)) return raw;
     if (Array.isArray(raw?.items)) return raw.items;
     if (Array.isArray(raw?.data)) return raw.data;
@@ -275,7 +275,7 @@ export const weeklyMenusApi = {
   // 4. Chi tiết thực đơn tuần
   async getMenuById(id: string): Promise<WeeklyMenu> {
     const res = await apiClient.get(`/menus/${id}`);
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   // 5. Danh sách phiên bản
@@ -310,25 +310,25 @@ export const weeklyMenusApi = {
   async createMenu(payload: CreateMenuPayload): Promise<WeeklyMenu> {
     // GỬI HTTP POST SANG BACKEND: apps/backend/src/modules/menus/controllers/menus.controller.ts
     const res = await apiClient.post('/menus', payload);
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   // 7. Import thực đơn từ Excel
   async importExcel(payload: ImportExcelPayload): Promise<WeeklyMenu> {
     const res = await apiClient.post('/menus/import-excel', payload);
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   // 8. Tạo phiên bản mới (v1.1, v2.0...)
   async createVersion(id: string): Promise<WeeklyMenu> {
     const res = await apiClient.post(`/menus/${id}/create-version`);
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   // 9. Cập nhật thông tin thực đơn
   async updateMenu(id: string, payload: Partial<CreateMenuPayload>): Promise<WeeklyMenu> {
     const res = await apiClient.put(`/menus/${id}`, payload);
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   /**
@@ -338,13 +338,13 @@ export const weeklyMenusApi = {
    */
   async adjustDish(menuId: string, payload: AdjustDishPayload): Promise<MenuDishItem> {
     const res = await apiClient.post(`/menus/${menuId}/adjust-dish`, payload);
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   // 11. Xóa món ăn khỏi bữa ăn (Xóa mềm)
   async removeDish(menuId: string, menuDishId: string): Promise<{ success: boolean }> {
     const res = await apiClient.delete(`/menus/${menuId}/dishes/${menuDishId}`);
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   /**
@@ -354,7 +354,7 @@ export const weeklyMenusApi = {
    */
   async submitForReview(id: string): Promise<WeeklyMenu> {
     const res = await apiClient.post(`/menus/${id}/submit`);
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   /**
@@ -364,7 +364,7 @@ export const weeklyMenusApi = {
    */
   async approveMenu(id: string, approvalNotes?: string): Promise<WeeklyMenu> {
     const res = await apiClient.post(`/menus/${id}/approve`, { approvalNotes });
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   /**
@@ -374,7 +374,7 @@ export const weeklyMenusApi = {
    */
   async rejectMenu(id: string, rejectionReason: string): Promise<WeeklyMenu> {
     const res = await apiClient.post(`/menus/${id}/reject`, { rejectionReason });
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   /**
@@ -384,13 +384,13 @@ export const weeklyMenusApi = {
    */
   async publishMenu(id: string): Promise<WeeklyMenu> {
     const res = await apiClient.post(`/menus/${id}/publish`);
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   // 16. Xóa mềm
   async softDeleteMenu(id: string): Promise<{ success: boolean }> {
     const res = await apiClient.delete(`/menus/${id}`);
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   // 17. Khôi phục

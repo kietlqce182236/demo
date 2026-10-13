@@ -464,82 +464,197 @@ export const WeeklyGridTable: React.FC<WeeklyGridTableProps> = ({
     };
 
     // ─────────────────────────────────────────────────────────────
-    // 2. LOẠI 1: THẤP CÒI / SDD (QĐ 1246 & TT 28: +18% Đạm, +15% Béo, +8% Tinh bột, ~+15% Calo)
+    // HELPER: LỌC MÓN ĂN ĐƯỢC CHỌN / THIẾT LẬP CHO TỪNG LOẠI CHẾ ĐỘ ĂN
+    // CHỈ KHI NÀO CHỌN MÓN ĂN CHO LOẠI ĐÓ MỚI BẮT ĐẦU TÍNH TOÁN DINH DƯỠNG
     // ─────────────────────────────────────────────────────────────
-    const p1 = Math.round(totalP * 1.18 * 10) / 10;
-    const l1 = Math.round(totalL * 1.15 * 10) / 10;
-    const g1 = Math.round(totalG * 1.08 * 10) / 10;
-    const calo1 = Math.round(p1 * 4 + l1 * 9 + g1 * 4);
-    const pPct1 = calo1 > 0 ? Math.round((p1 * 4 / calo1) * 100) : 0;
-    const lPct1 = calo1 > 0 ? Math.round((l1 * 9 / calo1) * 100) : 0;
-    const gPct1 = calo1 > 0 ? Math.max(0, 100 - pPct1 - lPct1) : 0;
+    const getDietDishesForDay = (targetType: 'STUNTED' | 'OBESE' | 'ALLERGIES') => {
+      const allDayDishes = menu.menuDishes.filter(
+        (md) =>
+          (md.dayOfWeek === day || (!hasDayOne && md.dayOfWeek === day + 1)) &&
+          !md.deletedAt,
+      );
 
-    const type1 = {
-      calo: calo1,
-      p: p1,
-      l: l1,
-      g: g1,
-      pPct: pPct1,
-      lPct: lPct1,
-      gPct: gPct1,
-      isOptimal: true,
-      statusType: 'optimal' as const,
-      statusText: '+15% Calo phục hồi',
-      badgeText: '+15% Calo phục hồi SDD (QĐ 1246)',
-      noteText: 'Tăng đạm sinh học cao & chất béo tốt',
+      return allDayDishes.filter((md) => {
+        const notes = (md.specialDietNotes || '').toUpperCase();
+        // Phải có ghi chú suất riêng hoặc là món thay thế/suất riêng
+        if (!notes && !isDietSubstitute(md)) return false;
+
+        if (targetType === 'STUNTED') {
+          if (
+            notes.includes('LOẠI 1') ||
+            notes.includes('LOAI 1') ||
+            notes.includes('STUNTED') ||
+            notes.includes('SDD') ||
+            notes.includes('CÒI XƯƠNG') ||
+            notes.includes('COI XUONG') ||
+            notes.includes('THẤP CÒI') ||
+            notes.includes('THAP COI') ||
+            notes.includes('SUY DINH DƯỠNG') ||
+            notes.includes('SUY DINH DUONG')
+          ) {
+            return true;
+          }
+        } else if (targetType === 'OBESE') {
+          if (
+            notes.includes('LOẠI 2') ||
+            notes.includes('LOAI 2') ||
+            notes.includes('OBESE') ||
+            notes.includes('BÉO PHÌ') ||
+            notes.includes('BEO PHI') ||
+            notes.includes('THỪA CÂN') ||
+            notes.includes('THUA CAN')
+          ) {
+            return true;
+          }
+        } else if (targetType === 'ALLERGIES') {
+          if (
+            notes.includes('LOẠI 3') ||
+            notes.includes('LOAI 3') ||
+            notes.includes('ALLERG') ||
+            notes.includes('DỊ ỨNG') ||
+            notes.includes('DI UNG')
+          ) {
+            return true;
+          }
+        }
+
+        // Nếu là món thay thế / suất riêng mà resolveSubstituteInfo nhận diện vào nhóm này
+        if (isDietSubstitute(md)) {
+          const resolved = resolveSubstituteInfo(md, advisory);
+          return resolved.type === targetType;
+        }
+
+        return false;
+      });
     };
 
-    // ─────────────────────────────────────────────────────────────
-    // 3. LOẠI 2: THỪA CÂN / BÉO PHÌ (TT 28: Giữ 100% Đạm nạc, -30% Dầu mỡ, -10% Đường bột, ~-12% Calo)
-    // ─────────────────────────────────────────────────────────────
-    const p2 = Math.round(totalP * 1.00 * 10) / 10;
-    const l2 = Math.round(totalL * 0.70 * 10) / 10;
-    const g2 = Math.round(totalG * 0.90 * 10) / 10;
-    const calo2 = Math.round(p2 * 4 + l2 * 9 + g2 * 4);
-    const pPct2 = calo2 > 0 ? Math.round((p2 * 4 / calo2) * 100) : 0;
-    const lPct2 = calo2 > 0 ? Math.round((l2 * 9 / calo2) * 100) : 0;
-    const gPct2 = calo2 > 0 ? Math.max(0, 100 - pPct2 - lPct2) : 0;
+    const computeDietNutrition = (
+      typeDishes: MenuDishItem[],
+      dietType: 'STUNTED' | 'OBESE' | 'ALLERGIES',
+    ) => {
+      // Chỉ khi nào chọn món ăn cho loại đó mới bắt đầu tính!
+      if (typeDishes.length === 0) {
+        return emptyResult;
+      }
 
-    const type2 = {
-      calo: calo2,
-      p: p2,
-      l: l2,
-      g: g2,
-      pPct: pPct2,
-      lPct: lPct2,
-      gPct: gPct2,
-      isOptimal: true,
-      statusType: 'optimal' as const,
-      statusText: '-12% Calo giảm béo',
-      badgeText: '-12% Calo giảm béo (TT 28)',
-      noteText: 'Giảm 30% dầu mỡ rán & tinh bột đơn',
+      // Xác định các món gốc bị thay thế
+      const replacedDishNames: string[] = [];
+      const replacedDishIds = new Set<string>();
+
+      for (const subMd of typeDishes) {
+        const notes = subMd.specialDietNotes || '';
+        const match = notes.match(/Thay cho:\s*([^->]+)/i);
+        if (match && match[1]) {
+          replacedDishNames.push(match[1].trim().toLowerCase());
+        }
+        if (subMd.substituteDishId) {
+          replacedDishIds.add(String(subMd.dishId));
+        }
+      }
+
+      // Thực đơn thực tế cho trẻ ăn chế độ này = Món Master (ngoại trừ món bị thay) + Món riêng của chế độ này
+      const activeDishes = [
+        ...dayMasterDishes.filter((m) => {
+          if (replacedDishIds.has(String(m.dishId)) || replacedDishIds.has(String(m.id))) return false;
+          const mName = (m.dish?.name || '').trim().toLowerCase();
+          if (replacedDishNames.some((rName) => mName.includes(rName) || rName.includes(mName))) return false;
+          return true;
+        }),
+        ...typeDishes,
+      ];
+
+      let sumP = 0;
+      let sumL = 0;
+      let sumG = 0;
+      let sumCaloPlanned = 0;
+
+      for (const md of activeDishes) {
+        const dish = md.dish;
+        const portion = Number(md.portionSizeG) || 100;
+        const standardSize = dish && Number(dish.standardServingSizeG) > 0 ? Number(dish.standardServingSizeG) : 100;
+        const ratio = portion / standardSize;
+
+        if (dish) {
+          sumP += (Number(dish.totalProteinG) || 0) * ratio;
+          sumL += (Number(dish.totalFatG) || 0) * ratio;
+          sumG += (Number(dish.totalCarbG) || 0) * ratio;
+        }
+        sumCaloPlanned += Number(md.plannedCalories) || 0;
+      }
+
+      sumP = Math.round(sumP * 10) / 10;
+      sumL = Math.round(sumL * 10) / 10;
+      sumG = Math.round(sumG * 10) / 10;
+
+      const caloP = sumP * 4;
+      const caloL = sumL * 9;
+      const caloG = sumG * 4;
+      let calo = Math.round(caloP + caloL + caloG);
+      if (calo === 0 && sumCaloPlanned > 0) {
+        calo = Math.round(sumCaloPlanned);
+      }
+
+      const pPct = calo > 0 ? Math.round((caloP / calo) * 100) : 0;
+      const lPct = calo > 0 ? Math.round((caloL / calo) * 100) : 0;
+      const gPct = calo > 0 ? Math.max(0, 100 - pPct - lPct) : 0;
+
+      if (dietType === 'STUNTED') {
+        return {
+          calo,
+          p: sumP,
+          l: sumL,
+          g: sumG,
+          pPct,
+          lPct,
+          gPct,
+          isOptimal: true,
+          statusType: 'optimal' as const,
+          statusText: '+15% Phục hồi SDD',
+          badgeText: '+15% Calo phục hồi SDD (QĐ 1246)',
+          noteText: 'Tăng đạm sinh học cao & chất béo tốt',
+        };
+      }
+
+      if (dietType === 'OBESE') {
+        return {
+          calo,
+          p: sumP,
+          l: sumL,
+          g: sumG,
+          pPct,
+          lPct,
+          gPct,
+          isOptimal: true,
+          statusType: 'optimal' as const,
+          statusText: '-12% Giảm béo TT 28',
+          badgeText: '-12% Calo giảm béo (TT 28)',
+          noteText: 'Giảm 30% dầu mỡ rán & tinh bột đơn',
+        };
+      }
+
+      return {
+        calo,
+        p: sumP,
+        l: sumL,
+        g: sumG,
+        pPct,
+        lPct,
+        gPct,
+        isOptimal: true,
+        statusType: 'optimal' as const,
+        statusText: '100% An toàn dị nguyên',
+        badgeText: '100% An toàn dị nguyên',
+        noteText: 'Thay đạm an toàn (Heo nạc, Gà, Canh bí)',
+      };
     };
 
-    // ─────────────────────────────────────────────────────────────
-    // 4. LOẠI 3: DỊ ỨNG THỰC PHẨM (100% Loại trừ dị nguyên, đạm nạc an toàn, calo tương đương)
-    // ─────────────────────────────────────────────────────────────
-    const p3 = Math.round(totalP * 1.01 * 10) / 10;
-    const l3 = Math.round(totalL * 0.98 * 10) / 10;
-    const g3 = Math.round(totalG * 1.00 * 10) / 10;
-    const calo3 = Math.round(p3 * 4 + l3 * 9 + g3 * 4);
-    const pPct3 = calo3 > 0 ? Math.round((p3 * 4 / calo3) * 100) : 0;
-    const lPct3 = calo3 > 0 ? Math.round((l3 * 9 / calo3) * 100) : 0;
-    const gPct3 = calo3 > 0 ? Math.max(0, 100 - pPct3 - lPct3) : 0;
+    const type1Dishes = getDietDishesForDay('STUNTED');
+    const type2Dishes = getDietDishesForDay('OBESE');
+    const type3Dishes = getDietDishesForDay('ALLERGIES');
 
-    const type3 = {
-      calo: calo3,
-      p: p3,
-      l: l3,
-      g: g3,
-      pPct: pPct3,
-      lPct: lPct3,
-      gPct: gPct3,
-      isOptimal: true,
-      statusType: 'optimal' as const,
-      statusText: '100% An toàn dị nguyên',
-      badgeText: '100% An toàn dị nguyên',
-      noteText: 'Thay đạm an toàn (Heo nạc, Gà, Canh bí)',
-    };
+    const type1 = computeDietNutrition(type1Dishes, 'STUNTED');
+    const type2 = computeDietNutrition(type2Dishes, 'OBESE');
+    const type3 = computeDietNutrition(type3Dishes, 'ALLERGIES');
 
     return { master, type1, type2, type3 };
   };
@@ -1441,6 +1556,28 @@ export const WeeklyGridTable: React.FC<WeeklyGridTableProps> = ({
                                       <span className="text-[8px] bg-amber-600 text-white px-1.5 py-0.5 rounded font-extrabold shrink-0">Đổi món</span>
                                     </button>
                                   )}
+                                  {/* Tùy chọn chủ động: Đổi món hoặc gán suất riêng cho trẻ bất kỳ lúc nào */}
+                                  {!hasAllergyConflict && !isFriedOrHighFat && !isHighProteinOrSoup && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setModalActiveTab('COMMON');
+                                        setSelectedSubDish(null);
+                                        setSubApplySuccess(null);
+                                        setUniversalModalDish({
+                                          menuDish: md,
+                                          dayLabel: day.label,
+                                          slotName: slot.name,
+                                          targetType: 'COMMON',
+                                        });
+                                      }}
+                                      className="w-full text-left px-1.5 py-0.5 rounded-md bg-slate-50 border border-slate-200/90 text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition cursor-pointer flex items-center justify-between text-[9px] font-semibold opacity-75 hover:opacity-100"
+                                      title="Chọn suất riêng hoặc đổi món cho các nhóm trẻ (Loại 1: SDD, Loại 2: Béo phì, Loại 3: Dị ứng)"
+                                    >
+                                      <span className="truncate text-slate-700 font-medium">⚡ Chọn suất riêng (Loại 1/2/3)</span>
+                                      <span className="text-[8px] bg-slate-600 text-white px-1.5 py-0.5 rounded font-bold shrink-0">Chọn</span>
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1559,20 +1696,7 @@ export const WeeklyGridTable: React.FC<WeeklyGridTableProps> = ({
             {/* ════════════════════════════════════════════════════════════════ */}
             {(footerNutritionTab === 'ALL' || footerNutritionTab === 'MASTER') && (
               <>
-                {/* TIÊU ĐỀ PHÂN ĐOẠN (CHỈ HIỆN KHI XEM TẤT CẢ) */}
-                {footerNutritionTab === 'ALL' && (
-                  <tr className="bg-emerald-50/80 border-t border-emerald-200">
-                    <td colSpan={days.length + 1} className="px-3 py-1.5 text-xs font-black text-emerald-950 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <ChefHat className="w-3.5 h-3.5 text-emerald-700" />
-                        <span>🌟 THỰC ĐƠN TỔNG (Trẻ bình thường • Chuẩn TT 28/2016: 615 - 770 Kcal)</span>
-                      </span>
-                      <span className="text-[10px] font-bold text-emerald-800">
-                        Chuẩn P: 13-20% • L: 25-35% • G: 52-60%
-                      </span>
-                    </td>
-                  </tr>
-                )}
+
                 {/* CALO / NGÀY */}
                 <tr className="bg-white font-bold text-xs border-t border-slate-200">
                   <td className="p-3 text-slate-800 font-black">
@@ -1649,20 +1773,7 @@ export const WeeklyGridTable: React.FC<WeeklyGridTableProps> = ({
             {/* ════════════════════════════════════════════════════════════════ */}
             {(footerNutritionTab === 'ALL' || footerNutritionTab === 'STUNTED') && (
               <>
-                {/* TIÊU ĐỀ PHÂN ĐOẠN */}
-                {footerNutritionTab === 'ALL' && (
-                  <tr className="bg-amber-50/90 border-t-2 border-amber-300">
-                    <td colSpan={days.length + 1} className="px-3 py-1.5 text-xs font-black text-amber-950 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Baby className="w-3.5 h-3.5 text-amber-700" />
-                        <span>👶 LOẠI 1: THẤP CÒI / SUY DINH DƯỠNG (1 bé • Tăng cường QĐ 1246/QĐ-BYT)</span>
-                      </span>
-                      <span className="text-[10px] font-bold text-amber-800">
-                        +18% Đạm sinh học cao • +15% Chất béo tốt • ~+15% Năng lượng
-                      </span>
-                    </td>
-                  </tr>
-                )}
+
                 {/* CALO / NGÀY */}
                 <tr className="bg-white font-bold text-xs border-t border-slate-200">
                   <td className="p-3 text-amber-950 font-black">
@@ -1737,20 +1848,7 @@ export const WeeklyGridTable: React.FC<WeeklyGridTableProps> = ({
             {/* ════════════════════════════════════════════════════════════════ */}
             {(footerNutritionTab === 'ALL' || footerNutritionTab === 'OBESE') && (
               <>
-                {/* TIÊU ĐỀ PHÂN ĐOẠN */}
-                {footerNutritionTab === 'ALL' && (
-                  <tr className="bg-purple-50/90 border-t-2 border-purple-300">
-                    <td colSpan={days.length + 1} className="px-3 py-1.5 text-xs font-black text-purple-950 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Scale className="w-3.5 h-3.5 text-purple-700" />
-                        <span>⚖️ LOẠI 2: THỪA CÂN / BÉO PHÌ (2 bé • Tiết chế calo & béo TT 28/2016)</span>
-                      </span>
-                      <span className="text-[10px] font-bold text-purple-800">
-                        Giữ nguyên đạm nạc (100%) • Giảm 30% dầu mỡ rán • Giảm 10% tinh bột
-                      </span>
-                    </td>
-                  </tr>
-                )}
+
                 {/* CALO / NGÀY */}
                 <tr className="bg-white font-bold text-xs border-t border-slate-200">
                   <td className="p-3 text-purple-950 font-black">
@@ -1825,20 +1923,7 @@ export const WeeklyGridTable: React.FC<WeeklyGridTableProps> = ({
             {/* ════════════════════════════════════════════════════════════════ */}
             {(footerNutritionTab === 'ALL' || footerNutritionTab === 'ALLERGIES') && (
               <>
-                {/* TIÊU ĐỀ PHÂN ĐOẠN */}
-                {footerNutritionTab === 'ALL' && (
-                  <tr className="bg-rose-50/90 border-t-2 border-rose-300">
-                    <td colSpan={days.length + 1} className="px-3 py-1.5 text-xs font-black text-rose-950 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <ShieldAlert className="w-3.5 h-3.5 text-rose-700" />
-                        <span>🛡️ LOẠI 3: DỊ ỨNG THỰC PHẨM (6 bé • Suất an toàn loại trừ 100% dị nguyên)</span>
-                      </span>
-                      <span className="text-[10px] font-bold text-rose-800">
-                        Đổi sang Thịt heo nạc, Bò, Gà, Canh bí xanh • Đảm bảo 100% Calo chuẩn
-                      </span>
-                    </td>
-                  </tr>
-                )}
+
                 {/* CALO / NGÀY */}
                 <tr className="bg-white font-bold text-xs border-t border-slate-200">
                   <td className="p-3 text-rose-950 font-black">

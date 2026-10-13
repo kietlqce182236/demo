@@ -9,6 +9,8 @@ import { MealCoordinationService } from './services/meal-coordination.service';
 import { SnackRosterService } from './services/snack-roster.service';
 import { AttendanceController } from './attendance.controller';
 
+import { InspectionsModule } from '../inspections/inspections.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -17,6 +19,7 @@ import { AttendanceController } from './attendance.controller';
       ClassEntity,
       Child,
     ]),
+    InspectionsModule,
   ],
   controllers: [AttendanceController],
   providers: [

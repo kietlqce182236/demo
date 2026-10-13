@@ -1,9 +1,9 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateStaffDto {
   @ApiProperty({ example: 'giaovien.moi@huongduong.edu.vn' })
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Email không được để trống' })
   @IsString()
   email: string;
 
@@ -13,7 +13,7 @@ export class CreateStaffDto {
   password?: string;
 
   @ApiProperty({ example: 'Nguyễn Văn An' })
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Họ và tên không được để trống' })
   @IsString()
   fullName: string;
 
@@ -22,18 +22,28 @@ export class CreateStaffDto {
   @IsString()
   phone?: string;
 
-  @ApiProperty({ example: 'TEACHER', enum: ['MANAGEMENT', 'SPECIALIST', 'TEACHER', 'KITCHEN'] })
-  @IsNotEmpty()
+  @ApiPropertyOptional({ example: 'TEACHER', enum: ['MANAGEMENT', 'SPECIALIST', 'TEACHER', 'KITCHEN'] })
+  @IsOptional()
   @IsString()
-  staffType: string;
+  staffType?: string;
 
   @ApiPropertyOptional({ example: 'Giáo viên phụ trách lớp Mầm' })
   @IsOptional()
   @IsString()
   position?: string;
 
-  @ApiProperty({ example: 'TEACHER', enum: ['SCHOOL_MANAGER', 'NUTRITIONIST', 'TEACHER', 'KITCHEN_STAFF'] })
-  @IsNotEmpty()
+  @ApiPropertyOptional({ example: 'TEACHER', enum: ['SCHOOL_MANAGER', 'NUTRITIONIST', 'TEACHER', 'KITCHEN_STAFF'] })
+  @IsOptional()
   @IsString()
-  roleCode: string;
+  roleCode?: string;
+
+  @ApiPropertyOptional({ example: ['TEACHER'], type: [String] })
+  @IsOptional()
+  @IsArray()
+  roleCodes?: string[];
+
+  @ApiPropertyOptional({ example: 'ACTIVE' })
+  @IsOptional()
+  @IsString()
+  status?: string;
 }

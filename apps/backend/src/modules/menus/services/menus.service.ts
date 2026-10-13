@@ -104,7 +104,11 @@ export class MenusService {
     }
 
     if (query.status && query.status !== 'ALL') {
-      qb.andWhere('m.status = :status', { status: query.status });
+      if (query.status === 'SUBMITTED_FOR_REVIEW' || query.status === 'PENDING') {
+        qb.andWhere('m.status IN (:...statuses)', { statuses: ['PENDING', 'SUBMITTED_FOR_REVIEW'] });
+      } else {
+        qb.andWhere('m.status = :status', { status: query.status });
+      }
     }
 
     const ageGroup = query.ageGroup || query.targetAgeGroup;
@@ -124,29 +128,40 @@ export class MenusService {
 
     const [items, total] = await qb.getManyAndCount();
 
-    const mapped = items.map((m) => ({
-      id: String(m.id),
-      tenantId: '1',
-      title: m.title,
-      weekStartDate: m.weekStartDate,
-      weekEndDate: m.weekEndDate,
-      startDate: m.weekStartDate,
-      endDate: m.weekEndDate,
-      ageGroup: m.ageGroup,
-      targetAgeGroup: m.ageGroup,
-      status: m.status,
-      cycleId: m.cycleId ? String(m.cycleId) : null,
-      cycleWeekNumber: 1,
-      createdByName: m.creator?.fullName || 'ChuyÃªn viÃªn Dinh dÆ°á»¡ng',
-      approvedByName: m.approver?.fullName || null,
-      approvedAt: m.approvedAt ? m.approvedAt.toISOString() : null,
-      version: 1,
-      isPublished: m.status === 'ACTIVE' || m.status === 'APPROVED' || m.status === 'PUBLISHED',
-      dailyAverageCalories: 685,
-      dailyAverageProteinG: 28.5,
-      dailyAverageFatG: 22.4,
-      dailyAverageCarbG: 92.1,
-    }));
+    const mapped = items.map((m) => {
+      const dateStr = m.approvedAt
+        ? m.approvedAt.toISOString()
+        : m.weekStartDate
+        ? new Date(m.weekStartDate).toISOString()
+        : new Date().toISOString();
+
+      return {
+        id: String(m.id),
+        tenantId: '1',
+        title: m.title,
+        weekStartDate: m.weekStartDate,
+        weekEndDate: m.weekEndDate,
+        startDate: m.weekStartDate,
+        endDate: m.weekEndDate,
+        ageGroup: m.ageGroup,
+        targetAgeGroup: m.ageGroup,
+        status: m.status === 'PENDING' ? 'SUBMITTED_FOR_REVIEW' : m.status,
+        rawStatus: m.status,
+        cycleId: m.cycleId ? String(m.cycleId) : null,
+        cycleWeekNumber: 1,
+        createdByName: m.creator?.fullName || 'BS. Hoàng Mai Trang',
+        approvedByName: m.approver?.fullName || null,
+        approvedAt: m.approvedAt ? m.approvedAt.toISOString() : null,
+        createdAt: dateStr,
+        updatedAt: dateStr,
+        version: 1,
+        isPublished: m.status === 'ACTIVE' || m.status === 'APPROVED' || m.status === 'PUBLISHED',
+        dailyAverageCalories: 685,
+        dailyAverageProteinG: 28.5,
+        dailyAverageFatG: 22.4,
+        dailyAverageCarbG: 92.1,
+      };
+    });
 
     return { items: mapped, total, page, limit };
   }
@@ -154,9 +169,15 @@ export class MenusService {
   async getStatistics() {
     const total = await this.menuRepo.count();
     const approved = await this.menuRepo.count({ where: { status: 'APPROVED' } });
-    const pending = await this.menuRepo.count({ where: { status: 'SUBMITTED_FOR_REVIEW' } });
+    const pending = await this.menuRepo
+      .createQueryBuilder('m')
+      .where('m.status IN (:...statuses)', { statuses: ['PENDING', 'SUBMITTED_FOR_REVIEW'] })
+      .getCount();
     const draft = await this.menuRepo.count({ where: { status: 'DRAFT' } });
-    const active = await this.menuRepo.count({ where: { status: 'ACTIVE' } });
+    const active = await this.menuRepo
+      .createQueryBuilder('m')
+      .where('m.status IN (:...statuses)', { statuses: ['ACTIVE', 'PUBLISHED'] })
+      .getCount();
     const published = await this.menuRepo.count({ where: { status: 'PUBLISHED' } });
 
     return {
@@ -172,7 +193,7 @@ export class MenusService {
       publishedMenus: published,
       rejected: 0,
       avgCalories: 685.5,
-      nutritionStandard: 'ThÃ´ng tÆ° 28/2016/TT-BGDÄT',
+      nutritionStandard: 'Thông tư 28/2016/TT-BGDĐT',
     };
   }
 
@@ -286,11 +307,14 @@ export class MenusService {
       endDate: menu.weekEndDate,
       ageGroup: menu.ageGroup,
       targetAgeGroup: menu.ageGroup,
-      status: menu.status,
+      status: menu.status === 'PENDING' ? 'SUBMITTED_FOR_REVIEW' : menu.status,
+      rawStatus: menu.status,
       cycleId: menu.cycleId ? String(menu.cycleId) : null,
-      createdByName: menu.creator?.fullName || 'Chuyên viên Dinh dưỡng',
+      createdByName: menu.creator?.fullName || 'BS. Hoàng Mai Trang',
       approvedByName: menu.approver?.fullName || null,
       approvedAt: menu.approvedAt ? menu.approvedAt.toISOString() : null,
+      createdAt: menu.approvedAt ? menu.approvedAt.toISOString() : (menu.weekStartDate ? new Date(menu.weekStartDate).toISOString() : new Date().toISOString()),
+      updatedAt: menu.approvedAt ? menu.approvedAt.toISOString() : (menu.weekStartDate ? new Date(menu.weekStartDate).toISOString() : new Date().toISOString()),
       version: version.versionNumber,
       versionNumber: version.versionNumber,
       dailyAverageCalories: avgCal,

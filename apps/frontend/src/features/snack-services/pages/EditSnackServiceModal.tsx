@@ -25,7 +25,8 @@ interface Props {
 }
 
 const SERVICE_TYPE_OPTIONS = [
-  { value: 'AFTER_SCHOOL_SNACK', label: 'Bữa ăn xế chiều' },
+  { value: 'BREAKFAST', label: 'Bữa ăn sáng dinh dưỡng (07h15)' },
+  { value: 'AFTER_SCHOOL_SNACK', label: 'Bữa ăn xế chiều (17h00)' },
   { value: 'PREMIUM_MILK', label: 'Sữa tươi cao cấp' },
   { value: 'ORGANIC_FRUIT', label: 'Trái cây hữu cơ' },
   { value: 'CUSTOM_NUTRITION', label: 'Dinh dưỡng đặc biệt' },
@@ -115,7 +116,9 @@ export const EditSnackServiceModal: React.FC<Props> = ({
         serviceType,
         billingCycle,
         pricePerUnit,
+        feeAmount: pricePerUnit,
         isActive,
+        status: isActive ? 'OPEN' : 'CLOSED',
         availableFrom: availableFrom || undefined,
         availableTo: availableTo || undefined,
       };
@@ -157,10 +160,10 @@ export const EditSnackServiceModal: React.FC<Props> = ({
               <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-sm">
                 <Edit2 className="w-4 h-4" />
               </div>
-              Chỉnh Sửa Cấu Hình Gói Dịch Vụ
+              Chỉnh Sửa Cấu Hình Gói Dịch Vụ Ăn Sáng
             </h2>
             <p className="text-[11px] text-slate-500 mt-1 ml-10">
-              UC57 • Cập nhật thông tin gói ăn xế, đơn giá và thời gian áp dụng trực tiếp trong PostgreSQL DB
+              Cập nhật thông tin gói ăn sáng, đơn giá và thời gian áp dụng trực tiếp trong PostgreSQL DB
             </p>
           </div>
           <button
@@ -189,13 +192,13 @@ export const EditSnackServiceModal: React.FC<Props> = ({
                   <Tag className="w-3.5 h-3.5" />
                 </div>
                 <h3 className="text-sm font-bold text-slate-800">Thông tin gói dịch vụ</h3>
-                <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-bold ml-auto">UC57 Config</span>
+                <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-bold ml-auto">Cấu hình</span>
               </div>
 
               {/* Tên gói */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
-                  Tên gói dịch vụ ăn xế *
+                  Tên gói dịch vụ ăn sáng *
                 </label>
                 <input
                   type="text"

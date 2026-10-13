@@ -85,11 +85,14 @@ export const ParentAppPreviewModal: React.FC<ParentAppPreviewModalProps> = ({
           <div className={`${theme.headerBg} text-white px-4 pt-3 pb-6 rounded-b-[24px] shadow-md transition-colors duration-300`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-white p-1 shadow-sm flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-white p-0.5 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
                   <img
-                    src="https://api.iconify.design/lucide:baby.svg"
+                    src={branding?.logoUrl || localStorage.getItem('school_logo') || 'https://api.iconify.design/lucide:baby.svg'}
                     alt="Logo"
-                    className="w-6 h-6 object-contain"
+                    className="w-full h-full object-cover rounded-lg"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://api.iconify.design/lucide:baby.svg';
+                    }}
                   />
                 </div>
                 <div>
